@@ -70,3 +70,31 @@ This log documents commands executed, environments used, errors encountered, sol
   - `backend/app/simulator_adapter.py`: Condensed manual parsing and validation loops (-85 lines).
   - `backend/app/data_loader.py`: Removed duplicated import blocks and redundant CLI runner (-87 lines).
 - **Verification:** Ran `unittest` test suite across all modules: 3/3 tests passed in 1.25s. Net reduction: -250 lines of complexity removed.
+
+---
+
+### Build Entry 007: Initial RingTrace React UI & FastAPI Backend Integration
+- **FastAPI Endpoints Built:**
+  - `GET /api/health`: Health status & FalkorDB connection verification.
+  - `GET /api/stats`: Real count retrieval (3,000 accounts, 40,661 transactions from `txn` graph).
+  - `GET /api/transactions`: Recent chronological ledger transfers from FalkorDB.
+  - `GET /api/graph`: Sample network topology formatted for Cytoscape.js.
+  - `GET /api/accounts/{id}`: Account profile, in/out transfer lists, and local degree.
+  - `GET /api/search`: Account ID prefix search with instant autocomplete.
+- **Frontend Scaffolding & Setup:**
+  - Initialized React 19 + TypeScript + Vite in `ringtrace/frontend`.
+  - Installed `cytoscape`, `@types/cytoscape`, and `lucide-react`.
+  - Configured Vite reverse proxy to `http://127.0.0.1:8000`.
+- **UI Components Created:**
+  - `Sidebar.tsx`: Navigation (Overview, Transaction Explorer, Investigations, Patterns, Evidence, Settings).
+  - `Navbar.tsx`: Account ID autocomplete search, FalkorDB connection pill, analyst profile.
+  - `SummaryCards.tsx`: Live FalkorDB metrics (3,000 accounts, 40,661 transactions).
+  - `NetworkPreview.tsx`: Interactive Cytoscape.js network canvas (Merchant: Cyan, Payroll: Emerald, Personal: Slate).
+  - `RecentTransactionsTable.tsx`: Real transfer records with currency formatting (₹).
+  - `InvestigationPanel.tsx`: Honest empty state for case management.
+  - `TransactionExplorer.tsx`: Account profile, 1-hop centered subgraph, incoming/outgoing transfer tables.
+  - `PlaceholderView.tsx`: Roadmap coming-soon placeholders for unfinished modules.
+- **Verification:**
+  - Backend API test suite: 10/10 tests passed (`Ran 10 tests in 1.243s — OK`).
+  - Frontend production build: `npm run build` compiled cleanly in 4.12s with 0 errors.
+  - Browser subagent validation: Verified live UI on `http://127.0.0.1:5173/`. Connected to FalkorDB, displayed real graph counts and Cytoscape network.

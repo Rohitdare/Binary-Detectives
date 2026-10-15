@@ -61,3 +61,35 @@ Centralized repository of Cypher queries:
 - `MERGE_LABEL_ALERTS`, `MERGE_LABEL_MEMBERS`: UNWIND batch insertion queries for evaluation labels.
 - `COUNT_ACCOUNTS`, `COUNT_SENT`, `COUNT_LABEL_ALERTS`, `COUNT_LABEL_MEMBERS`: Reconciliation verification queries.
 - `LABEL_LEAKAGE_CHECK`: Audit query asserting zero ground-truth properties on `Account` nodes.
+- `GET_RECENT_TRANSACTIONS`: Retrieves recent chronological ledger transfers from `txn`.
+- `GET_GRAPH_SAMPLE`: Queries manageable sample network of accounts and transfers.
+- `GET_ACCOUNT_BY_ID`, `GET_ACCOUNT_TRANSFERS_OUT`, `GET_ACCOUNT_TRANSFERS_IN`: Account profile & 1-hop neighborhood.
+- `SEARCH_ACCOUNTS`: Account prefix search.
+
+---
+
+## 4. API Layer (`backend/app/main.py`)
+
+- **`GET /api/health`**: Verifies application health and active FalkorDB connectivity.
+- **`GET /api/stats`**: Retrieves real account and transaction counts from `txn` graph; provides honest status strings for non-analyzed fields.
+- **`GET /api/transactions`**: Returns formatted recent transactions with currency amount, timestamp, step, and payment channel.
+- **`GET /api/graph`**: Formats sample network topology into Cytoscape.js compatible `nodes` and `edges`.
+- **`GET /api/accounts/{account_id}`**: Retrieves account metadata, incoming/outgoing transfer lists, and sample flow totals.
+- **`GET /api/search`**: Auto-complete account ID search endpoint.
+
+---
+
+## 5. Frontend Architecture (`ringtrace/frontend/src/`)
+
+### Layout Components
+- **`Sidebar.tsx`**: Navigation menu with brand logo, active states, roadmap badges, and live FalkorDB status indicator.
+- **`Navbar.tsx`**: Header with global account autocomplete search, database connection pill, and analyst profile.
+
+### Dashboard Views
+- **`SummaryCards.tsx`**: Metric cards displaying live FalkorDB counts (3,000 accounts, 40,661 transactions).
+- **`NetworkPreview.tsx`**: Cytoscape.js canvas rendering directed transfers, account type colors (Merchant, Payroll, Personal), zoom/pan controls, and node selection inspector.
+- **`RecentTransactionsTable.tsx`**: Tabular view of recent ledger transfers with currency formatting and account click-through.
+- **`InvestigationPanel.tsx`**: Honest empty state describing upcoming detection engine and case workflows.
+- **`TransactionExplorer.tsx`**: Interactive account deep-dive with account profile card, centered 1-hop Cytoscape.js graph, and incoming/outgoing transfer tables.
+- **`PlaceholderView.tsx`**: Standardized coming-soon view for future milestones (Investigations, Patterns, Evidence, Settings).
+

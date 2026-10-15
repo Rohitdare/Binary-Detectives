@@ -46,3 +46,40 @@ LABEL_LEAKAGE_CHECK = (
     "WHERE a.is_fraud IS NOT NULL OR a.alert_id IS NOT NULL "
     "RETURN count(a)"
 )
+
+# API & Exploration Queries
+GET_RECENT_TRANSACTIONS = (
+    "MATCH (a:Account)-[t:SENT]->(b:Account) "
+    "RETURN t.tx_id, a.id, b.id, t.amount, t.ts, t.step, t.tx_type "
+    "ORDER BY t.ts DESC LIMIT $limit"
+)
+
+GET_GRAPH_SAMPLE = (
+    "MATCH (a:Account)-[t:SENT]->(b:Account) "
+    "RETURN a.id, a.type, a.community, b.id, b.type, b.community, t.tx_id, t.amount, t.ts, t.tx_type "
+    "LIMIT $limit"
+)
+
+GET_ACCOUNT_BY_ID = (
+    "MATCH (a:Account {id: $account_id}) "
+    "RETURN a.id, a.type, a.community, a.created"
+)
+
+GET_ACCOUNT_TRANSFERS_OUT = (
+    "MATCH (a:Account {id: $account_id})-[t:SENT]->(b:Account) "
+    "RETURN t.tx_id, a.id, b.id, t.amount, t.ts, t.step, t.tx_type "
+    "ORDER BY t.ts DESC LIMIT $limit"
+)
+
+GET_ACCOUNT_TRANSFERS_IN = (
+    "MATCH (b:Account)-[t:SENT]->(a:Account {id: $account_id}) "
+    "RETURN t.tx_id, b.id, a.id, t.amount, t.ts, t.step, t.tx_type "
+    "ORDER BY t.ts DESC LIMIT $limit"
+)
+
+SEARCH_ACCOUNTS = (
+    "MATCH (a:Account) "
+    "WHERE a.id CONTAINS $query "
+    "RETURN a.id, a.type, a.community "
+    "LIMIT $limit"
+)

@@ -1,52 +1,55 @@
 # RingTrace Project Status & Roadmap
 
-**Current Milestone:** Phase 1 — Simulator Integration & FalkorDB Ingestion  
-**Status:** Complete & Fully Validated  
+**Current Milestone:** Phase 2 — FastAPI Backend & React Investigation Dashboard  
+**Status:** Complete & Fully Validated in Browser  
 **Last Updated:** 2026-10-15  
 
 ---
 
 ## 1. Completed Capabilities
 
-- [x] **Simulator Discovery & Audit:** Inspected `backend/simulate.py` and `backend/load_falkordb.py` without modifying original files.
-- [x] **Documentation Artifacts Created:**
-  - `docs/SIMULATOR_ANALYSIS.md`: Complete simulator analysis covering runtime, parameters, distributions, and failure modes.
-  - `docs/SIMULATOR_FIELD_MAPPING.md`: Complete schema mapping from CSV outputs to FalkorDB `txn` and `labels` graphs.
-  - `docs/SIMULATOR_PATTERN_COVERAGE.md`: Verification matrix for 8 planted fraud patterns, 6 benign look-alikes, and 1 algorithmic hub signal.
-  - `docs/AGENT_DECISIONS.md`: Log of architectural decisions (DEC-001 through DEC-005).
-  - `docs/QUERY_LOG.md`: Audit summary of real executed FalkorDB queries.
-  - `docs/FUNCTION_MAP.md`: Catalogue of classes, methods, and calling structures.
-  - `docs/BUILD_LOG.md`: Verified commands, test logs, and fix traces.
-  - `docs/AI_USAGE.md`: Audit log of AI-generated components and validation methods.
-  - `docs/DEMO_AND_PITCH.md`: Pitch narrative, demo scripts, and benchmark evaluation guide.
-- [x] **Modular Integration Layer:**
-  - `backend/app/db.py`: Centralized `FalkorDBClient` with real-time audit logging to `logs/queries.jsonl`.
-  - `backend/app/queries.py`: Centralized Cypher query constants for nodes, edges, labels, reconciliation, and audit.
-  - `backend/app/simulator_adapter.py`: Strict schema validation, regex validation, positive amounts, and ground-truth separation.
-  - `backend/app/data_loader.py`: Ingestion orchestrator supporting test/production graphs, count reconciliation, live replay holdback, and label leakage safeguards.
-- [x] **Automated Integration Test Suite:**
-  - `backend/tests/test_simulator_integration.py`: 3/3 tests passing, validating determinism, corrupted data handling, isolated test graph ingestion, count reconciliation, and label leakage assertions.
+- [x] **Simulator Discovery & Ingestion (Phase 1):** Inspected and validated `backend/simulate.py` and `backend/load_falkordb.py`; populated FalkorDB `txn` graph with 3,000 accounts and 40,661 transactions.
+- [x] **FastAPI Backend (`backend/app/main.py`):**
+  - Live FalkorDB connectivity & health monitoring (`/api/health`).
+  - Real operational stats (`/api/stats` -> 3,000 accounts, 40,661 transactions).
+  - Recent transactions ledger queries (`/api/transactions`).
+  - Sample network topology generation for Cytoscape.js (`/api/graph`).
+  - Account profile, in/out flow metrics, and 1-hop neighborhood queries (`/api/accounts/{id}`).
+  - Account prefix search with autocomplete (`/api/search`).
+- [x] **React 19 + TypeScript + Vite Dashboard (`frontend/`):**
+  - Dark-themed financial intelligence design system with readable typography and subtle borders.
+  - Sidebar navigation with brand logo, roadmap badges, and active tab routing.
+  - Topbar with global account autocomplete search and live FalkorDB connection status pill.
+  - Metric summary cards displaying live counts from `txn` graph.
+  - Cytoscape.js interactive graph canvas with color-coded account roles (Merchant: Cyan, Payroll: Emerald, Personal: Slate) and node selection inspector.
+  - Recent ledger transactions table with Indian Rupee (₹) currency formatting and account click-through.
+  - Transaction Explorer with account profiles, in/outflow tables, and centered 1-hop Cytoscape.js subgraph.
+  - Honest empty/placeholder states for upcoming detection and investigation modules.
+- [x] **Testing & Verification:**
+  - Automated backend API test suite: 10/10 tests passed (`Ran 10 tests in 1.243s — OK`).
+  - Frontend production build: `npm run build` completed in 4.12s with 0 errors.
+  - Browser subagent validation: Live verification on `http://127.0.0.1:5173/` completed successfully.
 
 ---
 
 ## 2. Ingestion & Database Metrics
 
-- **Simulation Runtime:** 1.8 seconds for 500 accounts / 1,525 transactions.
-- **FalkorDB Ingestion Rate:** ~1.1 seconds for 350 accounts and 964 transactions in test execution.
-- **Count Reconciliation:** 100% match on accounts and transactions.
+- **Accounts in `txn` Graph:** 3,000 nodes.
+- **Transactions in `txn` Graph:** 40,661 `[:SENT]` edges.
+- **Backend API Latency:** < 15ms for stats and recent transactions; ~35ms for graph topology samples.
 - **Label Leakage:** 0 leaked label properties in `txn` graph.
 
 ---
 
 ## 3. Next Recommended Development Tasks
 
-1. **Task 1 — Core Detector Suite Implementation:**
-   Implement Cypher-based detection modules for the primary graph patterns:
-   - `cycle_detector.py` (with time-respecting path predicates and amount conservation)
-   - `fan_in_detector.py` (with structuring detection just below 50,000)
-   - `fan_out_detector.py` (with payroll account exclusion)
-   - `relay_chain_detector.py` (with hop decay)
-2. **Task 2 — Benchmark Evaluator:**
-   Build the evaluation engine that queries the isolated `labels` graph to score detector Precision, Recall, and F1 across `--seed 42` (tuning) and `--seed 43` (held-out test).
-3. **Task 3 — FastAPI Backend & Streaming Worker:**
-   Implement FastAPI REST and WebSocket endpoints, along with a live transaction streamer consuming `replay.csv`.
+1. **Task 1 — Core Detector Suite Implementation (`backend/app/detectors/`):**
+   Implement Cypher-based detection queries:
+   - `cycle_detector.py` (time-respecting forward path check and 80-100% amount conservation)
+   - `fan_in_detector.py` (structuring detection < ₹50k with merchant exclusions)
+   - `fan_out_detector.py` (dispersal detection with payroll exclusions)
+   - `relay_chain_detector.py` (multi-hop layering with hop decay)
+2. **Task 2 — Autonomous Investigation Agent:**
+   Implement case reasoning agent to build explainable SAR narratives from detected graph subgraphs.
+3. **Task 3 — Benchmark Evaluator:**
+   Evaluate detector Precision, Recall, and F1 against the isolated `labels` graph.
