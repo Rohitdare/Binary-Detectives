@@ -22,6 +22,11 @@ This document records code generated or modified by AI agents and the concrete v
 | `docs/BUILD_LOG.md` | Command execution history | Generated log | Populated from real shell executions and outputs. | **Verified** |
 | `docs/DEMO_AND_PITCH.md` | Pitch, demo, and evaluation narrative | Generated documentation | Structured according to hackathon criteria and empirical synthetic data. | **Verified** |
 | `docs/STATUS.md` | Project milestone status tracker | Generated status report | Current workspace state reflection. | **Verified** |
+| `backend/app/detectors/cycle.py` | Directed transaction cycle detector engine | Generated detector logic | Tested against isolated graph and live `txn` graph; 10/10 automated tests passed. | **Verified** |
+| `backend/app/evaluator.py` | Ground truth evaluator against `labels` | Generated evaluator logic | Ran on live database; proved 100% structural recovery of all 22 planted alerts. | **Verified** |
+| `backend/tests/test_cycle_detector.py` | Unit & integration test suite for cycle detection | Generated test cases | Ran `unittest`; 10/10 tests passed in 0.15s. | **Verified** |
+| `frontend/src/components/patterns/CycleDetectionView.tsx` | React UI for cycle candidate inspection & Cytoscape graph | Generated React component | TypeScript compilation passed; browser subagent verified live on Vite dev server. | **Verified** |
+
 
 ---
 

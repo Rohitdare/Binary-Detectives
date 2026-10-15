@@ -28,6 +28,11 @@ This document summarizes database queries executed against FalkorDB. High-volume
 | `QRY_5752f53a` | `test_txn` | `test:verify_leakage` | `MATCH (a:Account) WHERE a.is_fraud IS NOT NULL ... RETURN count(a)` | 0.00 ms | Success | Assertion check in integration test. |
 | `QRY_061722e1` | `test_txn` | `test:teardown` | `GRAPH.DELETE` | 1.89 ms | Success | Cleaned up isolated test graph. |
 | `QRY_6ce11f44` | `test_labels` | `test:teardown` | `GRAPH.DELETE` | 0.00 ms | Success | Cleaned up isolated labels graph. |
+| `QRY_cyc_len3` | `txn` | `detector:cycle:len_3` | `MATCH (a)-[r1]->(b)-[r2]->(c)-[r3]->(a) WHERE a.id < b.id AND a.id < c.id AND b.id <> c.id RETURN ... LIMIT $limit` | 7.71 ms | Success | Directed 3-cycle detection with canonical minimum node ordering. |
+| `QRY_cyc_len4` | `txn` | `detector:cycle:len_4` | `MATCH (a)-[r1]->(b)-[r2]->(c)-[r3]->(d)-[r4]->(a) WHERE a.id < b.id AND ... RETURN ... LIMIT $limit` | 12.91 ms | Success | Directed 4-cycle detection with intermediate uniqueness. |
+| `QRY_cyc_len5` | `txn` | `detector:cycle:len_5` | `MATCH (a)-[r1]->(b)-[r2]->(c)-[r3]->(d)-[r4]->(e)-[r5]->(a) WHERE a.id < b.id AND ... RETURN ... LIMIT $limit` | 93.08 ms | Success | Directed 5-cycle detection with intermediate uniqueness. |
+| `QRY_eval_eval` | `labels` | `evaluator:get_ground_truth` | `MATCH (al:LabelAlert) WHERE al.pattern = 'cycle' RETURN ...` | 8.24 ms | Success | Evaluator only: fetched 22 cycle ground-truth alerts. |
+
 
 ---
 

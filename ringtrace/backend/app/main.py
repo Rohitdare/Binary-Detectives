@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 try:
     from app.db import FalkorDBClient
+    from app.detectors.cycle import detect_cycles
     from app.queries import (
         COUNT_ACCOUNTS,
         COUNT_SENT,
@@ -19,6 +20,7 @@ try:
     )
 except ImportError:
     from backend.app.db import FalkorDBClient
+    from backend.app.detectors.cycle import detect_cycles
     from backend.app.queries import (
         COUNT_ACCOUNTS,
         COUNT_SENT,
@@ -230,3 +232,47 @@ def search_accounts(q: str = Query(..., min_length=1), limit: int = Query(defaul
         ]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to search accounts: {e}")
+
+
+@app.get("/api/detectors/cycles")
+def get_cycle_candidates(
+    min_length: int = Query(default=3, ge=3, le=5, description="Minimum cycle length in hops (3-5)"),
+    max_length: int = Query(default=5, ge=3, le=5, description="Maximum cycle length in hops (3-5)"),
+    limit: int = Query(default=50, ge=1, le=200, description="Maximum candidates to return (1-200)"),
+):
+    """Detect directed transaction cycles in the transaction graph.
+
+    Exposes the directed transaction cycle detector. Canonical node ordering prevents
+    rotational duplicates, and results include complete transaction evidence without
+    accessing ground-truth labels.
+    """
+    if min_length > max_length:
+        raise HTTPException(
+            status_code=400,
+            detail=f"min_length ({min_length}) cannot be greater than max_length ({max_length})",
+        )
+
+    try:
+        candidates = detect_cycles(
+            min_length=min_length,
+            max_length=max_length,
+            limit=limit,
+            graph_name=GRAPH_NAME,
+            db=db_client,
+        )
+        return {
+            "status": "success",
+            "graph": GRAPH_NAME,
+            "min_length": min_length,
+            "max_length": max_length,
+            "count": len(candidates),
+            "cycles": candidates,
+        }
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to execute cycle detection against FalkorDB: {e}",
+        )
+

@@ -6,6 +6,7 @@ import { NetworkPreview } from './components/overview/NetworkPreview';
 import { RecentTransactionsTable } from './components/overview/RecentTransactionsTable';
 import { InvestigationPanel } from './components/overview/InvestigationPanel';
 import { TransactionExplorer } from './components/explorer/TransactionExplorer';
+import { CycleDetectionView } from './components/patterns/CycleDetectionView';
 import { PlaceholderView } from './components/common/PlaceholderView';
 import type { HealthStatus, PageTab, SystemStats, TransactionRecord } from './types';
 import { ringtraceApi } from './services/api';
@@ -150,7 +151,13 @@ export const App: React.FC = () => {
             />
           )}
 
-          {currentTab !== 'overview' && currentTab !== 'explorer' && (
+          {currentTab === 'patterns' && (
+            <CycleDetectionView
+              onInspectAccount={handleSelectAccount}
+            />
+          )}
+
+          {currentTab !== 'overview' && currentTab !== 'explorer' && currentTab !== 'patterns' && (
             <PlaceholderView
               tab={currentTab}
               onBackToOverview={() => setCurrentTab('overview')}

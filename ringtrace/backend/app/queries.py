@@ -77,9 +77,49 @@ GET_ACCOUNT_TRANSFERS_IN = (
     "ORDER BY t.ts DESC LIMIT $limit"
 )
 
+# Search & Exploration Queries
 SEARCH_ACCOUNTS = (
     "MATCH (a:Account) "
     "WHERE a.id CONTAINS $query "
     "RETURN a.id, a.type, a.community "
     "LIMIT $limit"
 )
+
+# Cycle Detection Queries (Canonical minimum node rotation, simple cycles, parameterized limit)
+CYCLE_3_QUERY = (
+    "MATCH (a:Account)-[r1:SENT]->(b:Account)-[r2:SENT]->(c:Account)-[r3:SENT]->(a) "
+    "WHERE a.id < b.id AND a.id < c.id AND b.id <> c.id "
+    "RETURN a.id, b.id, c.id, "
+    "       r1.tx_id, r1.amount, r1.ts, r1.step, r1.tx_type, "
+    "       r2.tx_id, r2.amount, r2.ts, r2.step, r2.tx_type, "
+    "       r3.tx_id, r3.amount, r3.ts, r3.step, r3.tx_type "
+    "LIMIT $limit"
+)
+
+CYCLE_4_QUERY = (
+    "MATCH (a:Account)-[r1:SENT]->(b:Account)-[r2:SENT]->(c:Account)-[r3:SENT]->(d:Account)-[r4:SENT]->(a) "
+    "WHERE a.id < b.id AND a.id < c.id AND a.id < d.id "
+    "  AND b.id <> c.id AND b.id <> d.id AND c.id <> d.id "
+    "RETURN a.id, b.id, c.id, d.id, "
+    "       r1.tx_id, r1.amount, r1.ts, r1.step, r1.tx_type, "
+    "       r2.tx_id, r2.amount, r2.ts, r2.step, r2.tx_type, "
+    "       r3.tx_id, r3.amount, r3.ts, r3.step, r3.tx_type, "
+    "       r4.tx_id, r4.amount, r4.ts, r4.step, r4.tx_type "
+    "LIMIT $limit"
+)
+
+CYCLE_5_QUERY = (
+    "MATCH (a:Account)-[r1:SENT]->(b:Account)-[r2:SENT]->(c:Account)-[r3:SENT]->(d:Account)-[r4:SENT]->(e:Account)-[r5:SENT]->(a) "
+    "WHERE a.id < b.id AND a.id < c.id AND a.id < d.id AND a.id < e.id "
+    "  AND b.id <> c.id AND b.id <> d.id AND b.id <> e.id "
+    "  AND c.id <> d.id AND c.id <> e.id "
+    "  AND d.id <> e.id "
+    "RETURN a.id, b.id, c.id, d.id, e.id, "
+    "       r1.tx_id, r1.amount, r1.ts, r1.step, r1.tx_type, "
+    "       r2.tx_id, r2.amount, r2.ts, r2.step, r2.tx_type, "
+    "       r3.tx_id, r3.amount, r3.ts, r3.step, r3.tx_type, "
+    "       r4.tx_id, r4.amount, r4.ts, r4.step, r4.tx_type, "
+    "       r5.tx_id, r5.amount, r5.ts, r5.step, r5.tx_type "
+    "LIMIT $limit"
+)
+

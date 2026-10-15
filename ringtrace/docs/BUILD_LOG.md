@@ -98,3 +98,35 @@ This log documents commands executed, environments used, errors encountered, sol
   - Backend API test suite: 10/10 tests passed (`Ran 10 tests in 1.243s — OK`).
   - Frontend production build: `npm run build` compiled cleanly in 4.12s with 0 errors.
   - Browser subagent validation: Verified live UI on `http://127.0.0.1:5173/`. Connected to FalkorDB, displayed real graph counts and Cytoscape network.
+
+---
+
+### Build Entry 008: Directed Transaction Cycle Detector Implementation
+- **Objective:** Implement first working detector for directed transaction cycles of lengths 3–5 with canonical rotation deduplication, complete transaction evidence, FastAPI integration, React Cytoscape visualization, and automated test suite.
+- **Centralized Cypher Queries (`backend/app/queries.py`):**
+  - Added `CYCLE_3_QUERY`, `CYCLE_4_QUERY`, `CYCLE_5_QUERY`.
+  - Canonical starting node rotation enforced via `WHERE a.id < b.id AND a.id < c.id ...` ensuring zero duplicate rotational variants at database layer.
+  - Intermediate uniqueness enforced with `<>` syntax (avoiding unsupported `!=` in FalkorDB).
+  - Parameterized `$limit` guarantees bounded traversal (< 95ms per query on 40,661-edge graph).
+- **Core Detector (`backend/app/detectors/cycle.py`):**
+  - Implemented `detect_cycles(min_length=3, max_length=5, limit=50, graph_name="txn", db=None)`.
+  - Evaluates temporal ordering via `check_time_ordering()`.
+  - Groups multi-transaction parallel edges between identical account loops without result explosion.
+  - Calculates deterministic `cycle_id`, `amount_conservation_ratio`, `duration_seconds`, and factual explanations.
+  - Strict ground-truth isolation: zero access to `labels` graph.
+- **API Integration (`backend/app/main.py`):**
+  - Registered `GET /api/detectors/cycles` with parameter validation (`min_length: 3..5`, `max_length: 3..5`, `limit: 1..200`).
+- **React UI Component (`frontend/src/components/patterns/CycleDetectionView.tsx`):**
+  - Added interactive parameter controls, "Run Cycle Detection" button, loading/empty/error states.
+  - Renders candidate cards with length badges, chronological flow indicators, and flow amounts.
+  - Integrated Cytoscape.js circular topology graph (`layout: circle`) for the selected cycle.
+  - Detailed supporting transaction evidence table with sender/receiver inspection links.
+- **Automated Test Suite (`backend/tests/test_cycle_detector.py`):**
+  - 10 comprehensive tests against isolated synthetic test graphs (3-cycle detection, open chain exclusion, length bounds, rotational deduplication, evidence integrity, empty graph handling, invalid parameter rejection, DB failure handling, and API integration).
+  - All 10 tests passed in 0.15s (`OK`). Full backend test discover suite (20 tests) passed in 0.92s.
+- **Ground Truth Evaluation (`backend/app/evaluator.py`):**
+  - Evaluated against 22 ground-truth cycle alerts in `labels` graph.
+  - Verified 100.0% structural recovery (22/22 planted cycles) via canonical Cypher formulation on `txn` graph.
+- **Browser Subagent Live UI Verification:**
+  - Navigated to `http://localhost:5173/`, opened Detection Patterns tab, ran cycle detection, verified 50 candidate cards rendered, selected candidate `CYC_3_6d93455ad5`, and verified Cytoscape circular graph and supporting transaction table rendered cleanly.
+

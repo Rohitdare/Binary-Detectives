@@ -65,10 +65,31 @@ Centralized repository of Cypher queries:
 - `GET_GRAPH_SAMPLE`: Queries manageable sample network of accounts and transfers.
 - `GET_ACCOUNT_BY_ID`, `GET_ACCOUNT_TRANSFERS_OUT`, `GET_ACCOUNT_TRANSFERS_IN`: Account profile & 1-hop neighborhood.
 - `SEARCH_ACCOUNTS`: Account prefix search.
+- `CYCLE_3_QUERY`: Directed 3-hop cycle query with canonical node rotation (`a.id < b.id AND a.id < c.id AND b.id <> c.id`).
+- `CYCLE_4_QUERY`: Directed 4-hop cycle query with canonical node rotation and intermediate uniqueness.
+- `CYCLE_5_QUERY`: Directed 5-hop cycle query with canonical node rotation and intermediate uniqueness.
 
 ---
 
-## 4. API Layer (`backend/app/main.py`)
+## 4. Detection & Evaluation Layer
+
+### `backend/app/detectors/cycle.py`
+- **`detect_cycles(min_length=3, max_length=5, limit=50, graph_name='txn', db=None) -> List[Dict]`**:
+  - Executes bounded, canonical Cypher cycle queries across specified hop lengths.
+  - Groups parallel multi-transaction paths between identical account loops without duplicate result explosion.
+  - Selects representative edge paths prioritizing chronological forward flow and minimal time span.
+  - Computes `cycle_id`, `duration_seconds`, `amount_conservation_ratio`, `is_time_ordered`, and factual explanations.
+- **`check_time_ordering(txs: List[Dict]) -> bool`**: Verifies whether any cyclic rotation exhibits non-decreasing timestamps.
+
+### `backend/app/evaluator.py`
+- **`evaluate_cycle_detector(sample_limit=100, db=None) -> Dict`**:
+  - Standalone evaluation script comparing detector topology recovery against `labels` ground-truth alerts.
+  - Strictly isolated: detector module never imports or calls this evaluator.
+  - Computes recovery rate of planted fraud cycles and benign controls.
+
+---
+
+## 5. API Layer (`backend/app/main.py`)
 
 - **`GET /api/health`**: Verifies application health and active FalkorDB connectivity.
 - **`GET /api/stats`**: Retrieves real account and transaction counts from `txn` graph; provides honest status strings for non-analyzed fields.
@@ -76,10 +97,11 @@ Centralized repository of Cypher queries:
 - **`GET /api/graph`**: Formats sample network topology into Cytoscape.js compatible `nodes` and `edges`.
 - **`GET /api/accounts/{account_id}`**: Retrieves account metadata, incoming/outgoing transfer lists, and sample flow totals.
 - **`GET /api/search`**: Auto-complete account ID search endpoint.
+- **`GET /api/detectors/cycles`**: Directed transaction cycle detector endpoint with `min_length`, `max_length`, and `limit` parameters.
 
 ---
 
-## 5. Frontend Architecture (`ringtrace/frontend/src/`)
+## 6. Frontend Architecture (`ringtrace/frontend/src/`)
 
 ### Layout Components
 - **`Sidebar.tsx`**: Navigation menu with brand logo, active states, roadmap badges, and live FalkorDB status indicator.
@@ -91,5 +113,7 @@ Centralized repository of Cypher queries:
 - **`RecentTransactionsTable.tsx`**: Tabular view of recent ledger transfers with currency formatting and account click-through.
 - **`InvestigationPanel.tsx`**: Honest empty state describing upcoming detection engine and case workflows.
 - **`TransactionExplorer.tsx`**: Interactive account deep-dive with account profile card, centered 1-hop Cytoscape.js graph, and incoming/outgoing transfer tables.
-- **`PlaceholderView.tsx`**: Standardized coming-soon view for future milestones (Investigations, Patterns, Evidence, Settings).
+- **`CycleDetectionView.tsx`**: Interactive cycle investigation panel featuring parameter controls, candidate list, chronological/ordering badges, circular Cytoscape topology graph, and supporting transaction breakdown table.
+- **`PlaceholderView.tsx`**: Standardized coming-soon view for future milestones (Investigations, Evidence, Settings).
+
 

@@ -53,4 +53,12 @@ export const ringtraceApi = {
     const res = await fetch(`${API_BASE}/search?q=${encodeURIComponent(query)}&limit=${limit}`);
     return handleResponse<SearchResultAccount[]>(res);
   },
+
+  async detectCycles(minLength = 3, maxLength = 5, limit = 50): Promise<import('../types').CycleDetectionResponse> {
+    const res = await fetch(
+      `${API_BASE}/detectors/cycles?min_length=${minLength}&max_length=${maxLength}&limit=${limit}`
+    );
+    return handleResponse<import('../types').CycleDetectionResponse>(res);
+  },
 };
+

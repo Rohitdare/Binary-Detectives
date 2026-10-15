@@ -74,3 +74,42 @@ export interface SearchResultAccount {
   type: string;
   community: number;
 }
+
+export interface CycleTransaction {
+  tx_id: string;
+  src: string;
+  dst: string;
+  amount: number;
+  ts: number;
+  step: number;
+  tx_type: string;
+}
+
+export interface CycleCandidate {
+  cycle_id: string;
+  pattern_type: 'cycle' | string;
+  candidate_type: 'cycle_candidate' | string;
+  cycle_length: number;
+  accounts: string[];
+  transactions: CycleTransaction[];
+  all_supporting_transactions?: CycleTransaction[];
+  total_amount: number;
+  min_amount: number;
+  max_amount: number;
+  amount_conservation_ratio: number;
+  first_transaction_ts: number;
+  last_transaction_ts: number;
+  duration_seconds: number;
+  is_time_ordered: boolean;
+  explanation: string;
+}
+
+export interface CycleDetectionResponse {
+  status: string;
+  graph: string;
+  min_length: number;
+  max_length: number;
+  count: number;
+  cycles: CycleCandidate[];
+}
+

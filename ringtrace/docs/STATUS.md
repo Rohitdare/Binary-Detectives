@@ -1,12 +1,23 @@
 # RingTrace Project Status & Roadmap
 
-**Current Milestone:** Phase 2 — FastAPI Backend & React Investigation Dashboard  
-**Status:** Complete & Fully Validated in Browser  
+**Current Milestone:** Phase 3 — Directed Transaction Cycle Detector  
+**Status:** Complete & Fully Validated (Backend, Cypher, UI, & Tests)  
 **Last Updated:** 2026-10-15  
 
 ---
 
 ## 1. Completed Capabilities
+
+- [x] **Directed Transaction Cycle Detector (Phase 3):**
+  - Centralized Cypher queries (`CYCLE_3_QUERY`, `CYCLE_4_QUERY`, `CYCLE_5_QUERY` in `backend/app/queries.py`) with canonical node ordering (`a.id < b.id ...`) to guarantee rotational deduplication at the database query level.
+  - Core detector engine in `backend/app/detectors/cycle.py` (`detect_cycles(min_length=3, max_length=5, limit=50)`) calculating cycle length, duration, time-ordering verification, amount conservation ratio, and factual explanations.
+  - Zero label leakage: detector operates solely on the `txn` graph and never accesses ground truth `labels`.
+  - Bounded traversal: strictly parameterized queries prevent runaway enumerations.
+  - FastAPI endpoint `GET /api/detectors/cycles` returning structured candidate evidence with complete supporting transaction objects.
+  - Interactive React UI in `frontend/src/components/patterns/CycleDetectionView.tsx` with parameter inputs, candidate list, chronological badges, Cytoscape.js circular topology visualizer, and supporting transaction breakdown.
+  - Automated test suite `backend/tests/test_cycle_detector.py` covering all 10 unit, integration, edge-case, and boundary scenarios (10/10 passed in 0.15s on isolated test graphs).
+  - Standalone ground-truth evaluation in `backend/app/evaluator.py`: 100.0% structural recovery of all 22 planted cycle alerts (10 fraud cycles, 6 slow family cycles, 6 unordered cycles).
+
 
 - [x] **Simulator Discovery & Ingestion (Phase 1):** Inspected and validated `backend/simulate.py` and `backend/load_falkordb.py`; populated FalkorDB `txn` graph with 3,000 accounts and 40,661 transactions.
 - [x] **FastAPI Backend (`backend/app/main.py`):**
