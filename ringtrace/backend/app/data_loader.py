@@ -114,3 +114,43 @@ class RingTraceDataLoader:
             "alert_members_loaded": len(alert_members),
             "label_leakage_detected": 0
         }
+
+
+def main() -> None:
+    """CLI entry point: validate and load simulator output into FalkorDB."""
+    import argparse
+    import json as _json
+
+    p = argparse.ArgumentParser(
+        description="Validate and load RingTrace simulator output into FalkorDB.",
+    )
+    p.add_argument("--data", default="data/sim", help="Simulator output directory (default: data/sim)")
+    p.add_argument("--host", default=None, help="FalkorDB host (overrides FALKORDB_HOST env)")
+    p.add_argument("--port", type=int, default=None, help="FalkorDB port (overrides FALKORDB_PORT env)")
+    p.add_argument("--graph", default="txn", help="Transaction graph name (default: txn)")
+    p.add_argument("--labels-graph", default="labels", help="Labels graph name (default: labels)")
+    p.add_argument("--replay-fraction", type=float, default=0.10, help="Fraction held back for replay (default: 0.10)")
+    p.add_argument("--full", action="store_true", help="Load all transactions — no replay file")
+    p.add_argument("--reset", action="store_true", help="Delete both graphs before loading")
+    a = p.parse_args()
+
+    kwargs: Dict = {}
+    if a.host:
+        kwargs["host"] = a.host
+    if a.port:
+        kwargs["port"] = a.port
+    db = FalkorDBClient(**kwargs)
+
+    result = RingTraceDataLoader(db=db).load_dataset(
+        data_dir=a.data,
+        txn_graph=a.graph,
+        labels_graph=a.labels_graph,
+        replay_fraction=a.replay_fraction,
+        full=a.full,
+        reset=a.reset,
+    )
+    print(_json.dumps(result, indent=2))
+
+
+if __name__ == "__main__":
+    main()

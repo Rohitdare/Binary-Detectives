@@ -4,15 +4,18 @@ Evaluates cycle detection performance against ground truth in the `labels` graph
 CRITICAL CONSTRAINT: This evaluation code is strictly separate from the detector.
 The detector itself (app/detectors/cycle.py) never reads the `labels` graph.
 """
+import ast
 import json
 import time
 from typing import Any, Dict, List, Optional
 try:
     from app.db import FalkorDBClient
     from app.detectors.cycle import detect_cycles
+    from app.queries import VERIFY_CYCLE_3, VERIFY_CYCLE_4, VERIFY_CYCLE_5
 except ImportError:
     from backend.app.db import FalkorDBClient
     from backend.app.detectors.cycle import detect_cycles
+    from backend.app.queries import VERIFY_CYCLE_3, VERIFY_CYCLE_4, VERIFY_CYCLE_5
 
 
 def evaluate_cycle_detector(
@@ -50,7 +53,7 @@ def evaluate_cycle_detector(
                 try:
                     tx_ids = json.loads(tx_ids.replace("'", '"'))
                 except Exception:
-                    tx_ids = eval(tx_ids)
+                    tx_ids = ast.literal_eval(tx_ids)
             ground_truth.append({
                 "alert_id": r[0],
                 "kind": r[1],
@@ -65,50 +68,24 @@ def evaluate_cycle_detector(
     benign_gt = [gt for gt in ground_truth if not gt["is_fraud"]]
 
     # 2. Verify Query Topology Recovery for Each Ground-Truth Case
-    # For each planted alert, verify whether its exact structural cycle exists and is returned
-    # by the canonical Cypher formulation on the 'txn' graph.
+    # Parameterized queries anchor from the canonical minimum account to verify each
+    # planted ground-truth cycle is structurally recoverable on the 'txn' graph.
+    _verify_queries = {3: VERIFY_CYCLE_3, 4: VERIFY_CYCLE_4, 5: VERIFY_CYCLE_5}
     recovered_gt_cases = []
     for gt in ground_truth:
-        acc_sorted = sorted(list(gt["accounts"]))
-        min_acc = acc_sorted[0]
         k = gt["length"]
-
-        # Formulate query starting from the canonical minimum account
-        if k == 3:
-            q = (
-                f"MATCH (a:Account {{id: '{min_acc}'}})-[r1:SENT]->(b:Account)-[r2:SENT]->(c:Account)-[r3:SENT]->(a) "
-                "WHERE a.id < b.id AND a.id < c.id AND b.id <> c.id "
-                "RETURN a.id, b.id, c.id, r1.tx_id, r2.tx_id, r3.tx_id"
-            )
-        elif k == 4:
-            q = (
-                f"MATCH (a:Account {{id: '{min_acc}'}})-[r1:SENT]->(b:Account)-[r2:SENT]->(c:Account)-[r3:SENT]->(d:Account)-[r4:SENT]->(a) "
-                "WHERE a.id < b.id AND a.id < c.id AND a.id < d.id "
-                "  AND b.id <> c.id AND b.id <> d.id AND c.id <> d.id "
-                "RETURN a.id, b.id, c.id, d.id, r1.tx_id, r2.tx_id, r3.tx_id, r4.tx_id"
-            )
-        elif k == 5:
-            q = (
-                f"MATCH (a:Account {{id: '{min_acc}'}})-[r1:SENT]->(b:Account)-[r2:SENT]->(c:Account)-[r3:SENT]->(d:Account)-[r4:SENT]->(e:Account)-[r5:SENT]->(a) "
-                "WHERE a.id < b.id AND a.id < c.id AND a.id < d.id AND a.id < e.id "
-                "  AND b.id <> c.id AND b.id <> d.id AND b.id <> e.id "
-                "  AND c.id <> d.id AND c.id <> e.id AND d.id <> e.id "
-                "RETURN a.id, b.id, c.id, d.id, e.id, r1.tx_id, r2.tx_id, r3.tx_id, r4.tx_id, r5.tx_id"
-            )
-        else:
+        if k not in _verify_queries:
             continue
-
-        res = client.execute_query("txn", q, caller=f"evaluator:check_{gt['alert_id']}")
-        matched = False
-        if res and res.result_set:
-            for row in res.result_set:
-                row_accs = set(row[:k])
-                row_txs = set(row[k:])
-                if row_accs == gt["accounts"] or gt["tx_ids"].issubset(row_txs):
-                    matched = True
-                    break
-
-        if matched:
+        min_acc = sorted(gt["accounts"])[0]
+        res = client.execute_query(
+            "txn", _verify_queries[k], {"start_id": min_acc},
+            caller=f"evaluator:check_{gt['alert_id']}",
+        )
+        rows = res.result_set if res and res.result_set else []
+        if any(
+            gt["accounts"] == set(row[:k]) or gt["tx_ids"].issubset(set(row[k:]))
+            for row in rows
+        ):
             recovered_gt_cases.append(gt["alert_id"])
 
     # 3. Run Standard Detection Pass (Bounded by sample_limit)

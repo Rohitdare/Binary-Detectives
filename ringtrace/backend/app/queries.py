@@ -123,3 +123,28 @@ CYCLE_5_QUERY = (
     "LIMIT $limit"
 )
 
+# Evaluator Verification Queries
+# Parameterized by $start_id (canonical minimum account). Used exclusively by evaluator.py
+# to verify planted ground-truth cycles are structurally recoverable on the 'txn' graph.
+VERIFY_CYCLE_3 = (
+    "MATCH (a:Account {id: $start_id})-[r1:SENT]->(b:Account)-[r2:SENT]->(c:Account)-[r3:SENT]->(a) "
+    "WHERE a.id < b.id AND a.id < c.id AND b.id <> c.id "
+    "RETURN a.id, b.id, c.id, r1.tx_id, r2.tx_id, r3.tx_id"
+)
+
+VERIFY_CYCLE_4 = (
+    "MATCH (a:Account {id: $start_id})-[r1:SENT]->(b:Account)-[r2:SENT]->(c:Account)-[r3:SENT]->(d:Account)-[r4:SENT]->(a) "
+    "WHERE a.id < b.id AND a.id < c.id AND a.id < d.id "
+    "  AND b.id <> c.id AND b.id <> d.id AND c.id <> d.id "
+    "RETURN a.id, b.id, c.id, d.id, r1.tx_id, r2.tx_id, r3.tx_id, r4.tx_id"
+)
+
+VERIFY_CYCLE_5 = (
+    "MATCH (a:Account {id: $start_id})-[r1:SENT]->(b:Account)-[r2:SENT]->(c:Account)-[r3:SENT]->(d:Account)-[r4:SENT]->(e:Account)-[r5:SENT]->(a) "
+    "WHERE a.id < b.id AND a.id < c.id AND a.id < d.id AND a.id < e.id "
+    "  AND b.id <> c.id AND b.id <> d.id AND b.id <> e.id "
+    "  AND c.id <> d.id AND c.id <> e.id "
+    "  AND d.id <> e.id "
+    "RETURN a.id, b.id, c.id, d.id, e.id, r1.tx_id, r2.tx_id, r3.tx_id, r4.tx_id, r5.tx_id"
+)
+

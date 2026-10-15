@@ -14,6 +14,9 @@ except ImportError:
     from backend.app.db import FalkorDBClient
     from backend.app.queries import CYCLE_3_QUERY, CYCLE_4_QUERY, CYCLE_5_QUERY
 
+# Extra rows fetched per requested result to absorb parallel edges on the same hop.
+_PARALLEL_EDGE_BUFFER = 3
+
 
 def check_time_ordering(txs: List[Dict[str, Any]]) -> bool:
     """Check if there exists a cyclic starting edge such that timestamps are non-decreasing."""
@@ -50,8 +53,6 @@ def detect_cycles(
         ValueError: If parameters are invalid or out of safe bounds.
     """
     # 1. Parameter Validation
-    if not isinstance(min_length, int) or not isinstance(max_length, int) or not isinstance(limit, int):
-        raise ValueError("min_length, max_length, and limit must be integers.")
     if min_length < 3 or min_length > 5:
         raise ValueError(f"min_length must be between 3 and 5 (got {min_length}).")
     if max_length < 3 or max_length > 5:
@@ -83,7 +84,7 @@ def detect_cycles(
         res = client.execute_query(
             graph_name,
             query,
-            {"limit": remaining_limit * 3},  # Fetch slightly more to account for parallel edge grouping
+            {"limit": remaining_limit * _PARALLEL_EDGE_BUFFER},
             caller=f"detector:cycle:len_{cycle_len}",
         )
 
@@ -124,18 +125,15 @@ def detect_cycles(
                 continue
             seen_account_tuples.add(accounts)
 
-            # Choose best representative edge set (prioritize time-ordered flow, then lowest duration)
-            best_txs = edge_sets[0]
+            # Choose best representative edge set (time-ordered first, then shortest duration).
+            best_txs = min(
+                edge_sets,
+                key=lambda txs: (
+                    not check_time_ordering(txs),
+                    max(t["ts"] for t in txs) - min(t["ts"] for t in txs),
+                ),
+            )
             best_is_ordered = check_time_ordering(best_txs)
-            best_dur = max(t["ts"] for t in best_txs) - min(t["ts"] for t in best_txs)
-
-            for alt_txs in edge_sets[1:]:
-                alt_is_ordered = check_time_ordering(alt_txs)
-                alt_dur = max(t["ts"] for t in alt_txs) - min(t["ts"] for t in alt_txs)
-                if (alt_is_ordered and not best_is_ordered) or (alt_is_ordered == best_is_ordered and alt_dur < best_dur):
-                    best_txs = alt_txs
-                    best_is_ordered = alt_is_ordered
-                    best_dur = alt_dur
 
             # Collect all distinct supporting transaction IDs across parallel edges
             all_tx_dict = {}
