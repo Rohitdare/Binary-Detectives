@@ -4,7 +4,8 @@ import { Navbar } from './components/layout/Navbar';
 import { SummaryCards } from './components/overview/SummaryCards';
 import { NetworkPreview } from './components/overview/NetworkPreview';
 import { RecentTransactionsTable } from './components/overview/RecentTransactionsTable';
-import { InvestigationPanel } from './components/overview/InvestigationPanel';
+import { InvestigationPanel as OverviewInvestigationCard } from './components/overview/InvestigationPanel';
+import { InvestigationPanel as AutonomousInvestigationView } from './features/investigation/InvestigationPanel';
 import { TransactionExplorer } from './components/explorer/TransactionExplorer';
 import { CycleDetectionView } from './components/patterns/CycleDetectionView';
 import { PlaceholderView } from './components/common/PlaceholderView';
@@ -139,9 +140,15 @@ export const App: React.FC = () => {
                   onSelectAccount={handleSelectAccount}
                   onRefresh={fetchTransactions}
                 />
-                <InvestigationPanel />
+                <OverviewInvestigationCard onLaunchInvestigation={() => setCurrentTab('investigations')} />
               </div>
             </>
+          )}
+
+          {currentTab === 'investigations' && (
+            <AutonomousInvestigationView
+              onInspectAccount={handleSelectAccount}
+            />
           )}
 
           {currentTab === 'explorer' && (
@@ -157,7 +164,7 @@ export const App: React.FC = () => {
             />
           )}
 
-          {currentTab !== 'overview' && currentTab !== 'explorer' && currentTab !== 'patterns' && (
+          {currentTab !== 'overview' && currentTab !== 'investigations' && currentTab !== 'explorer' && currentTab !== 'patterns' && (
             <PlaceholderView
               tab={currentTab}
               onBackToOverview={() => setCurrentTab('overview')}

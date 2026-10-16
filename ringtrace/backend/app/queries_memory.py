@@ -186,3 +186,54 @@ SET act.type = $type,
 MERGE (c)-[:HAS_PROPOSED_ACTION]->(act)
 """
 
+# Record a human analyst decision and update Case.status in memory
+RECORD_DECISION_CYPHER = """
+MATCH (c:Case {id: $case_id})
+MERGE (d:Decision {decision_id: $decision_id})
+SET d.decision = $decision,
+    d.note = $note,
+    d.actor = $actor,
+    d.ts = $ts
+MERGE (c)-[:DECIDED]->(d)
+SET c.status = $case_status,
+    c.updated_at = $ts
+"""
+
+# Query ProposedAction by action_id
+GET_PROPOSED_ACTION_BY_ID = """
+MATCH (c:Case)-[:HAS_PROPOSED_ACTION]->(act:ProposedAction {action_id: $action_id})
+RETURN act.action_id, act.type, act.reason, act.status, act.created_at, c.id
+"""
+
+# Update ProposedAction status (e.g. approved or rejected)
+UPDATE_PROPOSED_ACTION_STATUS = """
+MATCH (act:ProposedAction {action_id: $action_id})
+SET act.status = $status,
+    act.resolved_at = $ts
+"""
+
+# Persist an Investigation node in memory
+SAVE_INVESTIGATION_CYPHER = """
+MATCH (c:Case {id: $case_id})
+MERGE (i:Investigation {id: $investigation_id})
+SET i.mode = $mode,
+    i.status = $status,
+    i.assessment = $assessment,
+    i.ts = $ts
+MERGE (i)-[:ABOUT]->(c)
+"""
+
+# Retrieve an Investigation by ID
+GET_INVESTIGATION_BY_ID = """
+MATCH (i:Investigation {id: $investigation_id})-[:ABOUT]->(c:Case)
+RETURN i.id, c.id, i.mode, i.status, i.assessment, i.ts
+"""
+
+# Retrieve all Investigations for a specific case
+GET_INVESTIGATIONS_BY_CASE = """
+MATCH (i:Investigation)-[:ABOUT]->(c:Case {id: $case_id})
+RETURN i.id, c.id, i.mode, i.status, i.assessment, i.ts
+ORDER BY i.ts DESC
+"""
+
+

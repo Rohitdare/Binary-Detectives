@@ -1,7 +1,11 @@
 import React from 'react';
 import { FileSearch, Clock, ShieldAlert } from 'lucide-react';
 
-export const InvestigationPanel: React.FC = () => {
+interface InvestigationPanelProps {
+  onLaunchInvestigation?: () => void;
+}
+
+export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({ onLaunchInvestigation }) => {
   return (
     <div className="rt-card" style={{ width: '360px', display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1rem' }}>
@@ -44,11 +48,20 @@ export const InvestigationPanel: React.FC = () => {
         </div>
         <div>
           <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
-            No Active Cases Yet
+            Autonomous Agent Cockpit
           </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
-            Cases and automated graph findings will appear here once the detection and reasoning agent workflows are executed.
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.4, marginBottom: '0.75rem' }}>
+            Investigate seeded cases (CASE_0001, CASE_0002) with the 8-tool graph engine and live SSE streams.
           </div>
+          {onLaunchInvestigation && (
+            <button
+              onClick={onLaunchInvestigation}
+              className="rt-button rt-button-primary rt-button-sm"
+              style={{ width: '100%' }}
+            >
+              Open Investigation Cockpit →
+            </button>
+          )}
         </div>
 
         <div style={{ width: '100%', marginTop: '0.75rem', borderTop: '1px solid var(--border-subtle)', paddingTop: '0.75rem' }}>

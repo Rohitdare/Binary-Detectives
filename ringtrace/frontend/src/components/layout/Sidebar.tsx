@@ -28,7 +28,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { id: 'overview', label: 'Overview', icon: Activity },
   { id: 'explorer', label: 'Transaction Explorer', icon: Compass },
-  { id: 'investigations', label: 'Investigations', icon: FileSearch, badge: 'Soon', isPlaceholder: true },
+  { id: 'investigations', label: 'Investigations', icon: FileSearch, badge: 'Live', isPlaceholder: false },
   { id: 'patterns', label: 'Detection Patterns', icon: Network, badge: 'Planned', isPlaceholder: true },
   { id: 'evidence', label: 'Evidence & Findings', icon: Layers, badge: 'Planned', isPlaceholder: true },
   { id: 'settings', label: 'Settings', icon: Settings, isPlaceholder: true },

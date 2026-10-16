@@ -60,5 +60,62 @@ export const ringtraceApi = {
     );
     return handleResponse<import('../types').CycleDetectionResponse>(res);
   },
+
+  // --- Member B: Investigation & Memory Endpoints (/api/v1) ---
+  async startInvestigation(caseId: string): Promise<{ investigation_id: string; status: string }> {
+    const res = await fetch(`/api/v1/cases/${encodeURIComponent(caseId)}/investigations`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return handleResponse<{ investigation_id: string; status: string }>(res);
+  },
+
+  async getInvestigation(investigationId: string): Promise<import('../types').InvestigationResult> {
+    const res = await fetch(`/api/v1/investigations/${encodeURIComponent(investigationId)}`);
+    return handleResponse<import('../types').InvestigationResult>(res);
+  },
+
+  async getCaseInvestigations(caseId: string): Promise<{ items: import('../types').InvestigationResult[]; total: number }> {
+    const res = await fetch(`/api/v1/cases/${encodeURIComponent(caseId)}/investigations`);
+    return handleResponse<{ items: import('../types').InvestigationResult[]; total: number }>(res);
+  },
+
+  async getSimilarCases(caseId: string, limit = 5): Promise<import('../types').SimilarCasesResponse> {
+    const res = await fetch(`/api/v1/cases/${encodeURIComponent(caseId)}/similar?limit=${limit}`);
+    return handleResponse<import('../types').SimilarCasesResponse>(res);
+  },
+
+  async recordDecision(
+    caseId: string,
+    decision: 'escalate' | 'monitor' | 'dismiss',
+    note: string,
+    actor = 'analyst_1'
+  ): Promise<import('../types').DecisionRecord> {
+    const res = await fetch(`/api/v1/cases/${encodeURIComponent(caseId)}/decisions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ decision, note, actor }),
+    });
+    return handleResponse<import('../types').DecisionRecord>(res);
+  },
+
+  async getCaseDecisions(caseId: string): Promise<{ items: import('../types').DecisionRecord[]; total: number }> {
+    const res = await fetch(`/api/v1/cases/${encodeURIComponent(caseId)}/decisions`);
+    return handleResponse<{ items: import('../types').DecisionRecord[]; total: number }>(res);
+  },
+
+  async approveAction(actionId: string): Promise<any> {
+    const res = await fetch(`/api/v1/actions/${encodeURIComponent(actionId)}/approve`, {
+      method: 'POST',
+    });
+    return handleResponse<any>(res);
+  },
+
+  async rejectAction(actionId: string): Promise<any> {
+    const res = await fetch(`/api/v1/actions/${encodeURIComponent(actionId)}/reject`, {
+      method: 'POST',
+    });
+    return handleResponse<any>(res);
+  },
 };
 
