@@ -1,1 +1,1 @@
-"""HTTP routes grouped by RingTrace ownership."""
+"""API package and HTTP routes grouped by RingTrace ownership."""

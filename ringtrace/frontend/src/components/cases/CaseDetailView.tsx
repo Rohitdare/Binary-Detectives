@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Copy, Check, ShieldAlert, FileText, Share2, Layers, Network } from 'lucide-react';
+import { Copy, Check, ShieldAlert, FileText, Share2, Layers, Network, Bot } from 'lucide-react';
 import type { CaseDetail, CaseGraphData } from '../../types';
 import { CaseGraphCanvas } from './CaseGraphCanvas';
 import { CaseScoreBreakdownView } from './CaseScoreBreakdownView';
@@ -13,6 +13,7 @@ interface CaseDetailViewProps {
   error: { status?: number; code?: string; message: string } | null;
   onSelectAccount: (accountId: string) => void;
   onRetry?: () => void;
+  onLaunchAgentInvestigation?: (caseId: string) => void;
 }
 
 type DetailTab = 'graph' | 'transactions' | 'hits' | 'scoring';
@@ -30,6 +31,7 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
   error,
   onSelectAccount,
   onRetry,
+  onLaunchAgentInvestigation,
 }) => {
   const [activeTab, setActiveTab] = useState<DetailTab>('graph');
   const [selectedTxId, setSelectedTxId] = useState<string | null>(null);
@@ -210,6 +212,17 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            {onLaunchAgentInvestigation && (
+              <button
+                onClick={() => onLaunchAgentInvestigation(caseDetail.case_id)}
+                className="rt-button rt-button-primary rt-button-sm"
+                style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.75rem', fontWeight: 600 }}
+                title="Launch Member B Autonomous AI Agent on this case"
+              >
+                <Bot size={13} />
+                <span>Investigate with AI →</span>
+              </button>
+            )}
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontSize: '0.675rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Triage Score</div>
               <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)' }}>

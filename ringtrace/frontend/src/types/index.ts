@@ -291,6 +291,68 @@ export interface CaseDecision {
   ts: string;
 }
 
+export interface InvestigationStep {
+  step?: number;
+  index?: number;
+  tool: string;
+  args: Record<string, any>;
+  summary: string;
+  evidence: {
+    account_ids: string[];
+    tx_ids: string[];
+  };
+}
+
+export interface Finding {
+  id?: string;
+  text: string;
+  evidence_ids?: string[];
+}
+
+export interface SimilarCaseCitation {
+  case_id: string;
+  outcome?: string;
+  reason?: string;
+}
+
+export interface InvestigationAssessment {
+  risk_level: 'low' | 'medium' | 'high';
+  summary: string;
+  narrative: string;
+  findings: Finding[];
+  similar_cases: SimilarCaseCitation[];
+}
+
+export interface ProposedAction {
+  action_id: string;
+  case_id?: string;
+  type: 'escalate' | 'monitor' | 'dismiss' | 'draft_sar';
+  reason: string;
+  status: 'pending' | 'approved' | 'rejected';
+  created_at?: string;
+}
+
+export interface InvestigationResult {
+  investigation_id: string;
+  case_id: string;
+  status: 'running' | 'done' | 'error';
+  mode: 'llm' | 'fallback';
+  steps: InvestigationStep[];
+  assessment?: InvestigationAssessment | null;
+  proposed_action?: ProposedAction | null;
+  error?: string | null;
+  created_at?: string;
+}
+
+export interface DecisionRecord {
+  decision_id: string;
+  case_id: string;
+  decision: 'escalate' | 'monitor' | 'dismiss';
+  note: string;
+  actor: string;
+  ts: string;
+}
+
 export interface CaseDetail extends CaseRecord {
   hits: CaseHit[];
   transactions: CaseTransaction[];
@@ -338,6 +400,39 @@ export interface ScanStatus {
   limitations?: string[];
   skipped_non_case_generating_hit_ids?: string[];
   skipped_oversized_hit_ids?: string[];
+}
+
+export interface SimilarCaseItem {
+  case_id: string;
+  match: string;
+  shared_account_ids: string[];
+  outcome: string | null;
+  decided_at?: string | null;
+  score?: number | null;
+  patterns?: string[];
+}
+
+export interface SimilarCasesResponse {
+  items: SimilarCaseItem[];
+  next_cursor?: string | null;
+}
+
+export interface StreamStatus {
+  state: 'idle' | 'running' | 'paused' | 'stopped';
+  sent: number;
+  total: number;
+  batch_size: number;
+  current_index?: number;
+}
+
+export interface DemoResetResponse {
+  status: string;
+  removed_demo_accounts: number;
+  removed_demo_edges: number;
+  memory_cleared: boolean;
+  replay_reset: boolean;
+  reseeded: boolean;
+  cases_seeded: number;
 }
 
 
