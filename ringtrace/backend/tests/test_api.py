@@ -78,6 +78,34 @@ class TestRingTraceAPI(unittest.TestCase):
         self.assertGreater(len(res), 0)
         self.assertTrue(all("ACC_0000" in acc["id"] for acc in res))
 
+    def test_fan_in_endpoint(self):
+        resp = self.client.get("/api/detectors/fan-in?limit=5")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data["status"], "success")
+        self.assertEqual(data["pattern"], "fan_in")
+        self.assertIn("hits", data)
+        self.assertIn("truncated", data)
+        self.assertIsInstance(data["hits"], list)
+
+    def test_fan_out_endpoint(self):
+        resp = self.client.get("/api/detectors/fan-out?limit=5")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data["status"], "success")
+        self.assertEqual(data["pattern"], "fan_out")
+        self.assertIn("hits", data)
+        self.assertIn("truncated", data)
+        self.assertIsInstance(data["hits"], list)
+
+    def test_fan_in_validation_error(self):
+        resp = self.client.get("/api/detectors/fan-in?min_senders=1")
+        self.assertEqual(resp.status_code, 422)
+
+    def test_fan_out_validation_error(self):
+        resp = self.client.get("/api/detectors/fan-out?min_receivers=1")
+        self.assertEqual(resp.status_code, 422)
+
 
 if __name__ == "__main__":
     unittest.main()

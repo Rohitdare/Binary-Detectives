@@ -5,6 +5,7 @@ import type {
   SearchResultAccount,
   SystemStats,
   TransactionRecord,
+  DetectorRunResponse,
 } from '../types';
 
 const API_BASE = '/api';
@@ -59,6 +60,25 @@ export const ringtraceApi = {
       `${API_BASE}/detectors/cycles?min_length=${minLength}&max_length=${maxLength}&limit=${limit}`
     );
     return handleResponse<import('../types').CycleDetectionResponse>(res);
+  },
+
+  async detectFanIn(minSenders = 8, windowHours = 48, limit = 50): Promise<DetectorRunResponse> {
+    const res = await fetch(
+      `${API_BASE}/detectors/fan-in?min_senders=${minSenders}&window_hours=${windowHours}&limit=${limit}`
+    );
+    return handleResponse<DetectorRunResponse>(res);
+  },
+
+  async detectFanOut(minReceivers = 8, windowHours = 48, limit = 50): Promise<DetectorRunResponse> {
+    const res = await fetch(
+      `${API_BASE}/detectors/fan-out?min_receivers=${minReceivers}&window_hours=${windowHours}&limit=${limit}`
+    );
+    return handleResponse<DetectorRunResponse>(res);
+  },
+
+  async evaluateCycles(limit = 50): Promise<import('../types').CycleEvaluationReport> {
+    const res = await fetch(`${API_BASE}/evaluate/cycles?limit=${limit}`);
+    return handleResponse<import('../types').CycleEvaluationReport>(res);
   },
 };
 

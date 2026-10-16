@@ -29,7 +29,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'overview', label: 'Overview', icon: Activity },
   { id: 'explorer', label: 'Transaction Explorer', icon: Compass },
   { id: 'investigations', label: 'Investigations', icon: FileSearch, badge: 'Soon', isPlaceholder: true },
-  { id: 'patterns', label: 'Detection Patterns', icon: Network, badge: 'Planned', isPlaceholder: true },
+  { id: 'patterns', label: 'Detection Results', icon: Network, badge: '3 ready' },
   { id: 'evidence', label: 'Evidence & Findings', icon: Layers, badge: 'Planned', isPlaceholder: true },
   { id: 'settings', label: 'Settings', icon: Settings, isPlaceholder: true },
 ];

@@ -130,6 +130,30 @@ h1, h2, h3, h4 {
   border: 1px solid transparent;
 }
 
+.rt-badge-cyan {
+  background: rgba(56, 189, 248, 0.1);
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.25);
+}
+
+.rt-badge-emerald {
+  background: rgba(16, 185, 129, 0.1);
+  color: #34d399;
+  border-color: rgba(16, 185, 129, 0.25);
+}
+
+.rt-badge-rose {
+  background: rgba(244, 63, 94, 0.1);
+  color: #fb7185;
+  border-color: rgba(244, 63, 94, 0.25);
+}
+
+.rt-badge-gray {
+  background: rgba(148, 163, 184, 0.1);
+  color: #cbd5e1;
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
 .badge-personal {
   background: rgba(148, 163, 184, 0.1);
   color: #94a3b8;
@@ -248,6 +272,96 @@ h1, h2, h3, h4 {
 
 .rt-table tr:hover td {
   background-color: rgba(30, 41, 59, 0.35);
+}
+
+.detection-workbench-grid {
+  display: grid;
+  grid-template-columns: minmax(190px, 0.7fr) minmax(280px, 1.1fr) minmax(300px, 1.2fr);
+  gap: 0.85rem;
+  align-items: start;
+}
+
+.detection-graph {
+  width: 100%;
+  height: 550px;
+  margin-top: 0.6rem;
+  background: #070b12;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+}
+
+.detection-hit-button {
+  width: 100%;
+  text-align: left;
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 0.65rem;
+  background: var(--bg-tertiary);
+  cursor: pointer;
+}
+
+.detection-hit-button[aria-pressed="true"] {
+  border-color: var(--accent-cyan);
+  background: rgba(14, 165, 233, 0.1);
+}
+
+.detection-measures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.45rem;
+}
+
+.detection-measures > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.5rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 5px;
+  font-size: 0.7rem;
+  text-transform: capitalize;
+}
+
+.detection-selected-tx {
+  padding: 0.55rem;
+  margin-top: 0.65rem;
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  border-radius: 5px;
+  background: rgba(251, 191, 36, 0.06);
+}
+
+.account-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-cyan);
+  cursor: pointer;
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+}
+
+.detection-tx-table td {
+  padding: 0.5rem 0.4rem;
+  font-size: 0.68rem;
+}
+
+@media (max-width: 1150px) {
+  .detection-workbench-grid {
+    grid-template-columns: minmax(180px, 0.6fr) minmax(280px, 1.2fr);
+  }
+  .detection-workbench-grid > :last-child {
+    grid-column: 1 / -1;
+  }
+  .detection-graph { height: 440px; }
+}
+
+@media (max-width: 700px) {
+  .detection-workbench-grid { grid-template-columns: minmax(0, 1fr); }
+  .detection-workbench-grid > :last-child { grid-column: auto; }
+  .detection-graph { height: 340px; }
 }
 
 /* Cytoscape Container */

@@ -52,15 +52,45 @@
 
 ---
 
+- [x] **Fan-In & Fan-Out Transaction Detectors (Phase 4):**
+  - Centralized Cypher queries (`FIND_FAN_IN_CANDIDATES`, `GET_ACCOUNT_INCOMING_TRANSFERS`, `FIND_FAN_OUT_CANDIDATES`, `GET_ACCOUNT_OUTGOING_TRANSFERS`) in `backend/app/queries.py` with degree indexing and safe pagination.
+  - Rolling 48-hour window burst algorithms in `backend/app/detectors/fan_in.py` and `backend/app/detectors/fan_out.py` retaining complete evidence (all transaction IDs, including parallel transfers between identical counterparties).
+  - Business context preservation: Neither 'personal' accounts are automatically marked suspicious nor 'merchant'/'payroll' accounts automatically marked benign. Explicit suspicion criteria evaluate structuring share, counterparty velocity, and empirical recurrence.
+  - Empirical payroll recurrence: Origin historical transactions are evaluated for monthly batches (~20-40 days apart) to distinguish legitimate payroll runs from rapid anomalous dispersals.
+  - Configurable simulator structuring range (defaults to ₹42,500–₹49,500) as an empirical indicator, avoiding brittle hardcoded legal assumptions.
+  - Endpoints: `GET /api/detectors/fan-in`, `GET /api/detectors/fan-out` (with `/api/v1/...` aliases).
+  - Automated test suite: `backend/tests/test_fan_detectors.py` (9/9 tests passed in 0.18s on isolated test graphs, covering positive fixtures, negative window expirations, parallel edge retention, benign merchant handling, and recurring payroll).
+
+---
+
+## 2. Ingestion & Database Metrics
+
+- **Accounts in `txn` Graph:** 3,000 nodes.
+- **Transactions in `txn` Graph:** 40,661 `[:SENT]` edges.
+- **Backend API Latency:** < 15ms for stats and recent transactions; ~35ms for graph topology samples.
+- **Label Leakage:** 0 leaked label properties in `txn` graph.
+- **Automated Test Suite:** 34/34 tests passing across full backend test suite (`unittest discover -s tests`).
+
+---
+
 ## 3. Next Recommended Development Tasks
 
-1. **Task 1 — Core Detector Suite Implementation (`backend/app/detectors/`):**
-   Implement Cypher-based detection queries:
-   - `cycle_detector.py` (time-respecting forward path check and 80-100% amount conservation)
-   - `fan_in_detector.py` (structuring detection < ₹50k with merchant exclusions)
-   - `fan_out_detector.py` (dispersal detection with payroll exclusions)
+1. **Task 1 — Core Detector Suite Completion (`backend/app/detectors/`):**
    - `relay_chain_detector.py` (multi-hop layering with hop decay)
-2. **Task 2 — Autonomous Investigation Agent:**
-   Implement case reasoning agent to build explainable SAR narratives from detected graph subgraphs.
-3. **Task 3 — Benchmark Evaluator:**
-   Evaluate detector Precision, Recall, and F1 against the isolated `labels` graph.
+   - `scatter_gather_detector.py` / `gather_scatter_detector.py`
+2. **Task 2 — Case Builder & Priority Scorer (`backend/app/cases/`):**
+   - Union-find / connected components clustering over detected hits with 60-account cap.
+   - Heuristic 0–100 priority scoring breakdown (severity, amount, velocity, account count, corroboration).
+3. **Task 3 — Standalone Ground-Truth Benchmark Evaluator:**
+   - Independent evaluation of fan_in and fan_out precision/recall against `labels`.
+
+---
+
+## Detection UX and Bounded Cycle Search — 2026-10-16
+
+- Replaced cycle detection's 3–5 hop graph-wide path enumeration with one bounded transaction-edge read followed by timestamp-ordered, amount-pruned search in Python. Result, edge-scan, and search-work caps are reported explicitly; canonical transaction evidence remains attached to every cycle.
+- Cycle candidates now carry a `suspicious` review flag only when the observed cycle is fast and retains the configured amount criteria. A graph-pattern match is not represented as confirmed fraud or a probability.
+- Fan-in and fan-out results now carry their actual transaction records in addition to IDs. The Overview lists only the three connected detectors, and the results workspace displays returned accounts, directed transfers, measurements, and transaction evidence.
+- Cycle API responses include measured elapsed time, edges scanned, path-search steps, and suspicious candidate count; the versioned cycle route is available as an additive alias.
+- Verification in this workspace: 7 isolated detector/API-function unit tests passed; frontend production build passed. The running FalkorDB service is not accessible from this environment, so the existing graph integration suites and detection against the loaded `txn` graph were not run here.
+- Remaining work: verify detector latency and hit counts against the live `txn` graph when FalkorDB is available; implement case aggregation/scoring separately before showing a review queue count.

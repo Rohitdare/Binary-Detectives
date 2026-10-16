@@ -12,8 +12,9 @@ import {
   Sliders,
   Info,
   Layers,
+  Award,
 } from 'lucide-react';
-import type { CycleCandidate } from '../../types';
+import type { CycleCandidate, CycleDetectionResponse, CycleEvaluationReport } from '../../types';
 import { ringtraceApi } from '../../services/api';
 
 interface CycleDetectionViewProps {
@@ -26,10 +27,15 @@ export const CycleDetectionView: React.FC<CycleDetectionViewProps> = ({ onInspec
   const [limit, setLimit] = useState<number>(50);
 
   const [loading, setLoading] = useState<boolean>(false);
+  const [evaluating, setEvaluating] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [detectionResponse, setDetectionResponse] = useState<CycleDetectionResponse | null>(null);
   const [candidates, setCandidates] = useState<CycleCandidate[]>([]);
   const [selectedCycle, setSelectedCycle] = useState<CycleCandidate | null>(null);
   const [hasRun, setHasRun] = useState<boolean>(false);
+
+  const [evaluationReport, setEvaluationReport] = useState<CycleEvaluationReport | null>(null);
 
   const cyContainerRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<Core | null>(null);
@@ -43,6 +49,7 @@ export const CycleDetectionView: React.FC<CycleDetectionViewProps> = ({ onInspec
     setError(null);
     try {
       const resp = await ringtraceApi.detectCycles(minLength, maxLength, limit);
+      setDetectionResponse(resp);
       setCandidates(resp.cycles);
       setHasRun(true);
       if (resp.cycles.length > 0) {
@@ -56,6 +63,19 @@ export const CycleDetectionView: React.FC<CycleDetectionViewProps> = ({ onInspec
       setSelectedCycle(null);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRunEvaluation = async () => {
+    setEvaluating(true);
+    setError(null);
+    try {
+      const rep = await ringtraceApi.evaluateCycles(limit);
+      setEvaluationReport(rep);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to execute cycle benchmark evaluation.');
+    } finally {
+      setEvaluating(false);
     }
   };
 
@@ -101,7 +121,7 @@ export const CycleDetectionView: React.FC<CycleDetectionViewProps> = ({ onInspec
             'font-weight': 600,
             'text-valign': 'bottom',
             'text-margin-y': 6,
-            'background-color': '#334155',
+            'background-color': '#1e293b',
             'border-width': 2,
             'border-color': '#0ea5e9',
             'width': 34,
@@ -111,8 +131,8 @@ export const CycleDetectionView: React.FC<CycleDetectionViewProps> = ({ onInspec
         {
           selector: 'node[?isStart]',
           style: {
-            'background-color': '#2563eb',
-            'border-color': '#60a5fa',
+            'background-color': '#0284c7',
+            'border-color': '#38bdf8',
             'border-width': 3,
             'width': 40,
             'height': 40,
@@ -167,19 +187,39 @@ export const CycleDetectionView: React.FC<CycleDetectionViewProps> = ({ onInspec
               <span className="rt-badge rt-badge-cyan" style={{ fontSize: '0.7rem' }}>FalkorDB Cypher Engine</span>
             </div>
             <p className="text-secondary" style={{ fontSize: '0.85rem', margin: 0, maxWidth: '780px' }}>
-              Identifies closed money loops (<code className="mono">A → B → C → ... → A</code>) in the transaction graph with canonical rotation deduplication and complete transaction evidence.
+              Identifies closed money loops (<code className="mono">A → B → C → ... → A</code>) with canonical edge rotation,
+              strict inter-hop temporal ordering, bounded laundering retention, and transaction evidence.
             </p>
           </div>
 
-          <button
-            onClick={handleRunDetection}
-            disabled={loading}
-            className="rt-button rt-button-primary"
-            style={{ minWidth: '170px' }}
-          >
-            <Play size={15} className={loading ? 'spin' : ''} />
-            <span>{loading ? 'Analyzing Graph...' : 'Run Cycle Detection'}</span>
-          </button>
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+            <button
+              onClick={handleRunDetection}
+              disabled={loading}
+              className="rt-button rt-button-primary"
+              style={{ minWidth: '170px' }}
+            >
+              <Play size={15} className={loading ? 'spin' : ''} />
+              <span>{loading ? 'Analyzing Graph...' : 'Run Cycle Detection'}</span>
+            </button>
+            <button
+              onClick={handleRunEvaluation}
+              disabled={evaluating}
+              className="rt-button"
+              style={{
+                backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                border: '1px solid rgba(56, 189, 248, 0.3)',
+                color: '#38bdf8',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+              }}
+              title="Run independent evaluation against simulator ground-truth labels"
+            >
+              <Award size={15} className={evaluating ? 'spin' : ''} />
+              <span>{evaluating ? 'Evaluating...' : 'Evaluate Benchmark'}</span>
+            </button>
+          </div>
         </div>
 
         {/* Configuration Parameters */}
@@ -246,8 +286,87 @@ export const CycleDetectionView: React.FC<CycleDetectionViewProps> = ({ onInspec
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem', color: 'var(--text-secondary)', marginLeft: 'auto' }}>
             <Info size={13} />
-            <span>Canonical node ordering (<code className="mono">a.id &lt; b.id...</code>) guarantees zero rotational duplicate cycles.</span>
+            <span>Canonical edge rotation by smallest <code className="mono">tx_id</code> preserves edge order and handles parallel links.</span>
           </div>
+        </div>
+      </div>
+
+      {/* Operational & Evaluation Metrics Strip */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+        {/* Metric 1: Configured Limit */}
+        <div className="rt-card" style={{ padding: '1rem 1.25rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>CONFIGURED LIMIT</span>
+            <Sliders size={15} className="text-secondary" />
+          </div>
+          <div style={{ fontSize: '1.4rem', fontWeight: 700 }}>{limit}</div>
+          <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Max candidates requested</span>
+        </div>
+
+        {/* Metric 2: Candidates Returned */}
+        <div className="rt-card" style={{ padding: '1rem 1.25rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>CANDIDATES RETURNED</span>
+            <Layers size={15} className="text-accent-cyan" />
+          </div>
+          <div style={{ fontSize: '1.4rem', fontWeight: 700, color: hasRun ? '#38bdf8' : 'inherit' }}>
+            {hasRun ? candidates.length : '—'}
+          </div>
+          <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+            {hasRun ? `Lengths ${minLength}–${maxLength} hops` : 'Ready to execute'}
+          </span>
+        </div>
+
+        {/* Metric 3: Truncation Flag */}
+        <div className="rt-card" style={{ padding: '1rem 1.25rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>TRUNCATION STATUS</span>
+            <Clock size={15} className="text-secondary" />
+          </div>
+          <div style={{ fontSize: '1.1rem', fontWeight: 700, marginTop: '0.2rem' }}>
+            {detectionResponse ? (
+              detectionResponse.truncated ? (
+                <span className="rt-badge rt-badge-rose" style={{ fontSize: '0.75rem' }}>
+                  Truncated ({detectionResponse.truncation_reason || 'result_limit'})
+                </span>
+              ) : (
+                <span className="rt-badge rt-badge-emerald" style={{ fontSize: '0.75rem' }}>
+                  Full Results (Not Truncated)
+                </span>
+              )
+            ) : (
+              <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>—</span>
+            )}
+          </div>
+          <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Search limit boundary</span>
+        </div>
+
+        {/* Metric 4: Evaluation Benchmark */}
+        <div className="rt-card" style={{ padding: '1rem 1.25rem', backgroundColor: evaluationReport ? 'rgba(56, 189, 248, 0.05)' : 'var(--bg-secondary)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>GROUND-TRUTH BENCHMARK</span>
+            <Award size={15} className={evaluationReport ? 'text-accent-cyan' : 'text-secondary'} />
+          </div>
+          {evaluationReport ? (
+            <div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
+                <span style={{ fontSize: '1.3rem', fontWeight: 700, color: '#10b981' }}>
+                  {(evaluationReport.metrics.exact_recall * 100).toFixed(0)}% Recall
+                </span>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                  ({evaluationReport.matching_results.exact_matches_count}/{evaluationReport.ground_truth_summary.planted_fraud_cycle_alerts} exact)
+                </span>
+              </div>
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                Precision: {(evaluationReport.metrics.precision * 100).toFixed(0)}% · Benign FP: {Object.values(evaluationReport.matching_results.benign_false_positives).reduce((a, b) => a + b, 0)}
+              </span>
+            </div>
+          ) : (
+            <div>
+              <div style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Not evaluated</div>
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Click "Evaluate Benchmark"</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -301,7 +420,7 @@ export const CycleDetectionView: React.FC<CycleDetectionViewProps> = ({ onInspec
           <CheckCircle2 size={36} className="text-accent-emerald" style={{ margin: '0 auto 1rem auto' }} />
           <h3 style={{ fontSize: '1.15rem', fontWeight: 600, marginBottom: '0.5rem' }}>No Cycles Detected</h3>
           <p className="text-secondary" style={{ fontSize: '0.875rem' }}>
-            No directed cycles meeting the criteria (length {minLength}–{maxLength}) were found within the limit.
+            No directed cycles meeting the criteria (length {minLength}–{maxLength}) were found within the configured limit.
           </p>
         </div>
       )}
@@ -309,14 +428,14 @@ export const CycleDetectionView: React.FC<CycleDetectionViewProps> = ({ onInspec
       {candidates.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem', alignItems: 'start' }}>
           {/* Left Column: Candidates List */}
-          <div className="rt-card" style={{ padding: '1rem', maxHeight: '720px', display: 'flex', flexDirection: 'column' }}>
+          <div className="rt-card" style={{ padding: '1rem', maxHeight: '760px', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '0.75rem', borderBottom: '1px solid var(--border-color)', marginBottom: '0.75rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <Layers size={16} className="text-accent-cyan" />
                 <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>Detected Cycle Candidates</span>
                 <span className="rt-badge rt-badge-cyan" style={{ fontSize: '0.7rem' }}>{candidates.length}</span>
               </div>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Click to inspect</span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Click to view topology</span>
             </div>
 
             <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem', paddingRight: '4px' }}>
@@ -343,15 +462,9 @@ export const CycleDetectionView: React.FC<CycleDetectionViewProps> = ({ onInspec
                         <span className="rt-badge rt-badge-gray" style={{ fontSize: '0.68rem' }}>
                           {cand.cycle_length} hops
                         </span>
-                        {cand.is_time_ordered ? (
-                          <span className="rt-badge rt-badge-rose" style={{ fontSize: '0.68rem', display: 'flex', alignItems: 'center', gap: '2px' }}>
-                            <Clock size={10} /> Chronological
-                          </span>
-                        ) : (
-                          <span className="rt-badge rt-badge-gray" style={{ fontSize: '0.68rem' }}>
-                            Disordered
-                          </span>
-                        )}
+                        <span className="rt-badge rt-badge-rose" style={{ fontSize: '0.68rem', display: 'flex', alignItems: 'center', gap: '2px' }}>
+                          <Clock size={10} /> Time-Ordered
+                        </span>
                       </div>
                     </div>
 
@@ -366,9 +479,9 @@ export const CycleDetectionView: React.FC<CycleDetectionViewProps> = ({ onInspec
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                      <span>Total Flow: <strong style={{ color: 'var(--text-primary)' }}>${cand.total_amount.toLocaleString()}</strong></span>
-                      <span>Conservation: <strong style={{ color: 'var(--text-primary)' }}>{(cand.amount_conservation_ratio * 100).toFixed(1)}%</strong></span>
-                      <span>Span: {Math.round(cand.duration_seconds / 3600)}h</span>
+                      <span>Total Flow: <strong style={{ color: 'var(--text-primary)' }}>${(cand.total_flow || cand.total_amount).toLocaleString()}</strong></span>
+                      <span>Retention: <strong style={{ color: 'var(--text-primary)' }}>{((cand.retention || cand.amount_conservation_ratio) * 100).toFixed(1)}%</strong></span>
+                      <span>Span: {Math.round((cand.time_span || cand.duration_seconds) / 3600)}h</span>
                     </div>
                   </div>
                 );
@@ -407,8 +520,10 @@ export const CycleDetectionView: React.FC<CycleDetectionViewProps> = ({ onInspec
               {/* Supporting Evidence Breakdown */}
               <div className="rt-card" style={{ padding: '1.25rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-                  <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>Supporting Transactions ({selectedCycle.transactions.length})</span>
-                  <span className="rt-badge rt-badge-cyan" style={{ fontSize: '0.7rem' }}>Verified Evidence</span>
+                  <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>
+                    Supporting Transactions ({selectedCycle.transactions.length})
+                  </span>
+                  <span className="rt-badge rt-badge-cyan" style={{ fontSize: '0.7rem' }}>Real Edge Evidence</span>
                 </div>
 
                 {/* Explanation text */}
@@ -423,6 +538,22 @@ export const CycleDetectionView: React.FC<CycleDetectionViewProps> = ({ onInspec
                   borderLeft: '3px solid var(--accent-cyan)'
                 }}>
                   {selectedCycle.explanation}
+                </div>
+
+                {/* Derived Metrics Grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.6rem', marginBottom: '1rem' }}>
+                  <div style={{ padding: '0.5rem', backgroundColor: 'var(--bg-primary)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}>
+                    <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>TOTAL FLOW</div>
+                    <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>${(selectedCycle.total_flow || selectedCycle.total_amount).toLocaleString()}</div>
+                  </div>
+                  <div style={{ padding: '0.5rem', backgroundColor: 'var(--bg-primary)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}>
+                    <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>RETENTION</div>
+                    <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#10b981' }}>{((selectedCycle.retention || selectedCycle.amount_conservation_ratio) * 100).toFixed(1)}%</div>
+                  </div>
+                  <div style={{ padding: '0.5rem', backgroundColor: 'var(--bg-primary)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}>
+                    <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>TIME SPAN</div>
+                    <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>{Math.round((selectedCycle.time_span || selectedCycle.duration_seconds) / 3600)}h</div>
+                  </div>
                 </div>
 
                 {/* Transaction details table */}

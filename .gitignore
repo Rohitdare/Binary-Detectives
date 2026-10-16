@@ -3,15 +3,6 @@
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
-# Documentation (Explicitly Included and Protected)
-# ------------------------------------------------------------------------------
-!*.md
-!docs/
-!docs/**
-!ringtrace/docs/
-!ringtrace/docs/**
-
-# ------------------------------------------------------------------------------
 # Python & Virtual Environments
 # ------------------------------------------------------------------------------
 .venv/
@@ -19,41 +10,30 @@ venv/
 ENV/
 env/
 __pycache__/
+**/__pycache__/
 *.py[cod]
 *$py.class
 *.so
 .pytest_cache/
+**/.pytest_cache/
 .coverage
 htmlcov/
 .tox/
 
 # ------------------------------------------------------------------------------
-# Generated Simulator Data & Replay Files
+# Node & Frontend (React / Vite)
 # ------------------------------------------------------------------------------
-# Generated data files from simulate.py (can be regenerated with seed)
-data/sim/
-data/sim*/
-data/test_sim/
-data/generated/
-**/data/sim/
-**/data/sim*/
-**/data/test_sim/
-**/data/generated/
-**/replay.csv
-
-# Keep directory structure and sample fixtures if needed
-!.gitkeep
-!data/samples/
-!**/data/samples/**
-
-# ------------------------------------------------------------------------------
-# Logs & Runtime Execution Traces
-# ------------------------------------------------------------------------------
-logs/
-**/logs/
-*.log
-*.jsonl
-!docs/QUERY_LOG.md
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+build/
+**/build/
+.next/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
 # ------------------------------------------------------------------------------
 # Environment Variables & Secrets
@@ -65,30 +45,51 @@ logs/
 *.key
 
 # ------------------------------------------------------------------------------
+# Logs & Runtime Execution Traces
+# ------------------------------------------------------------------------------
+logs/
+**/logs/
+*.log
+*.jsonl
+!docs/QUERY_LOG.md
+
+# ------------------------------------------------------------------------------
+# Generated Simulator Data & Large Replays
+# ------------------------------------------------------------------------------
+data/sim/
+data/sim*/
+data/test_sim/
+data/generated/
+**/data/sim/
+**/data/sim*/
+**/data/test_sim/
+**/data/generated/
+**/replay.csv
+
+# Keep directory structure and test fixtures explicitly tracked
+!.gitkeep
+!data/samples/
+!**/data/samples/**
+!**/tests/fixtures/**
+!**/fixtures/**
+
+# ------------------------------------------------------------------------------
 # IDE & Operating System Artifacts
 # ------------------------------------------------------------------------------
 .idea/
 .vscode/
 *.swp
 *.swo
+*~
+*.tmp
+*.bak
 .DS_Store
 Thumbs.db
 Desktop.ini
 ehthumbs.db
 
 # ------------------------------------------------------------------------------
-# Node / Frontend (React & Vite planned / in progress)
-# ------------------------------------------------------------------------------
-node_modules/
-dist/
-build/
-.next/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# ------------------------------------------------------------------------------
-# Agent Tooling & Local Skills
+# Agent Tooling & Local Configurations
 # ------------------------------------------------------------------------------
 .agents/
 skills-lock.json

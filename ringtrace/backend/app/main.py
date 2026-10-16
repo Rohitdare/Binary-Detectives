@@ -1,13 +1,14 @@
 """FastAPI application for RingTrace."""
 import os
 import sys
+import time
 from typing import Dict, List, Optional
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 try:
     from app.db import FalkorDBClient
-    from app.detectors.cycle import detect_cycles
+    from app.detectors import detect_cycles, detect_fan_in, detect_fan_out
     from app.queries import (
         COUNT_ACCOUNTS,
         COUNT_SENT,
@@ -20,7 +21,7 @@ try:
     )
 except ImportError:
     from backend.app.db import FalkorDBClient
-    from backend.app.detectors.cycle import detect_cycles
+    from backend.app.detectors import detect_cycles, detect_fan_in, detect_fan_out
     from backend.app.queries import (
         COUNT_ACCOUNTS,
         COUNT_SENT,
@@ -235,6 +236,7 @@ def search_accounts(q: str = Query(..., min_length=1), limit: int = Query(defaul
 
 
 @app.get("/api/detectors/cycles")
+@app.get("/api/v1/detectors/cycles")
 def get_cycle_candidates(
     min_length: int = Query(default=3, ge=3, le=5, description="Minimum cycle length in hops (3-5)"),
     max_length: int = Query(default=5, ge=3, le=5, description="Maximum cycle length in hops (3-5)"),
@@ -252,8 +254,9 @@ def get_cycle_candidates(
             detail=f"min_length ({min_length}) cannot be greater than max_length ({max_length})",
         )
 
+    started_at = time.perf_counter()
     try:
-        candidates = detect_cycles(
+        result = detect_cycles(
             min_length=min_length,
             max_length=max_length,
             limit=limit,
@@ -265,8 +268,15 @@ def get_cycle_candidates(
             "graph": GRAPH_NAME,
             "min_length": min_length,
             "max_length": max_length,
-            "count": len(candidates),
-            "cycles": candidates,
+            "limit": limit,
+            "count": len(result),
+            "truncated": getattr(result, "truncated", False),
+            "truncation_reason": getattr(result, "truncation_reason", None),
+            "suspicious_count": sum(1 for candidate in result if candidate.get("suspicious")),
+            "edges_scanned": getattr(result, "edges_scanned", 0),
+            "search_steps": getattr(result, "search_steps", 0),
+            "execution_time_ms": round((time.perf_counter() - started_at) * 1000, 2),
+            "cycles": list(result),
         }
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
@@ -275,4 +285,101 @@ def get_cycle_candidates(
             status_code=500,
             detail=f"Failed to execute cycle detection against FalkorDB: {e}",
         )
+
+
+@app.get("/api/detectors/fan-in")
+@app.get("/api/v1/detectors/fan-in")
+def get_fan_in_candidates(
+    min_senders: int = Query(default=8, ge=2, le=50, description="Minimum distinct senders (2-50)"),
+    window_hours: int = Query(default=48, ge=1, le=168, description="Rolling time window in hours (1-168)"),
+    limit: int = Query(default=50, ge=1, le=200, description="Maximum candidates to return (1-200)"),
+):
+    """Detect fan-in patterns (concentration of distinct senders onto a single receiver within a rolling window)."""
+    started_at = time.perf_counter()
+    try:
+        result = detect_fan_in(
+            min_senders=min_senders,
+            window_seconds=window_hours * 3600,
+            limit=limit,
+            graph_name=GRAPH_NAME,
+            db=db_client,
+        )
+        return {
+            "status": "success",
+            "graph": GRAPH_NAME,
+            "pattern": "fan_in",
+            "min_senders": min_senders,
+            "window_hours": window_hours,
+            "limit": limit,
+            "count": len(result),
+            "truncated": getattr(result, "truncated", False),
+            "truncation_reason": getattr(result, "truncation_reason", None),
+            "suspicious_count": sum(1 for hit in result if hit.get("measurements", {}).get("suspicious")),
+            "execution_time_ms": round((time.perf_counter() - started_at) * 1000, 2),
+            "hits": list(result),
+        }
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to execute fan-in detection against FalkorDB: {e}",
+        )
+
+
+@app.get("/api/detectors/fan-out")
+@app.get("/api/v1/detectors/fan-out")
+def get_fan_out_candidates(
+    min_receivers: int = Query(default=8, ge=2, le=50, description="Minimum distinct receivers (2-50)"),
+    window_hours: int = Query(default=48, ge=1, le=168, description="Rolling time window in hours (1-168)"),
+    limit: int = Query(default=50, ge=1, le=200, description="Maximum candidates to return (1-200)"),
+):
+    """Detect fan-out patterns (rapid dispersal from a single origin to multiple distinct receivers within a rolling window)."""
+    started_at = time.perf_counter()
+    try:
+        result = detect_fan_out(
+            min_receivers=min_receivers,
+            window_seconds=window_hours * 3600,
+            limit=limit,
+            graph_name=GRAPH_NAME,
+            db=db_client,
+        )
+        return {
+            "status": "success",
+            "graph": GRAPH_NAME,
+            "pattern": "fan_out",
+            "min_receivers": min_receivers,
+            "window_hours": window_hours,
+            "limit": limit,
+            "count": len(result),
+            "truncated": getattr(result, "truncated", False),
+            "truncation_reason": getattr(result, "truncation_reason", None),
+            "suspicious_count": sum(1 for hit in result if hit.get("measurements", {}).get("suspicious")),
+            "execution_time_ms": round((time.perf_counter() - started_at) * 1000, 2),
+            "hits": list(result),
+        }
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to execute fan-out detection against FalkorDB: {e}",
+        )
+
+
+@app.api_route("/api/evaluate/cycles", methods=["GET", "POST"])
+def evaluate_cycles(limit: int = Query(default=50, ge=1, le=200)):
+    """Evaluate the cycle detector against ground-truth labels on demand.
+
+    CRITICAL CONSTRAINT: Detection code never calls this endpoint.
+    This evaluation compares detected candidates with simulator ground-truth labels
+    reporting exact matches, partial matches, precision, recall, and benign look-alikes.
+    """
+    try:
+        from app.evaluator import evaluate_cycle_detector
+        report = evaluate_cycle_detector(sample_limit=limit, graph_name=GRAPH_NAME, db=db_client)
+        return report
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to evaluate cycle detector: {e}")
+
 

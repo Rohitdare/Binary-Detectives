@@ -25,7 +25,11 @@ This document records code generated or modified by AI agents and the concrete v
 | `backend/app/detectors/cycle.py` | Directed transaction cycle detector engine | Generated detector logic | Tested against isolated graph and live `txn` graph; 10/10 automated tests passed. | **Verified** |
 | `backend/app/evaluator.py` | Ground truth evaluator against `labels` | Generated evaluator logic | Ran on live database; proved 100% structural recovery of all 22 planted alerts. | **Verified** |
 | `backend/tests/test_cycle_detector.py` | Unit & integration test suite for cycle detection | Generated test cases | Ran `unittest`; 10/10 tests passed in 0.15s. | **Verified** |
-| `frontend/src/components/patterns/CycleDetectionView.tsx` | React UI for cycle candidate inspection & Cytoscape graph | Generated React component | TypeScript compilation passed; browser subagent verified live on Vite dev server. | **Verified** |
+| `backend/app/detectors/fan_in.py` | Rolling 48h fan-in burst detector with structuring and context preservation | Generated detector logic | Tested against isolated graphs and live `txn`; 9/9 unit tests passed; verified non-merchant & merchant hits. | **Verified** |
+| `backend/app/detectors/fan_out.py` | Rolling 48h fan-out detector with empirical payroll recurrence detection | Generated detector logic | Tested against isolated graphs and live `txn`; verified empirical monthly payroll recurrence classification. | **Verified** |
+| `backend/tests/fixtures/` | Positive, negative, benign merchant, and recurring payroll JSON fixtures | Generated test fixtures | Loaded into isolated test graphs; verified proper triggering and rejection boundaries. | **Verified** |
+| `backend/tests/test_fan_detectors.py` | Automated test suite for fan-in and fan-out detectors | Generated test cases | Ran `unittest`; 9/9 tests passed in 0.18s with exit code 0. | **Verified** |
+| `backend/tests/test_api.py` | API endpoint integration tests including /api/detectors/fan-in & fan-out | Updated test suite | Ran `unittest`; 11/11 tests passed in 0.33s with exit code 0. | **Verified** |
 
 
 ---
@@ -33,3 +37,20 @@ This document records code generated or modified by AI agents and the concrete v
 ## Integrity Guarantees
 - **No Fabricated Data:** All test results, query runtimes, and log IDs documented represent actual tool execution traces.
 - **Human Review:** Code changes respect all existing comments and preserve original files.
+
+## Detection UX and Bounded Cycle Search — 2026-10-16
+
+| File | AI-assisted change | Verification |
+|---|---|---|
+| `backend/app/queries.py` | Added a parameterized bounded transaction-edge query and removed unused all-path cycle query builders. | Python compilation passed; query execution against FalkorDB remains pending. |
+| `backend/app/detectors/cycle.py` | Replaced path explosion-prone Cypher enumeration with bounded edge retrieval, time/amount-pruned 3–5 hop search, explicit truncation reasons, and a separate suspicious review flag. | Isolated mocked-edge tests passed for positive, slow-lookalike, empty, error, and scan-cap behavior. Live graph timing remains unverified. |
+| `backend/app/detectors/fan_in.py`, `backend/app/detectors/fan_out.py` | Added complete transaction rows to detector hits so the client can render real evidence. | Fixture-backed mocked detector tests passed and check transaction IDs match attached rows. |
+| `backend/app/main.py` | Added the versioned cycle route alias and execution, edge-scan, search-step, and suspicious-count response metadata; added timing metadata for fan endpoints. | Direct route-function unit coverage passed for success and database-error mapping. HTTP/live database integration remains pending. |
+| `backend/tests/test_cycle_algorithm_unit.py` | Added seven isolated tests for the cycle algorithm/API mapping and fixture-driven fan-in/fan-out evidence. | `python -m unittest tests.test_cycle_algorithm_unit -v`: 7 passed. |
+| `backend/tests/test_cycle_detector.py`, `backend/tests/test_fan_detectors.py` | Extended the existing database-backed suites to cover suspicious classification and transaction-row evidence. | Compiled successfully; graph-backed suites were not run because FalkorDB was unavailable. |
+| `frontend/src/components/patterns/DetectionWorkbench.tsx` | Added the three-detector results view with actual hit selection, directed Cytoscape graph, edge selection, account inspection, measurements, loading/error/retry/truncation states, and evidence table. | `npm run build` passed. Browser interaction against a live API remains unverified. |
+| `frontend/src/components/overview/DetectionPatterns.tsx` | Added Overview cards for only the implemented cycle, fan-in, and fan-out detectors. | `npm run build` passed. |
+| `frontend/src/components/overview/SummaryCards.tsx`, `frontend/src/App.tsx`, `frontend/src/components/layout/Sidebar.tsx` | Connected real detector run state and removed the “planned” label from the implemented detection screen; displays that case review counts are not yet available. | `npm run build` passed. |
+| `frontend/src/services/api.ts`, `frontend/src/types/index.ts` | Added typed API calls and response types for fan-in/fan-out and measured cycle run metadata. | `npm run build` passed. |
+| `frontend/src/index.css` | Added detector status badges and responsive results layout styles. | `npm run build` passed. |
+| `docs/STATUS.md`, `docs/AI_USAGE.md` | Recorded this task's changes, verification results, and live-database limitation. | Reviewed against commands actually run in this workspace. |

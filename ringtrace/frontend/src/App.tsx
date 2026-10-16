@@ -6,9 +6,10 @@ import { NetworkPreview } from './components/overview/NetworkPreview';
 import { RecentTransactionsTable } from './components/overview/RecentTransactionsTable';
 import { InvestigationPanel } from './components/overview/InvestigationPanel';
 import { TransactionExplorer } from './components/explorer/TransactionExplorer';
-import { CycleDetectionView } from './components/patterns/CycleDetectionView';
+import { DetectionWorkbench } from './components/patterns/DetectionWorkbench';
+import { DetectionPatterns } from './components/overview/DetectionPatterns';
 import { PlaceholderView } from './components/common/PlaceholderView';
-import type { HealthStatus, PageTab, SystemStats, TransactionRecord } from './types';
+import type { DetectorPattern, DetectorRunSummary, HealthStatus, PageTab, SystemStats, TransactionRecord } from './types';
 import { ringtraceApi } from './services/api';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
@@ -24,6 +25,10 @@ export const App: React.FC = () => {
   const [backendError, setBackendError] = useState<string | null>(null);
 
   const [inspectedAccountId, setInspectedAccountId] = useState<string | null>(null);
+  const [requestedDetector, setRequestedDetector] = useState<DetectorPattern | null>(null);
+  const [detectorRuns, setDetectorRuns] = useState<Partial<Record<DetectorPattern, DetectorRunSummary>>>({});
+  const [latestRun, setLatestRun] = useState<{ pattern: DetectorPattern; summary: DetectorRunSummary } | null>(null);
+  const [runCount, setRunCount] = useState(0);
 
   const fetchHealth = useCallback(async () => {
     setLoadingHealth(true);
@@ -82,9 +87,22 @@ export const App: React.FC = () => {
     return () => clearInterval(interval);
   }, [fetchHealth, fetchStats, fetchTransactions]);
 
-  const handleSelectAccount = (accId: string) => {
+  const handleSelectAccount = useCallback((accId: string) => {
     setInspectedAccountId(accId);
     setCurrentTab('explorer');
+  }, []);
+
+  const handleRunDetector = (pattern: DetectorPattern) => {
+    setRequestedDetector(pattern);
+    setDetectorRuns((previous) => ({ ...previous, [pattern]: { status: 'running', hits: 0, suspicious: 0 } }));
+    setLatestRun({ pattern, summary: { status: 'running', hits: 0, suspicious: 0 } });
+    setCurrentTab('patterns');
+  };
+
+  const handleDetectorStatus = (pattern: DetectorPattern, summary: DetectorRunSummary) => {
+    setDetectorRuns((previous) => ({ ...previous, [pattern]: summary }));
+    setLatestRun({ pattern, summary });
+    if (summary.status === 'completed' || summary.status === 'failed') setRunCount((count) => count + 1);
   };
 
   return (
@@ -130,7 +148,8 @@ export const App: React.FC = () => {
         <div className="page-body">
           {currentTab === 'overview' && (
             <>
-              <SummaryCards stats={stats} loading={loadingStats} />
+              <SummaryCards stats={stats} loading={loadingStats} runCount={runCount} latestRun={latestRun} />
+              <DetectionPatterns runs={detectorRuns} onRun={handleRunDetector} />
               <NetworkPreview onInspectAccount={handleSelectAccount} />
               <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'stretch', flexWrap: 'wrap' }}>
                 <RecentTransactionsTable
@@ -152,8 +171,11 @@ export const App: React.FC = () => {
           )}
 
           {currentTab === 'patterns' && (
-            <CycleDetectionView
+            <DetectionWorkbench
+              requestedPattern={requestedDetector}
               onInspectAccount={handleSelectAccount}
+              onRunStatus={handleDetectorStatus}
+              onRequestHandled={() => setRequestedDetector(null)}
             />
           )}
 
