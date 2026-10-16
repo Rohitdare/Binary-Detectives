@@ -47,6 +47,23 @@ class TestCycleAlgorithmUnit(unittest.TestCase):
         self.assertFalse(result[0]["suspicious"])
         self.assertIn("cycle candidate only", result[0]["explanation"])
 
+    def test_cycle_limit_prioritizes_suspicious_results(self):
+        rows = [
+            ["A1", "A2", "TX_A12", 10000.0, 1000, 1, "UPI"],
+            ["A2", "A3", "TX_A23", 9500.0, 2000, 1, "UPI"],
+            ["A3", "A1", "TX_A31", 9000.0, 3000, 1, "UPI"],
+            ["Z1", "Z2", "TX_Z12", 10000.0, 1000, 1, "UPI"],
+            ["Z2", "Z3", "TX_Z23", 9500.0, 45500, 1, "UPI"],
+            ["Z3", "Z1", "TX_Z31", 9000.0, 91000, 1, "UPI"],
+        ]
+        self.db.execute_query.return_value = SimpleNamespace(result_set=rows)
+        result = detect_cycles(min_length=3, max_length=3, limit=1, db=self.db)
+        self.assertEqual(len(result), 1)
+        self.assertTrue(result[0]["suspicious"])
+        self.assertEqual({tx["tx_id"] for tx in result[0]["transactions"]}, {"TX_A12", "TX_A23", "TX_A31"})
+        self.assertTrue(result.truncated)
+        self.assertEqual(result.truncation_reason, "result_limit")
+
     def test_empty_and_database_error_results(self):
         self.db.execute_query.return_value = SimpleNamespace(result_set=[])
         self.assertEqual(detect_cycles(db=self.db), [])

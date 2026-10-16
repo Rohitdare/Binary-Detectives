@@ -168,13 +168,12 @@ def detect_cycles(
     seen_canonical_ids = set()
     search_steps = 0
     work_limited = False
-    found_limit_plus_one = False
 
     # DFS over each possible origin. Timestamps and amount ratios prune a branch
     # before it can expand, while the smallest-account rule removes rotations.
     def visit(start: str, current: str, path: List[Dict[str, Any]], visited: set[str]) -> None:
-        nonlocal search_steps, work_limited, found_limit_plus_one
-        if work_limited or found_limit_plus_one:
+        nonlocal search_steps, work_limited
+        if work_limited:
             return
         if len(path) >= max_length:
             return
@@ -237,23 +236,28 @@ def detect_cycles(
                             "suspicious": suspicious,
                             "explanation": explanation,
                         })
-                        if len(candidates) > limit:
-                            found_limit_plus_one = True
                 continue
             if next_length < max_length and edge["dst"] not in visited and start < edge["dst"]:
                 visit(start, edge["dst"], next_path, visited | {edge["dst"]})
-            if work_limited or found_limit_plus_one:
+            if work_limited:
                 return
 
     for origin in sorted(outgoing):
         visit(origin, origin, [], {origin})
-        if work_limited or found_limit_plus_one:
+        if work_limited:
             break
 
-    truncated = scan_truncated or work_limited or found_limit_plus_one
-    if found_limit_plus_one:
+    candidates.sort(key=lambda candidate: (
+        not candidate["suspicious"],
+        -candidate["amount_conservation_ratio"],
+        candidate["duration_seconds"],
+        candidate["cycle_id"],
+    ))
+    result_limited = len(candidates) > limit
+    truncated = scan_truncated or work_limited or result_limited
+    if result_limited:
         candidates = candidates[:limit]
-    reason = "edge_scan_limit" if scan_truncated else "search_budget" if work_limited else "result_limit" if found_limit_plus_one else None
+    reason = "edge_scan_limit" if scan_truncated else "search_budget" if work_limited else "result_limit" if result_limited else None
     result = CycleDetectionResult(candidates, truncated=truncated, truncation_reason=reason)
     result.edges_scanned = len(rows)
     result.search_steps = min(search_steps, SEARCH_STEP_LIMIT)

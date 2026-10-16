@@ -358,7 +358,7 @@ h1, h2, h3, h4 {
   .detection-graph { height: 440px; }
 }
 
-@media (max-width: 700px) {
+@media (max-width: 800px) {
   .detection-workbench-grid { grid-template-columns: minmax(0, 1fr); }
   .detection-workbench-grid > :last-child { grid-column: auto; }
   .detection-graph { height: 340px; }
