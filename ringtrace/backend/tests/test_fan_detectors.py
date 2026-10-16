@@ -147,6 +147,16 @@ class TestFanDetectors(unittest.TestCase):
         finally:
             self.db.delete_graph(test_graph)
 
+    def test_merchant_fan_in_with_structuring_is_not_exempt(self):
+        self.assertTrue(evaluate_fan_in_suspicion(
+            receiver_type="merchant",
+            distinct_senders=8,
+            tx_count=8,
+            time_span_seconds=600,
+            structuring_share=0.25,
+            total_amount=80000.0,
+        ))
+
     def test_fan_out_positive_fixture(self):
         """Test fan_out with 1 origin disbursing to 9 distinct receivers within 6 hours."""
         test_graph = f"test_fan_out_pos_{uuid.uuid4().hex[:8]}"
@@ -216,6 +226,22 @@ class TestFanDetectors(unittest.TestCase):
             self.assertFalse(hit["measurements"]["suspicious"], "Verified recurring payroll with no structuring must be benign.")
         finally:
             self.db.delete_graph(test_graph)
+
+    def test_payroll_type_alone_does_not_suppress_rapid_fan_out(self):
+        self.assertTrue(evaluate_fan_out_suspicion(
+            origin_type="payroll",
+            distinct_receivers=8,
+            tx_count=8,
+            time_span_seconds=600,
+            structuring_share=0.0,
+            is_recurring_payroll=False,
+        ))
+
+    def test_materially_different_payroll_batch_is_not_verified_recurrence(self):
+        fixture = load_fixture_data("fan_out_payroll.json")
+        history = fixture["transactions"]
+        target = [dict(tx, amount=5000.0) for tx in history[8:]]
+        self.assertFalse(check_empirical_payroll_recurrence(history, target))
 
     def test_fan_in_validation_errors(self):
         """Test parameter bounds validation for fan_in."""

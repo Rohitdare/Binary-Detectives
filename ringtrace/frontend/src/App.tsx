@@ -1,15 +1,12 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Sidebar } from './components/layout/Sidebar';
 import { Navbar } from './components/layout/Navbar';
-import { SummaryCards } from './components/overview/SummaryCards';
-import { NetworkPreview } from './components/overview/NetworkPreview';
-import { RecentTransactionsTable } from './components/overview/RecentTransactionsTable';
-import { InvestigationPanel } from './components/overview/InvestigationPanel';
+import { OverviewGraph } from './components/overview/OverviewGraph';
 import { TransactionExplorer } from './components/explorer/TransactionExplorer';
 import { DetectionWorkbench } from './components/patterns/DetectionWorkbench';
-import { DetectionPatterns } from './components/overview/DetectionPatterns';
+import { CaseManagementView } from './components/cases/CaseManagementView';
 import { PlaceholderView } from './components/common/PlaceholderView';
-import type { DetectorPattern, DetectorRunSummary, HealthStatus, PageTab, SystemStats, TransactionRecord } from './types';
+import type { DetectorPattern, DetectorRunSummary, HealthStatus, PageTab, SystemStats } from './types';
 import { ringtraceApi } from './services/api';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
@@ -17,18 +14,12 @@ export const App: React.FC = () => {
   const [currentTab, setCurrentTab] = useState<PageTab>('overview');
   const [health, setHealth] = useState<HealthStatus | null>(null);
   const [stats, setStats] = useState<SystemStats | null>(null);
-  const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
 
   const [loadingHealth, setLoadingHealth] = useState(true);
-  const [loadingStats, setLoadingStats] = useState(true);
-  const [loadingTx, setLoadingTx] = useState(true);
   const [backendError, setBackendError] = useState<string | null>(null);
 
   const [inspectedAccountId, setInspectedAccountId] = useState<string | null>(null);
   const [requestedDetector, setRequestedDetector] = useState<DetectorPattern | null>(null);
-  const [detectorRuns, setDetectorRuns] = useState<Partial<Record<DetectorPattern, DetectorRunSummary>>>({});
-  const [latestRun, setLatestRun] = useState<{ pattern: DetectorPattern; summary: DetectorRunSummary } | null>(null);
-  const [runCount, setRunCount] = useState(0);
 
   const fetchHealth = useCallback(async () => {
     setLoadingHealth(true);
@@ -52,58 +43,43 @@ export const App: React.FC = () => {
   }, []);
 
   const fetchStats = useCallback(async () => {
-    setLoadingStats(true);
     try {
       const s = await ringtraceApi.getStats();
       setStats(s);
-    } catch (err: any) {
-      // Backend error is tracked in health check
-    } finally {
-      setLoadingStats(false);
-    }
-  }, []);
-
-  const fetchTransactions = useCallback(async () => {
-    setLoadingTx(true);
-    try {
-      const txs = await ringtraceApi.getTransactions(50);
-      setTransactions(txs);
     } catch {
-      setTransactions([]);
-    } finally {
-      setLoadingTx(false);
+      // Backend error is tracked in health check
     }
   }, []);
 
   useEffect(() => {
-    fetchHealth();
-    fetchStats();
-    fetchTransactions();
+    let isMounted = true;
+    const init = async () => {
+      if (isMounted) {
+        await Promise.allSettled([fetchHealth(), fetchStats()]);
+      }
+    };
+    void init();
 
     const interval = setInterval(() => {
-      fetchHealth();
+      if (isMounted) {
+        void fetchHealth();
+      }
     }, 30000);
 
-    return () => clearInterval(interval);
-  }, [fetchHealth, fetchStats, fetchTransactions]);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [fetchHealth, fetchStats]);
 
   const handleSelectAccount = useCallback((accId: string) => {
     setInspectedAccountId(accId);
     setCurrentTab('explorer');
   }, []);
 
-  const handleRunDetector = (pattern: DetectorPattern) => {
-    setRequestedDetector(pattern);
-    setDetectorRuns((previous) => ({ ...previous, [pattern]: { status: 'running', hits: 0, suspicious: 0 } }));
-    setLatestRun({ pattern, summary: { status: 'running', hits: 0, suspicious: 0 } });
-    setCurrentTab('patterns');
-  };
-
-  const handleDetectorStatus = (pattern: DetectorPattern, summary: DetectorRunSummary) => {
-    setDetectorRuns((previous) => ({ ...previous, [pattern]: summary }));
-    setLatestRun({ pattern, summary });
-    if (summary.status === 'completed' || summary.status === 'failed') setRunCount((count) => count + 1);
-  };
+  const handleDetectorStatus = useCallback((_pattern: DetectorPattern, _summary: DetectorRunSummary) => {
+    // Status sink for DetectionWorkbench
+  }, []);
 
   return (
     <div className="app-container">
@@ -118,26 +94,26 @@ export const App: React.FC = () => {
 
         {backendError && (
           <div style={{
-            backgroundColor: 'rgba(244, 63, 94, 0.12)',
-            borderBottom: '1px solid rgba(244, 63, 94, 0.3)',
+            backgroundColor: 'rgba(244, 63, 94, 0.1)',
+            borderBottom: '1px solid rgba(244, 63, 94, 0.25)',
             padding: '0.65rem 2rem',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            color: 'var(--accent-rose)',
+            color: 'var(--accent-red)',
             fontSize: '0.825rem',
             flexShrink: 0
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
               <AlertTriangle size={15} />
               <span>
-                <strong>Backend Connection Notice:</strong> {backendError}. Ensure the FastAPI server is running with <code className="mono">uvicorn app.main:app --port 8000</code>.
+                <strong>Backend Notice:</strong> {backendError}. Ensure the server is running on <code className="mono">port 8000</code>.
               </span>
             </div>
             <button
-              onClick={() => { fetchHealth(); fetchStats(); fetchTransactions(); }}
+              onClick={() => { void fetchHealth(); void fetchStats(); }}
               className="rt-button rt-button-sm"
-              style={{ borderColor: 'rgba(244, 63, 94, 0.4)', color: 'var(--accent-rose)' }}
+              style={{ borderColor: 'rgba(244, 63, 94, 0.35)', color: 'var(--accent-red)' }}
             >
               <RefreshCw size={12} className={loadingHealth ? 'spin' : ''} />
               <span>Retry</span>
@@ -147,26 +123,9 @@ export const App: React.FC = () => {
 
         <div className="page-body">
           {currentTab === 'overview' && (
-            <>
-              <SummaryCards stats={stats} loading={loadingStats} runCount={runCount} latestRun={latestRun} />
-              <DetectionPatterns runs={detectorRuns} onRun={handleRunDetector} />
-              <NetworkPreview onInspectAccount={handleSelectAccount} />
-              <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'stretch', flexWrap: 'wrap' }}>
-                <RecentTransactionsTable
-                  transactions={transactions}
-                  loading={loadingTx}
-                  onSelectAccount={handleSelectAccount}
-                  onRefresh={fetchTransactions}
-                />
-                <InvestigationPanel />
-              </div>
-            </>
-          )}
-
-          {currentTab === 'explorer' && (
-            <TransactionExplorer
-              initialAccountId={inspectedAccountId}
-              onBackToOverview={() => setCurrentTab('overview')}
+            <OverviewGraph
+              stats={stats}
+              onInspectAccount={handleSelectAccount}
             />
           )}
 
@@ -179,7 +138,20 @@ export const App: React.FC = () => {
             />
           )}
 
-          {currentTab !== 'overview' && currentTab !== 'explorer' && currentTab !== 'patterns' && (
+          {currentTab === 'explorer' && (
+            <TransactionExplorer
+              initialAccountId={inspectedAccountId}
+              onBackToOverview={() => setCurrentTab('overview')}
+            />
+          )}
+
+          {currentTab === 'investigations' && (
+            <CaseManagementView
+              onInspectAccount={handleSelectAccount}
+            />
+          )}
+
+          {currentTab !== 'overview' && currentTab !== 'explorer' && currentTab !== 'patterns' && currentTab !== 'investigations' && (
             <PlaceholderView
               tab={currentTab}
               onBackToOverview={() => setCurrentTab('overview')}

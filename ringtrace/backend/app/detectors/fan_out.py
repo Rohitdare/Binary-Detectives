@@ -19,16 +19,19 @@ Key Principles & Invariants:
   and the sorted set of transaction IDs in the burst.
 """
 import hashlib
+from statistics import median
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 try:
     from app.db import FalkorDBClient
+    from app.detectors.windowing import extract_overlapping_bursts, normalize_transaction_rows
     from app.queries import (
         FIND_FAN_OUT_CANDIDATES,
         GET_ACCOUNT_OUTGOING_TRANSFERS,
     )
 except ImportError:
     from backend.app.db import FalkorDBClient
+    from backend.app.detectors.windowing import extract_overlapping_bursts, normalize_transaction_rows
     from backend.app.queries import (
         FIND_FAN_OUT_CANDIDATES,
         GET_ACCOUNT_OUTGOING_TRANSFERS,
@@ -43,11 +46,15 @@ class FanOutDetectionResult(list):
         hits: List[Dict[str, Any]],
         truncated: bool = False,
         truncation_reason: Optional[str] = None,
+        invalid_rows_skipped: int = 0,
+        truncation_reasons: Optional[List[str]] = None,
     ):
         super().__init__(hits)
         self.truncated = truncated
         self.truncation_reason = truncation_reason
         self.count = len(hits)
+        self.invalid_rows_skipped = invalid_rows_skipped
+        self.truncation_reasons = truncation_reasons or ([truncation_reason] if truncation_reason else [])
 
 
 def extract_fan_out_bursts(
@@ -55,35 +62,15 @@ def extract_fan_out_bursts(
     window_seconds: int = 172800,  # 48 hours
     min_receivers: int = 8,
 ) -> List[List[Dict[str, Any]]]:
-    """Extract non-overlapping bursts of outgoing transfers within a rolling window.
+    """Extract merged maximal bursts of outgoing transfers within rolling windows.
 
     A burst is formed when the origin sends funds to >= min_receivers distinct
     recipients within window_seconds. All transactions, including parallel transfers,
     are preserved.
     """
-    if not txs or min_receivers < 2:
-        return []
-
-    sorted_txs = sorted(txs, key=lambda t: t["ts"])
-    n = len(sorted_txs)
-    bursts: List[List[Dict[str, Any]]] = []
-    i = 0
-
-    while i < n:
-        j = i
-        current_receivers: Set[str] = set()
-        while j < n and (sorted_txs[j]["ts"] - sorted_txs[i]["ts"]) <= window_seconds:
-            current_receivers.add(sorted_txs[j]["dst"])
-            j += 1
-
-        if len(current_receivers) >= min_receivers:
-            bursts.append(sorted_txs[i:j])
-            # Advance past this burst
-            i = j
-        else:
-            i += 1
-
-    return bursts
+    return extract_overlapping_bursts(
+        txs, window_seconds, min_receivers, counterparty_key="dst"
+    )
 
 
 def check_empirical_payroll_recurrence(
@@ -103,14 +90,15 @@ def check_empirical_payroll_recurrence(
         return False
 
     burst_start = min(t["ts"] for t in burst)
-    burst_end = max(t["ts"] for t in burst)
+    burst_ids = {t["tx_id"] for t in burst}
+    burst_receivers = {t["dst"] for t in burst}
+    burst_amount_median = median(float(t["amount"]) for t in burst)
 
-    # Check for another disbursement cluster before or after this burst within monthly cadence
-    # Candidate other transactions:
+    # Find separate historical batches around one monthly interval away.
     other_txs = [
         t for t in all_outgoing_txs
-        if (min_gap_seconds <= abs(t["ts"] - burst_start) <= max_gap_seconds)
-        or (min_gap_seconds <= abs(t["ts"] - burst_end) <= max_gap_seconds)
+        if t["tx_id"] not in burst_ids
+        and min_gap_seconds <= abs(t["ts"] - burst_start) <= max_gap_seconds
     ]
 
     if not other_txs:
@@ -121,12 +109,20 @@ def check_empirical_payroll_recurrence(
     other_txs_sorted = sorted(other_txs, key=lambda t: t["ts"])
     for i in range(len(other_txs_sorted)):
         cluster_receivers = set()
+        cluster = []
         for j in range(i, len(other_txs_sorted)):
             if other_txs_sorted[j]["ts"] - other_txs_sorted[i]["ts"] <= 172800:
                 cluster_receivers.add(other_txs_sorted[j]["dst"])
+                cluster.append(other_txs_sorted[j])
             else:
                 break
-        if len(cluster_receivers) >= min_receivers:
+        if len(cluster_receivers) < min_receivers:
+            continue
+
+        overlap = len(cluster_receivers & burst_receivers) / max(1, len(burst_receivers))
+        count_ratio = len(cluster) / max(1, len(burst))
+        amount_ratio = median(float(t["amount"]) for t in cluster) / max(burst_amount_median, 0.01)
+        if overlap >= 0.7 and 0.75 <= count_ratio <= 1.25 and 0.75 <= amount_ratio <= 1.25:
             return True
 
     return False
@@ -153,7 +149,7 @@ def evaluate_fan_out_suspicion(
        history, the type alone is insufficient to grant benign status if high structuring
        or rapid anomalous dispersal is observed.
     4. Rapid multi-recipient dispersal: If distinct_receivers >= 8 within <= 24 hours (86,400s),
-       and NOT recurring payroll, and origin is personal or unverified, it is suspicious.
+       and NOT recurring payroll, it is suspicious regardless of account type.
     5. Normal non-structured activity: If distinct_receivers >= 8 but dispersal is slow/diffuse
        and structuring_share == 0.0, it is not marked suspicious solely due to personal type.
     """
@@ -165,12 +161,8 @@ def evaluate_fan_out_suspicion(
     if is_recurring_payroll and structuring_share < 0.25:
         return False
 
-    # Rule 4: Rapid dispersal (< 24 hours) without payroll recurrence
+    # Payroll type alone is not proof of recurring behavior.
     if time_span_seconds <= 86400 and distinct_receivers >= 8 and not is_recurring_payroll:
-        # If origin is tagged payroll but has no recurrence and no structuring, check if origin_type == 'payroll'
-        # with standard corporate dispersion
-        if origin_type == "payroll" and structuring_share == 0.0:
-            return False
         return True
 
     # Rule 5: If moderate structuring (>= 15%) is present without payroll recurrence
@@ -188,6 +180,8 @@ def detect_fan_out(
     db: Optional[FalkorDBClient] = None,
     structuring_range: Tuple[float, float] = (42500.0, 49500.0),
     max_txs_per_account: int = 5000,
+    edge_snapshot: Optional[Tuple[List[Dict[str, Any]], bool, int]] = None,
+    account_types: Optional[Dict[str, str]] = None,
 ) -> FanOutDetectionResult:
     """Detect fan-out patterns in FalkorDB within rolling time windows.
 
@@ -215,22 +209,46 @@ def detect_fan_out(
     seen_hit_ids: Set[str] = set()
     is_truncated = False
     truncation_reason = None
+    truncation_reasons: List[str] = []
+    invalid_rows_skipped = 0
 
     candidate_limit = max(limit * 10, 1000)
-    cand_res = client.execute_query(
-        graph_name,
-        FIND_FAN_OUT_CANDIDATES,
-        {"min_receivers": min_receivers, "limit": candidate_limit + 1},
-        caller="detector:fan_out:candidates",
-    )
-
-    if not cand_res or not cand_res.result_set:
-        return FanOutDetectionResult([], truncated=False)
-
-    candidate_rows = cand_res.result_set
-    cand_truncated = len(candidate_rows) > candidate_limit
+    snapshot_rows: Dict[str, List[Dict[str, Any]]] = {}
+    snapshot_truncated = False
+    if edge_snapshot is not None:
+        snapshot_edges, snapshot_truncated, snapshot_invalid = edge_snapshot
+        invalid_rows_skipped += snapshot_invalid
+        if snapshot_invalid:
+            is_truncated = True
+            truncation_reasons.append("invalid_transaction_rows")
+        if snapshot_truncated:
+            is_truncated = True
+            truncation_reasons.append("edge_read_limit")
+        by_origin: Dict[str, List[Dict[str, Any]]] = {}
+        for edge in snapshot_edges:
+            by_origin.setdefault(edge["src"], []).append(edge)
+        candidate_rows = [[origin, (account_types or {}).get(origin, "personal"),
+                           len({edge["dst"] for edge in txs}), len(txs)]
+                          for origin, txs in by_origin.items()
+                          if len({edge["dst"] for edge in txs}) >= min_receivers]
+        candidate_rows.sort(key=lambda row: (-row[2], row[0]))
+        cand_truncated = len(candidate_rows) > candidate_limit
+        candidate_rows = candidate_rows[:candidate_limit]
+        snapshot_rows = by_origin
+    else:
+        cand_res = client.execute_query(
+            graph_name,
+            FIND_FAN_OUT_CANDIDATES,
+            {"min_receivers": min_receivers, "limit": candidate_limit + 1},
+            caller="detector:fan_out:candidates",
+        )
+        candidate_rows = cand_res.result_set if cand_res and cand_res.result_set else []
+        cand_truncated = len(candidate_rows) > candidate_limit
     if cand_truncated:
         candidate_rows = candidate_rows[:candidate_limit]
+        is_truncated = True
+        truncation_reason = "candidate_limit_reached"
+        truncation_reasons.append("candidate_limit_reached")
 
     # Step 2: For each candidate origin, analyze outgoing transfers
     for row in candidate_rows:
@@ -239,30 +257,38 @@ def detect_fan_out(
         total_tx_count = int(row[3] or 0)
 
         # Fetch outgoing transfers ordered by timestamp
-        tx_res = client.execute_query(
-            graph_name,
-            GET_ACCOUNT_OUTGOING_TRANSFERS,
-            {"account_id": src_id, "limit": max_txs_per_account},
-            caller="detector:fan_out:transfers",
-        )
+        if edge_snapshot is not None:
+            snapshot_txs = sorted(snapshot_rows.get(src_id, []), key=lambda edge: (edge["ts"], edge["tx_id"]))
+            raw_txs = [[edge["tx_id"], edge["src"], edge["dst"], edge["amount"], edge["ts"], edge["step"], edge["tx_type"]]
+                       for edge in snapshot_txs[-max_txs_per_account:]]
+        else:
+            tx_res = client.execute_query(
+                graph_name,
+                GET_ACCOUNT_OUTGOING_TRANSFERS,
+                {"account_id": src_id, "limit": max_txs_per_account},
+                caller="detector:fan_out:transfers",
+            )
+            raw_txs = tx_res.result_set if tx_res and tx_res.result_set else []
 
-        if not tx_res or not tx_res.result_set:
+        if not raw_txs:
+            if total_tx_count:
+                is_truncated = True
+                truncation_reason = truncation_reason or "account_history_read_empty"
+                truncation_reasons.append("account_history_read_empty")
             continue
 
-        raw_txs = tx_res.result_set
-        account_tx_truncated = len(raw_txs) < total_tx_count
+        account_tx_truncated = (len(raw_txs) < total_tx_count) if edge_snapshot is None else (snapshot_truncated or len(snapshot_rows[src_id]) > max_txs_per_account)
+        if account_tx_truncated:
+            is_truncated = True
+            truncation_reason = truncation_reason or "account_history_limit_reached"
+            truncation_reasons.append("account_history_limit_reached")
 
-        tx_list: List[Dict[str, Any]] = []
-        for tr in raw_txs:
-            tx_list.append({
-                "tx_id": str(tr[0]),
-                "src": str(tr[1]),
-                "dst": str(tr[2]),
-                "amount": float(tr[3]),
-                "ts": int(tr[4]),
-                "step": int(tr[5]),
-                "tx_type": str(tr[6]),
-            })
+        tx_list, invalid_rows = normalize_transaction_rows(raw_txs)
+        if invalid_rows:
+            invalid_rows_skipped += invalid_rows
+            is_truncated = True
+            truncation_reason = truncation_reason or "invalid_transaction_rows"
+            truncation_reasons.append("invalid_transaction_rows")
 
         # Step 3: Extract rolling window bursts
         bursts = extract_fan_out_bursts(
@@ -301,6 +327,27 @@ def detect_fan_out(
                 structuring_share=structuring_share,
                 is_recurring_payroll=is_recurring_payroll,
             )
+            suspicion_indeterminate = (
+                src_type == "payroll"
+                and account_tx_truncated
+                and not is_recurring_payroll
+                and structuring_share < 0.15
+            )
+            if suspicion_indeterminate:
+                is_suspicious = False
+
+            if suspicion_indeterminate:
+                suspicion_rationale = "Historical payroll behavior is incomplete; classification is indeterminate."
+            elif structuring_share >= 0.25:
+                suspicion_rationale = f"{structuring_share:.1%} of transfers fall in the configured near-threshold band."
+            elif is_recurring_payroll:
+                suspicion_rationale = "A separate monthly batch matches recipients, batch size, and median amount."
+            elif time_span <= 86400 and len(distinct_receivers) >= 8:
+                suspicion_rationale = "At least eight distinct recipients received funds within 24 hours."
+            elif structuring_share >= 0.15:
+                suspicion_rationale = f"Moderate near-threshold share ({structuring_share:.1%}) without verified recurrence."
+            else:
+                suspicion_rationale = "Structural fan-out only; no configured suspicion signal was met."
 
             # Stable deterministic hit_id
             sig = f"fan_out:{src_id}:" + ",".join(sorted(tx_ids))
@@ -313,7 +360,8 @@ def detect_fan_out(
             explanation = (
                 f"Account {src_id} ({src_type}) dispersed {len(burst)} transfers totaling "
                 f"₹{total_outflow:,.2f} to {len(distinct_receivers)} distinct receivers within {time_span}s "
-                f"(structuring share: {structuring_share:.1%}, recurring payroll: {is_recurring_payroll})."
+                f"(structuring share: {structuring_share:.1%}, payroll recurrence: "
+                f"{'verified' if is_recurring_payroll else 'unknown due to incomplete history' if suspicion_indeterminate else 'not observed'})."
             )
 
             hit = {
@@ -332,6 +380,13 @@ def detect_fan_out(
                     "is_recurring_payroll": is_recurring_payroll,
                     "suspicious": is_suspicious,
                     "account_tx_truncated": account_tx_truncated,
+                    "suspicion_indeterminate": suspicion_indeterminate,
+                    "suspicion_rationale": suspicion_rationale,
+                    "payroll_recurrence_status": (
+                        "verified" if is_recurring_payroll else
+                        "unknown_incomplete_history" if account_tx_truncated and src_type == "payroll" else
+                        "not_observed"
+                    ),
                 },
                 "explanation": explanation,
             }
@@ -348,14 +403,19 @@ def detect_fan_out(
     ))
     if len(hits) > limit:
         is_truncated = True
-        truncation_reason = "result_limit_reached"
+        truncation_reason = truncation_reason or "result_limit_reached"
+        truncation_reasons.append("result_limit_reached")
 
     if cand_truncated:
         is_truncated = True
         truncation_reason = truncation_reason or "candidate_limit_reached"
+        if "candidate_limit_reached" not in truncation_reasons:
+            truncation_reasons.append("candidate_limit_reached")
 
     return FanOutDetectionResult(
         hits[:limit],
         truncated=is_truncated,
         truncation_reason=truncation_reason,
+        invalid_rows_skipped=invalid_rows_skipped,
+        truncation_reasons=list(dict.fromkeys(truncation_reasons)),
     )

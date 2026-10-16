@@ -22,12 +22,14 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 
 try:
     from app.db import FalkorDBClient
+    from app.detectors.windowing import extract_overlapping_bursts, normalize_transaction_rows
     from app.queries import (
         FIND_FAN_IN_CANDIDATES,
         GET_ACCOUNT_INCOMING_TRANSFERS,
     )
 except ImportError:
     from backend.app.db import FalkorDBClient
+    from backend.app.detectors.windowing import extract_overlapping_bursts, normalize_transaction_rows
     from backend.app.queries import (
         FIND_FAN_IN_CANDIDATES,
         GET_ACCOUNT_INCOMING_TRANSFERS,
@@ -42,11 +44,15 @@ class FanInDetectionResult(list):
         hits: List[Dict[str, Any]],
         truncated: bool = False,
         truncation_reason: Optional[str] = None,
+        invalid_rows_skipped: int = 0,
+        truncation_reasons: Optional[List[str]] = None,
     ):
         super().__init__(hits)
         self.truncated = truncated
         self.truncation_reason = truncation_reason
         self.count = len(hits)
+        self.invalid_rows_skipped = invalid_rows_skipped
+        self.truncation_reasons = truncation_reasons or ([truncation_reason] if truncation_reason else [])
 
 
 def extract_fan_in_bursts(
@@ -54,48 +60,15 @@ def extract_fan_in_bursts(
     window_seconds: int = 172800,  # 48 hours
     min_senders: int = 8,
 ) -> List[List[Dict[str, Any]]]:
-    """Extract non-overlapping maximal bursts of incoming transfers within a rolling window.
+    """Extract merged maximal bursts of incoming transfers within rolling windows.
 
     A burst is formed when >= min_senders distinct sources send funds to the receiver
     within window_seconds. Parallel transfers between the same sender and receiver are
     fully preserved.
     """
-    if not txs or min_senders < 2:
-        return []
-
-    # Sort strictly by timestamp ASC
-    sorted_txs = sorted(txs, key=lambda t: t["ts"])
-    n = len(sorted_txs)
-    bursts: List[List[Dict[str, Any]]] = []
-    i = 0
-
-    while i < n:
-        # Find all qualifying windows starting at or around i
-        best_window = None
-        best_distinct_senders = 0
-
-        # Scan rightward within window_seconds
-        j = i
-        current_senders: Set[str] = set()
-        while j < n and (sorted_txs[j]["ts"] - sorted_txs[i]["ts"]) <= window_seconds:
-            current_senders.add(sorted_txs[j]["src"])
-            j += 1
-
-        if len(current_senders) >= min_senders:
-            candidate_window = sorted_txs[i:j]
-            # Greedily expand rightward if subsequent transactions remain within window of the burst
-            # or represent the same cluster
-            best_window = candidate_window
-            best_distinct_senders = len(current_senders)
-
-        if best_window:
-            bursts.append(best_window)
-            # Advance past this burst window to identify separate, distinct burst episodes
-            i = j
-        else:
-            i += 1
-
-    return bursts
+    return extract_overlapping_bursts(
+        txs, window_seconds, min_senders, counterparty_key="src"
+    )
 
 
 def evaluate_fan_in_suspicion(
@@ -124,7 +97,8 @@ def evaluate_fan_in_suspicion(
     if structuring_share >= 0.25:
         return True
 
-    # Rule 3: Verified merchant with zero structuring is benign retail activity
+    # Merchant retail remains a benign context only when there is no structuring
+    # signal; the independent structuring rule above still applies to merchants.
     if receiver_type == "merchant" and structuring_share == 0.0:
         return False
 
@@ -147,6 +121,8 @@ def detect_fan_in(
     db: Optional[FalkorDBClient] = None,
     structuring_range: Tuple[float, float] = (42500.0, 49500.0),
     max_txs_per_account: int = 5000,
+    edge_snapshot: Optional[Tuple[List[Dict[str, Any]], bool, int]] = None,
+    account_types: Optional[Dict[str, str]] = None,
 ) -> FanInDetectionResult:
     """Detect fan-in patterns in FalkorDB within rolling time windows.
 
@@ -174,22 +150,45 @@ def detect_fan_in(
     seen_hit_ids: Set[str] = set()
     is_truncated = False
     truncation_reason = None
+    truncation_reasons: List[str] = []
+    invalid_rows_skipped = 0
 
     candidate_limit = max(limit * 10, 1000)
-    cand_res = client.execute_query(
-        graph_name,
-        FIND_FAN_IN_CANDIDATES,
-        {"min_senders": min_senders, "limit": candidate_limit + 1},
-        caller="detector:fan_in:candidates",
-    )
-
-    if not cand_res or not cand_res.result_set:
-        return FanInDetectionResult([], truncated=False)
-
-    candidate_rows = cand_res.result_set
-    cand_truncated = len(candidate_rows) > candidate_limit
+    snapshot_rows: Dict[str, List[Dict[str, Any]]] = {}
+    if edge_snapshot is not None:
+        snapshot_edges, snapshot_truncated, snapshot_invalid = edge_snapshot
+        invalid_rows_skipped += snapshot_invalid
+        if snapshot_invalid:
+            is_truncated = True
+            truncation_reasons.append("invalid_transaction_rows")
+        if snapshot_truncated:
+            is_truncated = True
+            truncation_reasons.append("edge_read_limit")
+        by_receiver: Dict[str, List[Dict[str, Any]]] = {}
+        for edge in snapshot_edges:
+            by_receiver.setdefault(edge["dst"], []).append(edge)
+        candidate_rows = [[receiver, (account_types or {}).get(receiver, "personal"),
+                           len({edge["src"] for edge in txs}), len(txs)]
+                          for receiver, txs in by_receiver.items()
+                          if len({edge["src"] for edge in txs}) >= min_senders]
+        candidate_rows.sort(key=lambda row: (-row[2], row[0]))
+        cand_truncated = len(candidate_rows) > candidate_limit
+        candidate_rows = candidate_rows[:candidate_limit]
+        snapshot_rows = by_receiver
+    else:
+        cand_res = client.execute_query(
+            graph_name,
+            FIND_FAN_IN_CANDIDATES,
+            {"min_senders": min_senders, "limit": candidate_limit + 1},
+            caller="detector:fan_in:candidates",
+        )
+        candidate_rows = cand_res.result_set if cand_res and cand_res.result_set else []
+        cand_truncated = len(candidate_rows) > candidate_limit
     if cand_truncated:
         candidate_rows = candidate_rows[:candidate_limit]
+        is_truncated = True
+        truncation_reason = "candidate_limit_reached"
+        truncation_reasons.append("candidate_limit_reached")
 
     # Step 2: For each candidate receiver, analyze incoming transfers
     for row in candidate_rows:
@@ -198,30 +197,38 @@ def detect_fan_in(
         total_tx_count = int(row[3] or 0)
 
         # Fetch incoming transfers ordered by timestamp
-        tx_res = client.execute_query(
-            graph_name,
-            GET_ACCOUNT_INCOMING_TRANSFERS,
-            {"account_id": dst_id, "limit": max_txs_per_account},
-            caller="detector:fan_in:transfers",
-        )
+        if edge_snapshot is not None:
+            snapshot_txs = sorted(snapshot_rows.get(dst_id, []), key=lambda edge: (edge["ts"], edge["tx_id"]))
+            raw_txs = [[edge["tx_id"], edge["src"], edge["dst"], edge["amount"], edge["ts"], edge["step"], edge["tx_type"]]
+                       for edge in snapshot_txs[-max_txs_per_account:]]
+        else:
+            tx_res = client.execute_query(
+                graph_name,
+                GET_ACCOUNT_INCOMING_TRANSFERS,
+                {"account_id": dst_id, "limit": max_txs_per_account},
+                caller="detector:fan_in:transfers",
+            )
+            raw_txs = tx_res.result_set if tx_res and tx_res.result_set else []
 
-        if not tx_res or not tx_res.result_set:
+        if not raw_txs:
+            if total_tx_count:
+                is_truncated = True
+                truncation_reason = truncation_reason or "account_history_read_empty"
+                truncation_reasons.append("account_history_read_empty")
             continue
 
-        raw_txs = tx_res.result_set
-        account_tx_truncated = len(raw_txs) < total_tx_count
+        account_tx_truncated = (len(raw_txs) < total_tx_count) if edge_snapshot is None else (snapshot_truncated or len(snapshot_rows[dst_id]) > max_txs_per_account)
+        if account_tx_truncated:
+            is_truncated = True
+            truncation_reason = truncation_reason or "account_history_limit_reached"
+            truncation_reasons.append("account_history_limit_reached")
 
-        tx_list: List[Dict[str, Any]] = []
-        for tr in raw_txs:
-            tx_list.append({
-                "tx_id": str(tr[0]),
-                "src": str(tr[1]),
-                "dst": str(tr[2]),
-                "amount": float(tr[3]),
-                "ts": int(tr[4]),
-                "step": int(tr[5]),
-                "tx_type": str(tr[6]),
-            })
+        tx_list, invalid_rows = normalize_transaction_rows(raw_txs)
+        if invalid_rows:
+            invalid_rows_skipped += invalid_rows
+            is_truncated = True
+            truncation_reason = truncation_reason or "invalid_transaction_rows"
+            truncation_reasons.append("invalid_transaction_rows")
 
         # Step 3: Extract rolling window bursts
         bursts = extract_fan_in_bursts(
@@ -257,6 +264,16 @@ def detect_fan_in(
                 structuring_share=structuring_share,
                 total_amount=total_amt,
             )
+            if structuring_share >= 0.25:
+                suspicion_rationale = f"{structuring_share:.1%} of transfers fall in the configured near-threshold band."
+            elif dst_type != "merchant" and time_span <= 86400 and len(distinct_senders) >= 8:
+                suspicion_rationale = "At least eight senders converged within 24 hours."
+            elif structuring_share >= 0.15 and len(distinct_senders) >= 8:
+                suspicion_rationale = f"Moderate near-threshold share ({structuring_share:.1%}) with at least eight senders."
+            elif dst_type == "merchant" and structuring_share == 0.0:
+                suspicion_rationale = "Merchant context with no near-threshold signal; pattern retained for context."
+            else:
+                suspicion_rationale = "Structural fan-in only; no configured suspicion signal was met."
 
             # Stable deterministic hit_id
             sig = f"fan_in:{dst_id}:" + ",".join(sorted(tx_ids))
@@ -288,6 +305,8 @@ def detect_fan_in(
                     "receiver_account_type": dst_type,
                     "suspicious": is_suspicious,
                     "account_tx_truncated": account_tx_truncated,
+                    "suspicion_indeterminate": False,
+                    "suspicion_rationale": suspicion_rationale,
                 },
                 "explanation": explanation,
             }
@@ -304,14 +323,19 @@ def detect_fan_in(
     ))
     if len(hits) > limit:
         is_truncated = True
-        truncation_reason = "result_limit_reached"
+        truncation_reason = truncation_reason or "result_limit_reached"
+        truncation_reasons.append("result_limit_reached")
 
     if cand_truncated:
         is_truncated = True
         truncation_reason = truncation_reason or "candidate_limit_reached"
+        if "candidate_limit_reached" not in truncation_reasons:
+            truncation_reasons.append("candidate_limit_reached")
 
     return FanInDetectionResult(
         hits[:limit],
         truncated=is_truncated,
         truncation_reason=truncation_reason,
+        invalid_rows_skipped=invalid_rows_skipped,
+        truncation_reasons=list(dict.fromkeys(truncation_reasons)),
     )

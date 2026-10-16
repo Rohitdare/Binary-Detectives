@@ -1,0 +1,9 @@
+{
+  "accounts": [{"id":"H"},{"id":"A1"},{"id":"A2"},{"id":"B1"},{"id":"B2"}],
+  "transactions": [
+    {"tx_id":"NG_IN1","src":"A1","dst":"H","amount":9000,"ts":1000},
+    {"tx_id":"NG_IN2","src":"A2","dst":"H","amount":8000,"ts":1200},
+    {"tx_id":"NG_OUT1","src":"H","dst":"B1","amount":7000,"ts":1800},
+    {"tx_id":"NG_OUT2","src":"H","dst":"B2","amount":6500,"ts":2000}
+  ]
+}

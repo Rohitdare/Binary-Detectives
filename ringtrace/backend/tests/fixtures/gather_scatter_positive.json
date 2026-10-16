@@ -1,0 +1,12 @@
+{
+  "accounts": [{"id":"H"},{"id":"A1"},{"id":"A2"},{"id":"A3"},{"id":"B1"},{"id":"B2"},{"id":"B3"}],
+  "transactions": [
+    {"tx_id":"GS_IN1","src":"A1","dst":"H","amount":9000,"ts":1000},
+    {"tx_id":"GS_IN1B","src":"A1","dst":"H","amount":1000,"ts":1050},
+    {"tx_id":"GS_IN2","src":"A2","dst":"H","amount":8000,"ts":1200},
+    {"tx_id":"GS_IN3","src":"A3","dst":"H","amount":7000,"ts":1400},
+    {"tx_id":"GS_OUT1","src":"H","dst":"B1","amount":7000,"ts":1800},
+    {"tx_id":"GS_OUT2","src":"H","dst":"B2","amount":6500,"ts":2000},
+    {"tx_id":"GS_OUT3","src":"H","dst":"B3","amount":6000,"ts":2200}
+  ]
+}

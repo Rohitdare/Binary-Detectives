@@ -8,7 +8,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 try:
     from app.db import FalkorDBClient
-    from app.detectors import detect_cycles, detect_fan_in, detect_fan_out
+    from app.detectors import (
+        detect_cycles, detect_fan_in, detect_fan_out,
+        detect_gather_scatter, detect_relay_chains, detect_scatter_gather,
+    )
     from app.queries import (
         COUNT_ACCOUNTS,
         COUNT_SENT,
@@ -17,11 +20,15 @@ try:
         GET_ACCOUNT_TRANSFERS_OUT,
         GET_GRAPH_SAMPLE,
         GET_RECENT_TRANSACTIONS,
+        PING_FALKORDB,
         SEARCH_ACCOUNTS,
     )
 except ImportError:
     from backend.app.db import FalkorDBClient
-    from backend.app.detectors import detect_cycles, detect_fan_in, detect_fan_out
+    from backend.app.detectors import (
+        detect_cycles, detect_fan_in, detect_fan_out,
+        detect_gather_scatter, detect_relay_chains, detect_scatter_gather,
+    )
     from backend.app.queries import (
         COUNT_ACCOUNTS,
         COUNT_SENT,
@@ -30,6 +37,7 @@ except ImportError:
         GET_ACCOUNT_TRANSFERS_OUT,
         GET_GRAPH_SAMPLE,
         GET_RECENT_TRANSACTIONS,
+        PING_FALKORDB,
         SEARCH_ACCOUNTS,
     )
 
@@ -50,6 +58,8 @@ app.add_middleware(
 
 GRAPH_NAME = os.getenv("FALKORDB_GRAPH", "txn")
 db_client = FalkorDBClient()
+app.state.db_client = db_client
+app.state.graph_name = GRAPH_NAME
 
 
 @app.get("/api/health")
@@ -57,7 +67,7 @@ def get_health():
     """Healthcheck endpoint distinguishing app health from FalkorDB connectivity."""
     try:
         # Ping FalkorDB
-        res = db_client.execute_query(GRAPH_NAME, "RETURN 1", caller="api:health")
+        res = db_client.execute_query(GRAPH_NAME, PING_FALKORDB, caller="api:health")
         connected = bool(res and len(res.result_set) > 0)
         return {
             "status": "healthy" if connected else "degraded",
@@ -272,9 +282,11 @@ def get_cycle_candidates(
             "count": len(result),
             "truncated": getattr(result, "truncated", False),
             "truncation_reason": getattr(result, "truncation_reason", None),
+            "truncation_reasons": getattr(result, "truncation_reasons", []),
             "suspicious_count": sum(1 for candidate in result if candidate.get("suspicious")),
             "edges_scanned": getattr(result, "edges_scanned", 0),
             "search_steps": getattr(result, "search_steps", 0),
+            "invalid_rows_skipped": getattr(result, "invalid_rows_skipped", 0),
             "execution_time_ms": round((time.perf_counter() - started_at) * 1000, 2),
             "cycles": list(result),
         }
@@ -314,7 +326,10 @@ def get_fan_in_candidates(
             "count": len(result),
             "truncated": getattr(result, "truncated", False),
             "truncation_reason": getattr(result, "truncation_reason", None),
+            "truncation_reasons": getattr(result, "truncation_reasons", []),
             "suspicious_count": sum(1 for hit in result if hit.get("measurements", {}).get("suspicious")),
+            "indeterminate_count": sum(1 for hit in result if hit.get("measurements", {}).get("suspicion_indeterminate")),
+            "invalid_rows_skipped": getattr(result, "invalid_rows_skipped", 0),
             "execution_time_ms": round((time.perf_counter() - started_at) * 1000, 2),
             "hits": list(result),
         }
@@ -354,7 +369,10 @@ def get_fan_out_candidates(
             "count": len(result),
             "truncated": getattr(result, "truncated", False),
             "truncation_reason": getattr(result, "truncation_reason", None),
+            "truncation_reasons": getattr(result, "truncation_reasons", []),
             "suspicious_count": sum(1 for hit in result if hit.get("measurements", {}).get("suspicious")),
+            "indeterminate_count": sum(1 for hit in result if hit.get("measurements", {}).get("suspicion_indeterminate")),
+            "invalid_rows_skipped": getattr(result, "invalid_rows_skipped", 0),
             "execution_time_ms": round((time.perf_counter() - started_at) * 1000, 2),
             "hits": list(result),
         }
@@ -365,6 +383,97 @@ def get_fan_out_candidates(
             status_code=500,
             detail=f"Failed to execute fan-out detection against FalkorDB: {e}",
         )
+
+
+def _graph_pattern_response(pattern: str, result: list, started_at: float) -> dict:
+    """Build additive endpoint metadata shared by the three path detectors."""
+    return {
+        "status": "partial" if result.truncated else "success",
+        "graph": GRAPH_NAME,
+        "pattern": pattern,
+        "count": len(result),
+        "truncated": result.truncated,
+        "truncation_reason": result.truncation_reason,
+        "truncation_reasons": result.truncation_reasons,
+        "invalid_rows_skipped": result.invalid_rows_skipped,
+        "edges_scanned": result.edges_scanned,
+        "search_steps": result.search_steps,
+        "suspicious_count": sum(1 for hit in result if hit["measurements"].get("suspicious")),
+        "execution_time_ms": round((time.perf_counter() - started_at) * 1000, 2),
+        "hits": list(result),
+    }
+
+
+@app.get("/api/detectors/relay-chain")
+@app.get("/api/v1/detectors/relay-chain")
+def get_relay_chain_candidates(
+    min_hops: int = Query(default=3, ge=3, le=6),
+    max_hops: int = Query(default=6, ge=3, le=6),
+    max_gap_hours: int = Query(default=6, ge=1, le=168),
+    observation_hours: int = Query(default=24, ge=1, le=168),
+    limit: int = Query(default=50, ge=1, le=200),
+):
+    started_at = time.perf_counter()
+    try:
+        result = detect_relay_chains(
+            min_hops=min_hops, max_hops=max_hops,
+            max_gap_seconds=max_gap_hours * 3600,
+            observation_seconds=observation_hours * 3600,
+            limit=limit, graph_name=GRAPH_NAME, db=db_client,
+        )
+        return _graph_pattern_response("relay_chain", result, started_at)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    except Exception as error:
+        raise HTTPException(status_code=500, detail=f"Failed to execute relay-chain detection: {error}")
+
+
+@app.get("/api/detectors/scatter-gather")
+@app.get("/api/v1/detectors/scatter-gather")
+def get_scatter_gather_candidates(
+    min_intermediaries: int = Query(default=3, ge=2, le=50),
+    max_path_gap_hours: int = Query(default=24, ge=1, le=168),
+    observation_hours: int = Query(default=72, ge=1, le=168),
+    limit: int = Query(default=50, ge=1, le=200),
+):
+    started_at = time.perf_counter()
+    try:
+        result = detect_scatter_gather(
+            min_intermediaries=min_intermediaries,
+            max_path_gap_seconds=max_path_gap_hours * 3600,
+            observation_seconds=observation_hours * 3600,
+            limit=limit, graph_name=GRAPH_NAME, db=db_client,
+        )
+        return _graph_pattern_response("scatter_gather", result, started_at)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    except Exception as error:
+        raise HTTPException(status_code=500, detail=f"Failed to execute scatter-gather detection: {error}")
+
+
+@app.get("/api/detectors/gather-scatter")
+@app.get("/api/v1/detectors/gather-scatter")
+def get_gather_scatter_candidates(
+    min_incoming_counterparties: int = Query(default=3, ge=2, le=50),
+    min_outgoing_counterparties: int = Query(default=3, ge=2, le=50),
+    window_hours: int = Query(default=72, ge=1, le=168),
+    max_activity_gap_hours: int = Query(default=12, ge=1, le=168),
+    limit: int = Query(default=50, ge=1, le=200),
+):
+    started_at = time.perf_counter()
+    try:
+        result = detect_gather_scatter(
+            min_incoming_counterparties=min_incoming_counterparties,
+            min_outgoing_counterparties=min_outgoing_counterparties,
+            window_seconds=window_hours * 3600,
+            maximum_activity_gap_seconds=max_activity_gap_hours * 3600,
+            limit=limit, graph_name=GRAPH_NAME, db=db_client,
+        )
+        return _graph_pattern_response("gather_scatter", result, started_at)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    except Exception as error:
+        raise HTTPException(status_code=500, detail=f"Failed to execute gather-scatter detection: {error}")
 
 
 @app.api_route("/api/evaluate/cycles", methods=["GET", "POST"])
@@ -381,5 +490,41 @@ def evaluate_cycles(limit: int = Query(default=50, ge=1, le=200)):
         return report
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to evaluate cycle detector: {e}")
+
+
+@app.api_route("/api/evaluate/fans", methods=["GET", "POST"])
+@app.api_route("/api/v1/evaluate/fans", methods=["GET", "POST"])
+def evaluate_fan_patterns(limit: int = Query(default=50, ge=1, le=200)):
+    """Evaluate fan-in and fan-out using the evaluator-only ground-truth path."""
+    try:
+        from app.evaluator import evaluate_fan_detectors
+        return evaluate_fan_detectors(sample_limit=limit, graph_name=GRAPH_NAME, db=db_client)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    except Exception as error:
+        raise HTTPException(status_code=500, detail=f"Failed to evaluate fan detectors: {error}")
+
+
+@app.api_route("/api/evaluate/graph-patterns", methods=["GET", "POST"])
+@app.api_route("/api/v1/evaluate/graph-patterns", methods=["GET", "POST"])
+def evaluate_graph_patterns(limit: int = Query(default=50, ge=1, le=200)):
+    """Evaluate relay, scatter-gather, and gather-scatter evidence independently."""
+    try:
+        from app.evaluator import evaluate_additional_graph_detectors
+        return evaluate_additional_graph_detectors(sample_limit=limit, graph_name=GRAPH_NAME, db=db_client)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    except Exception as error:
+        raise HTTPException(status_code=500, detail=f"Failed to evaluate graph pattern detectors: {error}")
+
+
+# Member A routes live in their own module. The existing aliases above remain
+# in place so the current frontend keeps its response shape during migration.
+try:
+    from app.api.detection_routes import router as detection_router
+except ImportError:
+    from backend.app.api.detection_routes import router as detection_router
+
+app.include_router(detection_router)
 
 

@@ -54,3 +54,132 @@ This document records code generated or modified by AI agents and the concrete v
 | `frontend/src/services/api.ts`, `frontend/src/types/index.ts` | Added typed API calls and response types for fan-in/fan-out and measured cycle run metadata. | `npm run build` passed. |
 | `frontend/src/index.css` | Added detector status badges and responsive results layout styles. | `npm run build` passed; narrow viewport checked in browser. |
 | `docs/STATUS.md`, `docs/AI_USAGE.md` | Recorded this task's changes, verification results, and live-database limitation. | Reviewed against commands actually run in this workspace. |
+
+## Six Graph Detectors — 2026-10-16
+
+| File | AI-assisted change | Verification |
+|---|---|---|
+| `backend/app/queries.py` | Added a parameterized, stable-order, offset-paged edge query used by the three path detectors. | Loaded and scanned all 40,661 seed-42 edges in disposable graphs; full seed-43 graph loaded with 39,924 edges. |
+| `backend/app/detectors/graph_pattern_utils.py` | Added shared paginated edge loading, malformed-row accounting, stable hit IDs, and the current hit result metadata type. | Exercised complete reads, truncation, invalid rows, deterministic IDs, and query errors in tests. |
+| `backend/app/detectors/relay_chain.py` | Added bounded directed 3–6 hop pass-through detection with hop-gap and amount-retention measurements. | Seed 43: 10 exact suspicious true positives, 0 labeled benign false positives, 0 false negatives; no truncation; approx. 8.85 s. |
+| `backend/app/detectors/scatter_gather.py` | Added shared-source/shared-sink two-hop route detection with distinct-intermediary deduplication and per-path amount/timing checks. | Seed 43: 10 exact suspicious true positives, 0 labeled benign false positives, 0 false negatives; no truncation; approx. 8.89 s. Dataset has no benign scatter-gather labels. |
+| `backend/app/detectors/gather_scatter.py` | Added ordered hub collection/dispersal detection with separate directional batches and explicit non-attribution of money flows. | Seed 43: 7 exact suspicious true positives, 0 labeled benign false positives, 3 false negatives; no truncation; approx. 8.34 s. Dataset has no benign gather-scatter labels. |
+| `backend/app/detectors/__init__.py`, `backend/app/main.py` | Exported all six detectors and added legacy plus `/api/v1` routes and an evaluator route for the three new patterns. | API tests confirmed all six new route aliases return traceable transaction evidence. |
+| `backend/app/evaluator.py` | Added one-to-one exact-match evaluation for relay-chain, scatter-gather, and gather-scatter, including unknown background hits and cross-pattern transaction overlap diagnostics. | Evaluator unit tests passed; seed-43 holdout ran only after thresholds were frozen on seed 42. |
+| `backend/tests/fixtures/*_chain_*.json`, `backend/tests/fixtures/*_gather_*.json` | Added positive and negative synthetic fixtures for the new detector patterns. | Fixtures loaded only into disposable `test_<uuid>` graphs. |
+| `backend/tests/test_graph_pattern_detectors.py`, `backend/tests/test_evaluator_metrics.py` | Added detector boundary, evidence, truncation, stable-ID, API route, and metric-accounting tests. | Full backend suite: 77 tests passed in 47.306 s; Python compilation passed. |
+| `docs/STATUS.md`, `docs/AI_USAGE.md` | Recorded implementation, thresholds, limitations, and measured seed-43 results. | Checked against the executed seed-43 evaluator and backend test output. |
+
+### Holdout interpretation
+
+Follow-up: scatter-gather now separates repeated source/sink behavior into configurable 72-hour episodes. The isolated regression and full backend suite passed (78 tests). Seed-43 was reloaded into disposable graphs and the evaluator rerun: scatter-gather remained 10/10 exact suspicious matches with no labeled benign scenarios (FPR unavailable); relay-chain remained 10/10 and gather-scatter 7/10. The seed-43 graphs were removed in a `finally` block.
+
+Seed-43 metrics cover exact planted synthetic labels only. Relay-chain has 6 labeled benign near-miss cases and no false positives among them. Scatter-gather and gather-scatter have no benign labels, so their false-positive rates are undefined. Unlabeled background candidates are reported separately and are not assumed to be false positives. These results do not establish real-world financial crime detection accuracy. Existing cycle/fan evaluation also returned capped/partial statuses on seed 43; see `docs/STATUS.md`.
+
+## Detector Workbench Redesign into Individual Investigation Workspaces — 2026-10-16
+
+| File | AI-assisted change | Verification |
+|---|---|---|
+| `frontend/src/components/patterns/types.ts` | Defined `WorkbenchCandidate` and `DetectorMetadata` unifying detector output types. | `tsc -b` and `oxlint` compile check. |
+| `frontend/src/components/patterns/candidateUtils.ts` | Implemented title/subtitle formatting, INR currency, duration, and hit-to-candidate transformation functions supporting all 6 detectors. | Tested with real API responses for cycle, fan-in, fan-out, relay-chain. |
+| `frontend/src/components/patterns/catalogData.ts` | Extracted detector metadata and roadmap constants to optimize React Fast Refresh. | `oxlint` rule `react(only-export-components)` satisfied. |
+| `frontend/src/components/patterns/CandidateIdInfo.tsx` | Created interactive modal detailing candidate semantics, deterministic SHA-256 IDs, and the 3-tier triage hierarchy. | Rendered in browser; verified interactive open/close behavior. |
+| `frontend/src/components/patterns/CandidateGraph.tsx` | Implemented dedicated Cytoscape mini-graph on `#080C10` canvas with hub node styling, directional arrowheads, edge highlighting, and toolbar. | Visualized subgraphs for real fan-in and cycle candidates in browser. |
+| `frontend/src/components/patterns/CandidateList.tsx` | Implemented candidate cards with human summaries, INR flow, copyable IDs, search input, and flagged filter. | Verified live candidate cards, search filtering, and clipboard copy. |
+| `frontend/src/components/patterns/CandidateEvidencePanel.tsx` | Implemented structured measurement grid, explanation, edge callout, and supporting transaction ledger table. | Verified row clicks highlight edges and display transaction details. |
+| `frontend/src/components/patterns/DetectorCatalog.tsx` | Built Level A catalog module with live engine metrics, status pills, and workspace launch actions. | Verified catalog scan in browser and seamless navigation. |
+| `frontend/src/components/patterns/DetectorWorkspace.tsx` | Built Level B single-detector workspace with back navigation, execution trigger, parameters, candidate list, graph, and ledger. | Verified full execution lifecycle, parameter adjustments, and empty/ready states. |
+| `frontend/src/components/patterns/DetectionWorkbench.tsx` | Replaced monolithic layout with Level A catalog and Level B workspace routing orchestrator. | Production build passed in 849ms; 0 lint errors, 0 warnings. |
+| `frontend/src/services/api.ts` | Added typed endpoints for `detectRelayChain`, `detectScatterGather`, `detectGatherScatter`, and `evaluateGraphPatterns`. | Tested against live FastAPI backend. |
+
+## Backend Detector and Case Integration — 2026-10-16
+
+| Area | AI-assisted change | Verification |
+|---|---|---|
+| `backend/app/detectors/` | Added the remaining bipartite, dense-cluster, and hub-account structural detectors; optimized detector scans to share transaction snapshots. | Positive/negative fixture tests; nine-detector isolated scan integration. |
+| `backend/app/cases/`, `backend/app/scan_service.py` | Added shared-account case grouping, deterministic IDs, explainable 0–100 score breakdown, idempotent memory-graph persistence, and background scan registry. | Isolated case persistence, scoring/grouping, and scan integration tests. |
+| `backend/app/api/`, `backend/app/queries.py`, `backend/app/main.py` | Added Pydantic-backed routes for scan/status, cases, account graph/profile, scenarios, evaluation, and supplementary detectors; legacy API aliases remain. Cypher remains centralized in queries. | API tests and route smoke checks; scenario injection rejects missing demo key. |
+| `backend/app/evaluator.py` | Expanded honest pattern reporting and reused one bounded transaction snapshot across a complete evaluation run. | Seed-43 evaluation on disposable test graphs; labels remain evaluator-only. |
+| `docs/STATUS.md` | Recorded measured metrics, truncation behavior, and Member B boundary/limitations. | Full backend unittest suite: 86 passed in 25.260s; `compileall` passed. |
+
+Seed-43 exact labeled outcomes were: cycle 6/10 TP and 0/12 benign FP; fan-in 8/10 and 0/12; fan-out 3/10 and 3/6; relay-chain 10/10 and 0/6; scatter-gather 10/10 with no benign labels; gather-scatter 7/10 with no benign labels. Bipartite and dense-cluster were 0/10 exact matches and truncated; hub-account has no labels and is not a fraud prediction. The dataset is synthetic, some reports hit result caps, and these numbers do not establish real-world accuracy. Seed 43 was not used for threshold tuning.
+
+## Codebase Complexity Optimization Pass — 2026-10-16
+
+| File / Component | AI-assisted change | Verification |
+|---|---|---|
+| `frontend/src/components/patterns/CycleDetectionView.tsx` | Deleted dead legacy component superseded by `DetectorWorkspace.tsx` (-643 lines). | Frontend build passed in 1.32s; `oxlint` 0 errors. |
+| `frontend/src/components/overview/NetworkPreview.tsx` | Deleted dead network preview component superseded by `OverviewGraph.tsx` (-344 lines). | Frontend build passed; `oxlint` 0 errors. |
+| `frontend/src/components/overview/RecentTransactionsTable.tsx` | Deleted dead standalone transaction table (-139 lines). | Frontend build passed; `oxlint` 0 errors. |
+| `frontend/src/components/overview/InvestigationPanel.tsx` | Deleted dead placeholder investigation panel (-70 lines). | Frontend build passed; `oxlint` 0 errors. |
+| `frontend/src/components/overview/DetectionPatterns.tsx` | Deleted dead patterns component superseded by `SummaryCards.tsx` (-60 lines). | Frontend build passed; `oxlint` 0 errors. |
+| `frontend/src/App.tsx` | Removed unused state hooks (`setTransactions`, `setDetectorRuns`, etc.) and dead startup API requests. | `npm run build` and `oxlint` passed. |
+| `backend/app/cases/builder.py` | Refactored `account_mix` calculation to use `collections.Counter` ($O(N)$ vs $O(N^2)$) and streamlined size bucketing. | `backend/tests/test_cases.py` passed (5/5); full backend suite passed (86/86). |
+| `backend/app/main.py`, `backend/app/queries.py`, `backend/app/detectors/windowing.py` | Preserved all test-asserted queries (`GET_CYCLE_EDGES`), legacy routes, and windowing zero-eviction logic to guarantee zero regression. | Full backend test suite: 86/86 passed in 24.204s. |
+
+## Case Builder Phase 1: Hit Grouping — 2026-10-16
+
+| File / Component | AI-assisted change | Verification |
+|---|---|---|
+| `backend/app/cases/builder.py` | Implemented `group_hits()` pure grouping engine using Union-Find (DSU) with path compression, preserving original hit evidence, deduplicating accounts/transactions, and partitioning under 60-account cap. | Isolated unit tests (8/8 passed) and full backend suite (94/94 passed). |
+| `backend/app/cases/__init__.py` | Exported `group_hits` and `HitGroupResult` alongside existing case builder symbols. | Module imports verified in unit tests. |
+| `backend/tests/test_case_grouping.py` | Created comprehensive in-memory unit test suite covering all 8 Phase 1 requirements (transitive merge, isolation, evidence preservation, deduplication, empty input, determinism, and account cap partitioning). | 8/8 tests passed in 0.003s. |
+| `docs/STATUS.md`, `docs/AI_USAGE.md` | Recorded Phase 1 implementation details, algorithmic design, and test outcomes. | Verified against real command executions. |
+
+## Case Builder Phase 2: Case Scorer Verification — 2026-10-16
+
+| File / Component | AI-assisted change | Verification |
+|---|---|---|
+| `backend/app/cases/scorer.py` | Verified and completed `score_case` contract compliance: bounded 5-component breakdown, mathematical invariant $total = \sum components \le 100$, empty-input safety, robust origin detection fallback, and exact [39, 40, 69, 70] severity thresholds. | Focused scorer tests (10/10 passed), combined case tests (13/13 passed), full backend suite (104/104 passed). |
+| `backend/tests/test_case_scorer.py` | Added comprehensive in-memory unit test suite for all 10 Phase 2 scoring specifications (bounds, component maximums, component sum invariant, boundary thresholds, determinism, payroll/merchant origin reduction, distinct pattern corroboration, duplicate-pattern rejection, hub-account supporting boost, and empty/minimal inputs). | 10/10 tests passed in 0.010s. |
+| `docs/STATUS.md`, `docs/AI_USAGE.md` | Recorded Phase 2 formulas, invariants, and regression test results. | Verified against real test outputs. |
+
+## Case Builder Phase 3: Case Identity & Memory-Graph Persistence — 2026-10-16
+
+| File / Component | AI-assisted change | Verification |
+|---|---|---|
+| `backend/app/cases/builder.py` | Updated `persist_cases` to pass serialized `measurements` on hit records and guarded against empty `case_rows` / `hit_rows` to prevent FalkorDB `UNWIND []` syntax exceptions. | Persistence tests (10/10 passed), full backend suite (114/114 passed). |
+| `backend/app/queries.py` | Updated `UPSERT_CASE_HITS` Cypher query to persist `h.measurements = r.measurements`, satisfying the Member A `(:Hit {hit_id, pattern, tx_ids, measurements})` schema. | Verified graph property assertion in tests. |
+| `backend/tests/test_case_persistence.py` | Added comprehensive isolated test suite covering all 10 Phase 3 persistence requirements: node creation, edge creation, 3x idempotency, ID stability across rescans, multi-case isolation, incremental evidence updates, shared entity deduplication, score/signature preservation, Member B non-overwrite protection, and error handling. | 10/10 tests passed in 1.755s against real FalkorDB graphs with complete cleanup. |
+| `docs/STATUS.md`, `docs/AI_USAGE.md` | Documented Phase 3 identity rules, schema constraints, idempotency guarantees, and regression test results. | Verified against real command executions. |
+
+## Case ID Compatibility Audit — 2026-10-16
+
+| File / Component | AI-assisted change | Verification |
+|---|---|---|
+| `docs/STATUS.md`, `docs/AI_USAGE.md` | Conducted comprehensive repository audit of `case_id` format across `AGENTS_MEMBER_A.md`, API contracts, Pydantic schemas, routes, Cypher queries, frontend components, and Member B boundaries. Confirmed format compatibility with zero code changes required. | All 33 case tests and 114 full backend tests pass with 100% success rate. |
+
+## Phase 4: Scan and API Integration — 2026-10-16
+
+| File / Component | AI-assisted change | Verification |
+|---|---|---|
+| `backend/app/api/detection_routes.py` | Aligned `start_scan` return payload and status code to HTTP 202 `{"scan_id": scan_id, "status": "running"}` strictly matching contract specifications. | Verified via `test_02_scan_response_matches_contract_example` and full route checks. |
+| `backend/app/scan_service.py` | Initialized scan jobs with `status: "running"` and adapted cycle hit normalization to handle both raw candidate dicts and standardized `Hit` objects with fallback keys. | Verified in end-to-end scan tests with zero KeyError exceptions. |
+| `backend/tests/test_api_integration.py` | Created comprehensive 11-test suite for all Phase 4 integration criteria (scan pipeline, 202 response format, rescan idempotency, filter/sorting, case details with 5-part score breakdown, unmerged graph edges, 404 formatting, empty scan handling, pagination limits [50, 200], hashed ID resolution, legacy route aliases). | 11/11 tests passed in 0.800s against isolated test graphs. |
+| `docs/STATUS.md`, `docs/AI_USAGE.md` | Documented Phase 4 endpoints, scan pipeline integration, contract matching, and test results. | Verified against real command executions. |
+
+## Phase 4.1: Error-Response Contract Resolution — 2026-10-16
+
+| File / Component | AI-assisted change | Verification |
+|---|---|---|
+| `backend/app/api/detection_routes.py` | Updated `get_case` 404 response to call `_error(404, "not_found", "Case not found")` defaulting `details` to `{}` to match exact contract example in `AGENTS_MEMBER_A.md:195`. | Unit tested via `test_07_unknown_case_id_returns_established_error_format`. |
+| `backend/tests/test_api_integration.py` | Strengthened `test_07` to assert exact dictionary equality against `{"error": {"code": "not_found", "message": "Case not found", "details": {}}}` for both `/cases/{id}` and `/cases/{id}/graph`. | 11/11 tests passed in 1.115s; 55/55 case & API tests passed in 10.437s. |
+| `docs/STATUS.md`, `docs/AI_USAGE.md` | Corrected report summary description and recorded root cause, contract resolution, and verification results. | Verified against real command executions. |
+
+## Phase 5: Frontend Integration and End-to-End Regression — 2026-10-16
+
+| File / Component | AI-assisted change | Verification |
+|---|---|---|
+| `frontend/src/types/index.ts` | Added contract-compliant case types (`CaseScoreBreakdown`, `CaseRecord`, `CaseHit`, `CaseTransaction`, `CaseDecision`, `CaseDetail`, `CaseListResponse`, `CaseGraphNode`, `CaseGraphEdge`, `CaseGraphData`, `ScanReceipt`, `ScanStatus`). | `tsc -b` type check in frontend build. |
+| `frontend/src/services/api.ts` | Added typed case and scan methods (`getCases`, `getCase`, `getCaseGraph`, `startScan`, `getScanStatus`, `getGraphSummary`) with structured error message formatting. | Tested against live FastAPI backend. |
+| `frontend/src/components/cases/CaseManagementView.tsx` | Master-detail layout orchestrator with account drawer, scan polling, and immediate state reset on case selection to prevent stale data display. | Production build passed; verified in browser test. |
+| `frontend/src/components/cases/CaseQueueList.tsx` | Filterable case queue with status, severity, pattern filters, sorting, search by case/account, score pills, and scan trigger. | Verified interactive filtering and search. |
+| `frontend/src/components/cases/CaseDetailView.tsx` | Master case detail view with opaque ID copy button, severity badges, Member B handoff action, tab navigation, and 404 error screen. | Verified case switching and error states. |
+| `frontend/src/components/cases/CaseGraphCanvas.tsx` | Cytoscape.js dark canvas (`#080C10`), directed 1-edge-per-transaction topology with INR labels, role-coded nodes, edge selection sync, and zoom/fit toolbar. | Verified topology rendering and interaction. |
+| `frontend/src/components/cases/CaseScoreBreakdownView.tsx` | 5-part triage score breakdown with progress meters (severity /35, amount /20, velocity /15, account_count /10, corroboration /20) and merchant/payroll discount notes. | Mathematical invariant displayed and verified. |
+| `frontend/src/components/cases/CaseTransactionTable.tsx` | Supporting transaction ledger with INR currency, copyable TX IDs, synced edge selection, search, and account drawer links. | Edge-to-row selection sync verified. |
+| `frontend/src/components/cases/CaseHitsList.tsx` | Clustered detector hits with typology badge, explanation, structured measurements, and involved accounts. | Evidence card rendering verified. |
+| `frontend/src/components/layout/Sidebar.tsx`, `frontend/src/App.tsx` | Connected `CaseManagementView` to the `investigations` tab with active navigation status pill. | Production build passed; routing verified. |
+| `backend/tests/test_e2e_workflow.py` | Added end-to-end regression test suite (9-step workflow, 202 scan receipt, polling, case list, 5-part score breakdown invariant, unmerged graph edges, 404 contract error envelope, rescan idempotency, test graph isolation). | 3/3 tests passed in 0.456s; 128/128 full backend suite passed in 23.715s. |
+| `docs/STATUS.md`, `docs/AI_USAGE.md` | Documented Phase 5 frontend integration, stale-data prevention, test suite execution, and system boundary verification. | Verified against real test and build outputs. |
+

@@ -24,14 +24,17 @@ Truncation is reported when either the result limit, transaction scan limit, or
 search-work limit is reached. A truncated empty result is not a clean negative.
 """
 import hashlib
+from bisect import bisect_left
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Tuple
 
 try:
     from app.db import FalkorDBClient
+    from app.detectors.windowing import normalize_transaction_rows
     from app.queries import GET_CYCLE_EDGES
 except ImportError:
     from backend.app.db import FalkorDBClient
+    from backend.app.detectors.windowing import normalize_transaction_rows
     from backend.app.queries import GET_CYCLE_EDGES
 
 
@@ -48,6 +51,8 @@ class CycleDetectionResult(list):
         candidates: List[Dict[str, Any]],
         truncated: bool = False,
         truncation_reason: Optional[str] = None,
+        invalid_rows_skipped: int = 0,
+        truncation_reasons: Optional[List[str]] = None,
     ):
         super().__init__(candidates)
         self.truncated = truncated
@@ -55,6 +60,8 @@ class CycleDetectionResult(list):
         self.count = len(candidates)
         self.edges_scanned = 0
         self.search_steps = 0
+        self.invalid_rows_skipped = invalid_rows_skipped
+        self.truncation_reasons = truncation_reasons or ([truncation_reason] if truncation_reason else [])
 
 
 def canonicalize_cycle_edges(
@@ -79,12 +86,12 @@ def canonicalize_cycle_edges(
 
 
 def check_time_ordering(txs: List[Dict[str, Any]]) -> bool:
-    """Check if there exists a cyclic starting edge such that timestamps are non-decreasing."""
+    """Check whether transaction timestamps strictly increase in traversal order."""
     n = len(txs)
     if n <= 1:
         return True
     return any(
-        all(txs[(start + j) % n]["ts"] <= txs[(start + j + 1) % n]["ts"] for j in range(n - 1))
+        all(txs[(start + j) % n]["ts"] < txs[(start + j + 1) % n]["ts"] for j in range(n - 1))
         for start in range(n)
     )
 
@@ -99,6 +106,7 @@ def detect_cycles(
     max_gap: int = 46800,
     min_ratio: float = 0.89,
     max_ratio: float = 1.05,
+    edge_snapshot: Optional[Tuple[List[Dict[str, Any]], bool, int]] = None,
 ) -> CycleDetectionResult:
     """Detect directed transaction cycles in FalkorDB within specified length bounds.
 
@@ -131,38 +139,39 @@ def detect_cycles(
         raise ValueError(f"limit must be between 1 and 200 (got {limit}).")
 
     client = db or FalkorDBClient()
-    rows: List[Any] = []
-    offset = 0
-    while len(rows) <= EDGE_SCAN_LIMIT:
-        page_limit = min(EDGE_PAGE_SIZE, EDGE_SCAN_LIMIT + 1 - len(rows))
-        res = client.execute_query(
-            graph_name,
-            GET_CYCLE_EDGES,
-            {"offset": offset, "limit": page_limit},
-            caller="detector:cycle:read_edges",
-        )
-        page = res.result_set if res and res.result_set else []
-        rows.extend(page)
-        offset += len(page)
-        if len(page) < page_limit:
-            break
-    scan_truncated = len(rows) > EDGE_SCAN_LIMIT
-    rows = rows[:EDGE_SCAN_LIMIT]
-
     outgoing: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
-    for row in rows:
-        amount = float(row[3] or 0)
-        if amount <= 0:
-            continue
-        outgoing[str(row[0])].append({
-            "src": str(row[0]),
-            "dst": str(row[1]),
-            "tx_id": str(row[2]),
-            "amount": round(amount, 2),
-            "ts": int(row[4]),
-            "step": int(row[5] or 0),
-            "tx_type": str(row[6] or ""),
-        })
+    if edge_snapshot is not None:
+        valid_rows, scan_truncated, invalid_rows_skipped = edge_snapshot
+    else:
+        rows: List[Any] = []
+        offset = 0
+        while len(rows) <= EDGE_SCAN_LIMIT:
+            page_limit = min(EDGE_PAGE_SIZE, EDGE_SCAN_LIMIT + 1 - len(rows))
+            res = client.execute_query(
+                graph_name,
+                GET_CYCLE_EDGES,
+                {"offset": offset, "limit": page_limit},
+                caller="detector:cycle:read_edges",
+            )
+            page = res.result_set if res and res.result_set else []
+            rows.extend(page)
+            offset += len(page)
+            if len(page) < page_limit:
+                break
+        scan_truncated = len(rows) > EDGE_SCAN_LIMIT
+        rows = rows[:EDGE_SCAN_LIMIT]
+        cycle_rows = [
+            [row[2], row[0], row[1], *row[3:]] if row is not None and len(row) >= 3 else row
+            for row in rows
+        ]
+        valid_rows, invalid_rows_skipped = normalize_transaction_rows(cycle_rows)
+    for edge in valid_rows:
+        edge["amount"] = round(edge["amount"], 2)
+        outgoing[edge["src"]].append(edge)
+    outgoing_times: Dict[str, List[int]] = {}
+    for account, edges in outgoing.items():
+        edges.sort(key=lambda edge: (edge["ts"], edge["tx_id"]))
+        outgoing_times[account] = [edge["ts"] for edge in edges]
 
     candidates: List[Dict[str, Any]] = []
     seen_canonical_ids = set()
@@ -170,7 +179,7 @@ def detect_cycles(
     work_limited = False
 
     # DFS over each possible origin. Timestamps and amount ratios prune a branch
-    # before it can expand, while the smallest-account rule removes rotations.
+    # before it can expand; canonical edge IDs deduplicate any rotations found.
     def visit(start: str, current: str, path: List[Dict[str, Any]], visited: set[str]) -> None:
         nonlocal search_steps, work_limited
         if work_limited:
@@ -178,7 +187,11 @@ def detect_cycles(
         if len(path) >= max_length:
             return
         previous = path[-1] if path else None
-        for edge in outgoing.get(current, []):
+        next_edges = outgoing.get(current, [])
+        first_index = bisect_left(outgoing_times.get(current, []), previous["ts"] + min_gap) if previous else 0
+        for edge in next_edges[first_index:]:
+            if previous and edge["ts"] - previous["ts"] > max_gap:
+                break
             search_steps += 1
             if search_steps > SEARCH_STEP_LIMIT:
                 work_limited = True
@@ -208,6 +221,11 @@ def detect_cycles(
                             if suspicious else
                             "A cycle candidate only; it does not meet all fast, high-retention review criteria."
                         )
+                        suspicion_rationale = (
+                            "Cycle completed within 24 hours with at least 80% amount conservation."
+                            if suspicious else
+                            "Structural cycle only; duration, conservation, or retention did not meet review criteria."
+                        )
                         explanation = (
                             f"Directed {next_length}-hop cycle across accounts "
                             f"{' -> '.join(accounts)} -> {accounts[0]}, with {len(cycle_edges)} real transactions. "
@@ -234,10 +252,11 @@ def detect_cycles(
                             "last_transaction_ts": chron_edges[-1]["ts"],
                             "is_time_ordered": True,
                             "suspicious": suspicious,
+                            "suspicion_rationale": suspicion_rationale,
                             "explanation": explanation,
                         })
                 continue
-            if next_length < max_length and edge["dst"] not in visited and start < edge["dst"]:
+            if next_length < max_length and edge["dst"] not in visited:
                 visit(start, edge["dst"], next_path, visited | {edge["dst"]})
             if work_limited:
                 return
@@ -254,11 +273,26 @@ def detect_cycles(
         candidate["cycle_id"],
     ))
     result_limited = len(candidates) > limit
-    truncated = scan_truncated or work_limited or result_limited
+    truncated = scan_truncated or work_limited or result_limited or invalid_rows_skipped > 0
     if result_limited:
         candidates = candidates[:limit]
-    reason = "edge_scan_limit" if scan_truncated else "search_budget" if work_limited else "result_limit" if result_limited else None
-    result = CycleDetectionResult(candidates, truncated=truncated, truncation_reason=reason)
-    result.edges_scanned = len(rows)
+    reasons = []
+    if scan_truncated:
+        reasons.append("edge_scan_limit")
+    if work_limited:
+        reasons.append("search_budget")
+    if invalid_rows_skipped:
+        reasons.append("invalid_transaction_rows")
+    if result_limited:
+        reasons.append("result_limit")
+    reason = reasons[0] if reasons else None
+    result = CycleDetectionResult(
+        candidates,
+        truncated=truncated,
+        truncation_reason=reason,
+        invalid_rows_skipped=invalid_rows_skipped,
+        truncation_reasons=reasons,
+    )
+    result.edges_scanned = len(valid_rows)
     result.search_steps = min(search_steps, SEARCH_STEP_LIMIT)
     return result

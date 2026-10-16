@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, RefreshCw, User, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Search, RefreshCw, CheckCircle2, AlertCircle, Database, ShieldCheck } from 'lucide-react';
 import type { HealthStatus, SearchResultAccount } from '../../types';
 import { ringtraceApi } from '../../services/api';
 
@@ -18,8 +18,6 @@ export const Navbar: React.FC<NavbarProps> = ({ health, onRefreshHealth, onSelec
 
   useEffect(() => {
     if (!query.trim() || query.length < 2) {
-      setResults([]);
-      setShowDropdown(false);
       return;
     }
 
@@ -50,41 +48,56 @@ export const Navbar: React.FC<NavbarProps> = ({ health, onRefreshHealth, onSelec
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const handleQueryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setQuery(val);
+    if (!val.trim() || val.length < 2) {
+      setResults([]);
+      setShowDropdown(false);
+    }
+  };
+
   const handleSelect = (accId: string) => {
     onSelectAccount(accId);
     setQuery('');
+    setResults([]);
     setShowDropdown(false);
   };
 
+  const isConnected = Boolean(health?.falkordb_connected);
+
   return (
     <header style={{
-      height: '60px',
-      backgroundColor: 'var(--bg-card)',
+      height: '64px',
+      backgroundColor: 'var(--surface-primary)',
       borderBottom: '1px solid var(--border-subtle)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
       padding: '0 2rem',
-      flexShrink: 0
+      flexShrink: 0,
+      position: 'relative',
+      zIndex: 15
     }}>
       {/* Search Input */}
       <div ref={searchRef} style={{ position: 'relative', width: '380px' }}>
         <div style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '0.5rem',
-          backgroundColor: 'var(--bg-base)',
+          gap: '0.6rem',
+          backgroundColor: 'var(--surface-secondary)',
           border: '1px solid var(--border-subtle)',
-          borderRadius: '6px',
-          padding: '0.45rem 0.75rem',
-          color: 'var(--text-secondary)'
+          borderRadius: '8px',
+          padding: '0.5rem 0.85rem',
+          color: 'var(--text-secondary)',
+          transition: 'all 0.15s ease'
         }}>
           <Search size={15} color="var(--text-muted)" />
           <input
             type="text"
             placeholder="Search account ID (e.g. ACC_00001)..."
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={handleQueryChange}
             onFocus={() => { if (results.length > 0) setShowDropdown(true); }}
             style={{
               background: 'transparent',
@@ -92,51 +105,68 @@ export const Navbar: React.FC<NavbarProps> = ({ health, onRefreshHealth, onSelec
               outline: 'none',
               color: 'var(--text-primary)',
               fontSize: '0.825rem',
-              width: '100%'
+              width: '100%',
+              fontFamily: 'var(--font-sans)'
             }}
           />
-          {isSearching && <RefreshCw size={12} className="spin" color="var(--accent-cyan)" />}
+          {isSearching && <RefreshCw size={12} className="spin" color="var(--brand-teal)" />}
         </div>
 
         {/* Autocomplete Dropdown */}
         {showDropdown && results.length > 0 && (
           <div style={{
             position: 'absolute',
-            top: 'calc(100% + 4px)',
+            top: 'calc(100% + 6px)',
             left: 0,
             right: 0,
-            backgroundColor: 'var(--bg-card-elevated)',
-            border: '1px solid var(--border-highlight)',
-            borderRadius: '6px',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+            backgroundColor: 'var(--surface-primary)',
+            border: '1px solid var(--border-medium)',
+            borderRadius: '8px',
+            boxShadow: 'var(--shadow-popover)',
             zIndex: 50,
             overflow: 'hidden'
           }}>
-            <div style={{ padding: '0.4rem 0.75rem', fontSize: '0.675rem', color: 'var(--text-muted)', borderBottom: '1px solid var(--border-subtle)', textTransform: 'uppercase' }}>
-              Matching Accounts
+            <div style={{
+              padding: '0.5rem 0.85rem',
+              fontSize: '0.675rem',
+              color: 'var(--text-muted)',
+              borderBottom: '1px solid var(--border-subtle)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.04em',
+              fontWeight: 600,
+              backgroundColor: 'var(--surface-secondary)'
+            }}>
+              Matching Accounts ({results.length})
             </div>
             {results.map((acc) => (
               <div
                 key={acc.id}
                 onClick={() => handleSelect(acc.id)}
                 style={{
-                  padding: '0.55rem 0.75rem',
+                  padding: '0.65rem 0.85rem',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   cursor: 'pointer',
-                  borderBottom: '1px solid rgba(255,255,255,0.03)',
-                  transition: 'background 0.1s ease'
+                  borderBottom: '1px solid var(--border-subtle)',
+                  transition: 'background-color 0.1s ease'
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(56, 189, 248, 0.08)'; }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--surface-muted)'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
               >
-                <span className="mono" style={{ fontSize: '0.825rem', fontWeight: 600, color: 'var(--accent-cyan)' }}>
-                  {acc.id}
-                </span>
-                <span className={`rt-badge badge-${acc.type}`} style={{ fontSize: '0.65rem' }}>
-                  {acc.type} • C{acc.community}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span className="mono" style={{ fontSize: '0.825rem', fontWeight: 600, color: 'var(--brand-forest)' }}>
+                    {acc.id}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <span className={`rt-badge badge-${acc.type}`} style={{ fontSize: '0.65rem' }}>
+                    {acc.type}
+                  </span>
+                  <span style={{ fontSize: '0.675rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                    C{acc.community}
+                  </span>
+                </div>
               </div>
             ))}
           </div>
@@ -144,29 +174,48 @@ export const Navbar: React.FC<NavbarProps> = ({ health, onRefreshHealth, onSelec
       </div>
 
       {/* Right controls */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        {/* Workspace Mode Badge */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.45rem',
+          padding: '0.35rem 0.75rem',
+          borderRadius: '6px',
+          backgroundColor: 'var(--surface-secondary)',
+          border: '1px solid var(--border-subtle)',
+          fontSize: '0.75rem',
+          color: 'var(--text-secondary)'
+        }}>
+          <ShieldCheck size={14} color="var(--brand-teal)" />
+          <span style={{ fontWeight: 500 }}>FIU Live Intelligence</span>
+        </div>
+
         {/* Database Status Pill */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '0.5rem',
-          padding: '0.35rem 0.75rem',
+          gap: '0.55rem',
+          padding: '0.35rem 0.85rem',
           borderRadius: '20px',
-          backgroundColor: health?.falkordb_connected ? 'var(--accent-emerald-subtle)' : 'var(--accent-rose-subtle)',
-          border: `1px solid ${health?.falkordb_connected ? 'rgba(16, 185, 129, 0.25)' : 'rgba(244, 63, 94, 0.25)'}`
+          backgroundColor: isConnected ? 'var(--accent-green-subtle)' : 'var(--accent-red-subtle)',
+          border: `1px solid ${isConnected ? 'var(--accent-green-border)' : 'var(--accent-red-border)'}`
         }}>
-          {health?.falkordb_connected ? (
-            <CheckCircle2 size={13} color="var(--accent-emerald)" />
+          {isConnected ? (
+            <CheckCircle2 size={13} color="var(--accent-green)" />
           ) : (
-            <AlertCircle size={13} color="var(--accent-rose)" />
+            <AlertCircle size={13} color="var(--accent-red)" />
           )}
-          <span style={{
-            fontSize: '0.75rem',
-            fontWeight: 600,
-            color: health?.falkordb_connected ? 'var(--accent-emerald)' : 'var(--accent-rose)'
-          }}>
-            {health?.falkordb_connected ? 'FalkorDB: Connected' : 'FalkorDB: Offline'}
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+            <Database size={11} color={isConnected ? 'var(--accent-green)' : 'var(--accent-red)'} />
+            <span style={{
+              fontSize: '0.75rem',
+              fontWeight: 600,
+              color: isConnected ? 'var(--accent-green)' : 'var(--accent-red)'
+            }}>
+              {isConnected ? `FalkorDB: ${health?.graph || 'txn'}` : 'FalkorDB: Offline'}
+            </span>
+          </div>
           <button
             onClick={onRefreshHealth}
             title="Refresh database connection status"
@@ -176,37 +225,16 @@ export const Navbar: React.FC<NavbarProps> = ({ health, onRefreshHealth, onSelec
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              padding: 0,
-              color: 'var(--text-muted)'
+              padding: '2px',
+              color: isConnected ? 'var(--accent-green)' : 'var(--accent-red)',
+              opacity: 0.8,
+              transition: 'opacity 0.15s ease'
             }}
+            onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.8'; }}
           >
             <RefreshCw size={11} />
           </button>
-        </div>
-
-        {/* User profile avatar */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', borderLeft: '1px solid var(--border-subtle)', paddingLeft: '1.25rem' }}>
-          <div style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '50%',
-            backgroundColor: '#1e293b',
-            border: '1px solid var(--border-highlight)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'var(--text-secondary)'
-          }}>
-            <User size={15} />
-          </div>
-          <div>
-            <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-              Analyst Lead
-            </div>
-            <div style={{ fontSize: '0.675rem', color: 'var(--text-muted)' }}>
-              FalkorDB Hackathon
-            </div>
-          </div>
         </div>
       </div>
     </header>

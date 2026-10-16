@@ -9,16 +9,44 @@
 venv/
 ENV/
 env/
+.env_*/
+venv*/
 __pycache__/
 **/__pycache__/
 *.py[cod]
 *$py.class
 *.so
+*.dylib
+*.dll
+*.pyd
+
+# Testing & Coverage Artifacts
 .pytest_cache/
 **/.pytest_cache/
+.ruff_cache/
+**/.ruff_cache/
+.mypy_cache/
+**/.mypy_cache/
 .coverage
+.coverage.*
+coverage.xml
+coverage/
 htmlcov/
 .tox/
+.nox/
+.hypothesis/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Python Build & Distribution
+build/
+**/build/
+dist/
+**/dist/
+*.egg-info/
+**/*.egg-info/
+.eggs/
+*.egg
 
 # ------------------------------------------------------------------------------
 # Node & Frontend (React / Vite)
@@ -27,13 +55,24 @@ node_modules/
 **/node_modules/
 dist/
 **/dist/
-build/
-**/build/
+dist-ssr/
+**/dist-ssr/
 .next/
+**/out/
+.vite/
+**/.vite/
+.turbo/
+**/.turbo/
+.parcel-cache/
+.eslintcache
+**/.eslintcache/
+.oxlintcache
+**/.oxlintcache/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+lerna-debug.log*
 
 # ------------------------------------------------------------------------------
 # Environment Variables & Secrets
@@ -41,8 +80,25 @@ pnpm-debug.log*
 .env
 .env.*
 !.env.example
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 *.pem
 *.key
+*.cert
+*.crt
+*.pfx
+*.p12
+id_rsa*
+id_ed25519*
+credentials.json
+token.json
+client_secret*.json
+secrets/
+**/secrets/
+*.keystore
+*.jks
 
 # ------------------------------------------------------------------------------
 # Logs & Runtime Execution Traces
@@ -50,46 +106,159 @@ pnpm-debug.log*
 logs/
 **/logs/
 *.log
+**/*.log
 *.jsonl
+**/*.jsonl
 !docs/QUERY_LOG.md
+!**/docs/QUERY_LOG.md
+queries.jsonl
+**/queries.jsonl
+*.prof
+*.pstats
+profile/
+profiling/
 
 # ------------------------------------------------------------------------------
-# Generated Simulator Data & Large Replays
+# Test Data, Datasets & Simulation Outputs
 # ------------------------------------------------------------------------------
+# Simulator output directories & synthetic test runs
 data/sim/
 data/sim*/
 data/test_sim/
+data/test_sim*/
 data/generated/
+data/raw/
+data/processed/
+data/cache/
+data/temp/
+data/tmp/
+data/eval/
+data/evaluation/
+data/benchmark*/
+data/test_data/
+test_data/
+test_sim/
+test_sim*/
+test_runs/
+test_output/
+test_outputs/
+test-results/
+
+# Recursive matches across all subdirectories
 **/data/sim/
 **/data/sim*/
 **/data/test_sim/
+**/data/test_sim*/
+**/data/sim_test/
 **/data/generated/
-**/replay.csv
+**/data/raw/
+**/data/processed/
+**/data/cache/
+**/data/temp/
+**/data/tmp/
+**/data/eval/
+**/data/evaluation/
+**/data/benchmark*/
+**/data/test_data/
+**/test_data/
+**/test_sim/
+**/test_sim*/
+**/test_runs/
+**/test_output/
+**/test_outputs/
+**/test-results/
+**/playwright-report/
+**/cypress/videos/
+**/cypress/screenshots/
 
-# Keep directory structure and test fixtures explicitly tracked
+# Specific large data files & generated CSVs
+**/data/*.csv
+**/data/*.json
+**/data/*.parquet
+**/data/*.arrow
+**/data/*.feather
+**/replay*.csv
+
+# Ground truth alerts & simulation datasets (Zero Ground-Truth Leakage Guarantee)
+**/alerts.csv
+**/alert_accounts.csv
+**/alert_transactions.csv
+**/alerts*.csv
+**/alert_*.csv
+
+# Explicitly track essential fixtures, sample schemas, and directory anchors
 !.gitkeep
 !data/samples/
 !**/data/samples/**
 !**/tests/fixtures/**
 !**/fixtures/**
+!**/fixtures/*.json
+
+# ------------------------------------------------------------------------------
+# Databases, In-Memory Graph Snapshots & Local Persistence
+# ------------------------------------------------------------------------------
+dump.rdb
+*.rdb
+appendonly.aof
+*.aof
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.duckdb
+test_*.db
+test_*.sqlite
+falkordb_data/
+**/falkordb_data/
+redis_data/
+**/redis_data/
+*.dump
+*.sql.gz
 
 # ------------------------------------------------------------------------------
 # IDE & Operating System Artifacts
 # ------------------------------------------------------------------------------
 .idea/
+**/.idea/
 .vscode/
+**/.vscode/
+!.vscode/extensions.json
 *.swp
 *.swo
+*.sw?
 *~
+#*#
+.#*
 *.tmp
 *.bak
+*.old
+*.orig
+*.rej
+*.sublime-project
+*.sublime-workspace
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.user
+*.userosscache
 .DS_Store
+.DS_Store?
+._*
 Thumbs.db
 Desktop.ini
 ehthumbs.db
 
 # ------------------------------------------------------------------------------
-# Agent Tooling & Local Configurations
+# Agent Tooling, Local Configurations & Scratch
 # ------------------------------------------------------------------------------
 .agents/
 skills-lock.json
+.system_generated/
+scratch/
+**/scratch/
+.gemini/
+.claude/
+.antigravity/

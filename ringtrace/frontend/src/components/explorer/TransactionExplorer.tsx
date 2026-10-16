@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import cytoscape, { type Core } from 'cytoscape';
 import {
   Compass,
@@ -33,7 +33,7 @@ export const TransactionExplorer: React.FC<TransactionExplorerProps> = ({
   const cyContainerRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<Core | null>(null);
 
-  const fetchAccount = async (id: string) => {
+  const fetchAccount = useCallback(async (id: string) => {
     setLoading(true);
     setError(null);
     try {
@@ -47,14 +47,34 @@ export const TransactionExplorer: React.FC<TransactionExplorerProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    if (initialAccountId) {
-      fetchAccount(initialAccountId);
-    } else {
-      fetchAccount('ACC_00001');
-    }
+    let isMounted = true;
+    (async () => {
+      const targetId = initialAccountId || 'ACC_00001';
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await ringtraceApi.getAccountDetails(targetId.trim());
+        if (isMounted) {
+          setData(res);
+          setAccountId(targetId.trim());
+          setSearchInput(targetId.trim());
+          setLoading(false);
+        }
+      } catch (err: any) {
+        if (isMounted) {
+          setError(err?.message || `Failed to fetch account ${targetId}`);
+          setData(null);
+          setLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+    };
   }, [initialAccountId]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -131,40 +151,41 @@ export const TransactionExplorer: React.FC<TransactionExplorerProps> = ({
           selector: 'node',
           style: {
             'label': 'data(label)',
-            'color': '#cbd5e1',
+            'color': '#E2E8F0',
             'font-size': '10px',
             'font-family': 'ui-monospace, monospace',
             'text-valign': 'bottom',
             'text-margin-y': 4,
             'background-color': '#475569',
             'border-width': 1.5,
-            'border-color': '#334155',
-            'width': 24,
-            'height': 24,
+            'border-color': '#1E293B',
+            'width': 22,
+            'height': 22,
           },
         },
         {
           selector: 'node[?isCenter]',
           style: {
-            'background-color': '#2563eb',
-            'border-color': '#38bdf8',
+            'background-color': '#38A189',
+            'border-color': '#FFFFFF',
             'border-width': 3,
             'width': 36,
             'height': 36,
-            'color': '#ffffff',
-            'font-weight': 'bold',
+            'color': '#FDE047',
+            'font-weight': 700,
+            'font-size': '11px',
           },
         },
         {
           selector: 'edge',
           style: {
             'width': 1.5,
-            'line-color': '#334155',
+            'line-color': 'rgba(148, 163, 184, 0.45)',
             'curve-style': 'bezier',
             'target-arrow-shape': 'triangle',
-            'target-arrow-color': '#475569',
+            'target-arrow-color': 'rgba(148, 163, 184, 0.65)',
             'arrow-scale': 0.8,
-            'opacity': 0.85,
+            'opacity': 0.75,
           },
         },
       ],
@@ -172,7 +193,7 @@ export const TransactionExplorer: React.FC<TransactionExplorerProps> = ({
         name: 'concentric',
         concentric: (node: any) => (node.data('isCenter') ? 2 : 1),
         levelWidth: () => 1,
-        padding: 25,
+        padding: 30,
       },
     });
 
@@ -189,7 +210,7 @@ export const TransactionExplorer: React.FC<TransactionExplorerProps> = ({
       cy.destroy();
       cyRef.current = null;
     };
-  }, [data]);
+  }, [data, fetchAccount]);
 
   const formatAmount = (amt: number) => {
     return '₹' + amt.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -200,24 +221,26 @@ export const TransactionExplorer: React.FC<TransactionExplorerProps> = ({
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       {/* Top Header & Search Bar */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
           <button onClick={onBackToOverview} className="rt-button" title="Back to Overview">
             <ArrowLeft size={14} />
             <span>Overview</span>
           </button>
           <div>
-            <h2 style={{ fontSize: '1.25rem' }}>Transaction Explorer</h2>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              Deep-dive account neighborhood & transaction tracing in <span className="mono">txn</span> graph
+            <h1 style={{ fontSize: '1.35rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+              Transaction Explorer
+            </h1>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.15rem' }}>
+              Deep-dive account neighborhood & transaction tracing in FalkorDB <span className="mono" style={{ color: 'var(--brand-forest)' }}>txn</span> graph
             </div>
           </div>
         </div>
 
         {/* Search input form */}
-        <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: '0.5rem', width: '340px' }}>
+        <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: '0.5rem', width: '360px' }}>
           <input
             type="text"
             value={searchInput}
@@ -225,13 +248,14 @@ export const TransactionExplorer: React.FC<TransactionExplorerProps> = ({
             placeholder="Search account (e.g. ACC_00125)..."
             style={{
               flex: 1,
-              background: 'var(--bg-card)',
+              background: 'var(--surface-primary)',
               border: '1px solid var(--border-subtle)',
-              borderRadius: '6px',
-              padding: '0.45rem 0.75rem',
+              borderRadius: '8px',
+              padding: '0.5rem 0.85rem',
               color: 'var(--text-primary)',
               fontSize: '0.825rem',
-              outline: 'none'
+              outline: 'none',
+              fontFamily: 'var(--font-sans)'
             }}
           />
           <button type="submit" disabled={loading} className="rt-button rt-button-primary">
@@ -243,20 +267,22 @@ export const TransactionExplorer: React.FC<TransactionExplorerProps> = ({
 
       {/* Quick Jump Sample Accounts */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', fontSize: '0.75rem' }}>
-        <span style={{ color: 'var(--text-muted)' }}>Sample Accounts:</span>
+        <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>Quick Forensics Samples:</span>
         {SAMPLE_ACCOUNTS.map((acc) => (
           <button
             key={acc}
             onClick={() => fetchAccount(acc)}
             className="mono"
             style={{
-              background: accountId === acc ? 'rgba(56, 189, 248, 0.15)' : 'var(--bg-card)',
-              border: `1px solid ${accountId === acc ? 'var(--accent-cyan)' : 'var(--border-subtle)'}`,
-              color: accountId === acc ? 'var(--accent-cyan)' : 'var(--text-secondary)',
-              borderRadius: '4px',
-              padding: '0.2rem 0.5rem',
+              background: accountId === acc ? 'var(--brand-mint-subtle)' : 'var(--surface-primary)',
+              border: `1px solid ${accountId === acc ? 'var(--brand-teal)' : 'var(--border-subtle)'}`,
+              color: accountId === acc ? 'var(--brand-forest)' : 'var(--text-secondary)',
+              borderRadius: '6px',
+              padding: '0.25rem 0.6rem',
               cursor: 'pointer',
-              fontSize: '0.75rem'
+              fontSize: '0.75rem',
+              fontWeight: 600,
+              transition: 'all 0.15s ease'
             }}
           >
             {acc}
@@ -266,14 +292,14 @@ export const TransactionExplorer: React.FC<TransactionExplorerProps> = ({
 
       {error && (
         <div style={{
-          padding: '1rem',
+          padding: '0.85rem 1.25rem',
           borderRadius: '8px',
-          backgroundColor: 'var(--accent-rose-subtle)',
-          border: '1px solid rgba(244, 63, 94, 0.3)',
+          backgroundColor: 'var(--accent-red-subtle)',
+          border: '1px solid var(--accent-red-border)',
           display: 'flex',
           alignItems: 'center',
           gap: '0.75rem',
-          color: 'var(--accent-rose)',
+          color: 'var(--accent-red)',
           fontSize: '0.85rem'
         }}>
           <AlertCircle size={18} />
@@ -282,8 +308,8 @@ export const TransactionExplorer: React.FC<TransactionExplorerProps> = ({
       )}
 
       {loading && !data && (
-        <div className="rt-card" style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-          <RefreshCw size={24} className="spin" style={{ display: 'inline-block', marginBottom: '0.75rem' }} />
+        <div className="rt-card" style={{ padding: '3.5rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+          <RefreshCw size={24} className="spin" style={{ display: 'inline-block', marginBottom: '0.75rem', color: 'var(--brand-teal)' }} />
           <div>Retrieving account topology from FalkorDB...</div>
         </div>
       )}
@@ -294,31 +320,31 @@ export const TransactionExplorer: React.FC<TransactionExplorerProps> = ({
           <div className="rt-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1.5rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <div style={{
-                width: '48px',
-                height: '48px',
-                borderRadius: '8px',
-                backgroundColor: 'rgba(56, 189, 248, 0.1)',
-                border: '1px solid rgba(56, 189, 248, 0.25)',
+                width: '50px',
+                height: '50px',
+                borderRadius: '10px',
+                backgroundColor: 'var(--brand-mint-subtle)',
+                border: '1px solid rgba(56, 161, 137, 0.3)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: 'var(--accent-cyan)'
+                color: 'var(--brand-forest)'
               }}>
-                <Compass size={24} />
+                <Compass size={26} />
               </div>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                  <h3 className="mono" style={{ fontSize: '1.25rem', color: 'var(--accent-cyan)' }}>
+                  <h3 className="mono" style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--brand-forest)', margin: 0 }}>
                     {data.account.id}
                   </h3>
                   <span className={`rt-badge badge-${data.account.type}`}>
                     {data.account.type}
                   </span>
-                  <span className="rt-badge badge-personal">
+                  <span className="rt-badge rt-badge-gray">
                     Community: #{data.account.community}
                   </span>
                 </div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
                   Account Created: {data.account.created}
                 </div>
               </div>
@@ -327,18 +353,18 @@ export const TransactionExplorer: React.FC<TransactionExplorerProps> = ({
             {/* Inflow / Outflow Sample Summary */}
             <div style={{ display: 'flex', gap: '2rem' }}>
               <div>
-                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                  Outgoing ({data.out_count})
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
+                  Outgoing Sent ({data.out_count})
                 </div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--accent-rose)', fontVariantNumeric: 'tabular-nums' }}>
+                <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--accent-red)', fontVariantNumeric: 'tabular-nums' }}>
                   {formatAmount(data.total_sent_sample)}
                 </div>
               </div>
               <div>
-                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                  Incoming ({data.in_count})
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
+                  Incoming Received ({data.in_count})
                 </div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--accent-emerald)', fontVariantNumeric: 'tabular-nums' }}>
+                <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--accent-green)', fontVariantNumeric: 'tabular-nums' }}>
                   {formatAmount(data.total_received_sample)}
                 </div>
               </div>
@@ -346,28 +372,42 @@ export const TransactionExplorer: React.FC<TransactionExplorerProps> = ({
           </div>
 
           {/* Interactive Neighborhood Topology */}
-          <div className="rt-card" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <div className="rt-card" style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Network size={16} color="var(--accent-cyan)" />
-                <h4 style={{ fontSize: '0.9rem' }}>Local 1-Hop Transfer Network</h4>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
+                <Network size={16} color="var(--brand-forest)" />
+                <h4 style={{ fontSize: '0.925rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+                  Local 1-Hop Transfer Network
+                </h4>
               </div>
               <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>
-                Click any neighboring node to navigate & inspect
+                Click any neighboring node to trace and re-center graph
               </div>
             </div>
-            <div ref={cyContainerRef} style={{ width: '100%', height: '320px', background: '#070b12', borderRadius: '6px' }} />
+            <div
+              ref={cyContainerRef}
+              style={{
+                width: '100%',
+                height: '340px',
+                background: 'var(--graph-bg)',
+                borderRadius: '8px',
+                border: '1px solid var(--graph-border)',
+                boxShadow: 'inset 0 2px 8px rgba(0, 0, 0, 0.4)'
+              }}
+            />
           </div>
 
           {/* Inflow & Outflow Transfers Table Split */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: '1.25rem' }}>
             {/* Outgoing Transfers */}
             <div className="rt-card" style={{ display: 'flex', flexDirection: 'column' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
-                <ArrowUpRight size={16} color="var(--accent-rose)" />
-                <h4 style={{ fontSize: '0.875rem' }}>Outgoing Transfers ({data.out_count})</h4>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', marginBottom: '0.85rem' }}>
+                <ArrowUpRight size={16} color="var(--accent-red)" />
+                <h4 style={{ fontSize: '0.9rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+                  Outgoing Transfers ({data.out_count})
+                </h4>
               </div>
-              <div className="rt-table-container">
+              <div className="rt-table-container" style={{ maxHeight: '300px', overflowY: 'auto' }}>
                 <table className="rt-table">
                   <thead>
                     <tr>
@@ -379,7 +419,7 @@ export const TransactionExplorer: React.FC<TransactionExplorerProps> = ({
                   </thead>
                   <tbody>
                     {data.outgoing.length === 0 ? (
-                      <tr><td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '1.5rem' }}>No outgoing transfers</td></tr>
+                      <tr><td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>No outgoing transfers</td></tr>
                     ) : (
                       data.outgoing.map((t) => (
                         <tr key={t.tx_id}>
@@ -387,14 +427,14 @@ export const TransactionExplorer: React.FC<TransactionExplorerProps> = ({
                             <button
                               onClick={() => fetchAccount(t.dst)}
                               className="mono"
-                              style={{ background: 'none', border: 'none', color: 'var(--accent-cyan)', cursor: 'pointer', padding: 0 }}
+                              style={{ background: 'none', border: 'none', color: 'var(--brand-forest)', cursor: 'pointer', padding: 0, fontWeight: 600, textDecoration: 'underline' }}
                             >
                               {t.dst}
                             </button>
                           </td>
-                          <td style={{ textAlign: 'right', fontWeight: 600 }}>{formatAmount(t.amount)}</td>
-                          <td><span className="rt-badge" style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}>{t.tx_type}</span></td>
-                          <td style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>{formatTime(t.ts).substring(0, 10)}</td>
+                          <td style={{ textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{formatAmount(t.amount)}</td>
+                          <td><span className="rt-badge rt-badge-gray" style={{ fontSize: '0.675rem' }}>{t.tx_type}</span></td>
+                          <td style={{ fontSize: '0.725rem', color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>{formatTime(t.ts).substring(0, 10)}</td>
                         </tr>
                       ))
                     )}
@@ -405,11 +445,13 @@ export const TransactionExplorer: React.FC<TransactionExplorerProps> = ({
 
             {/* Incoming Transfers */}
             <div className="rt-card" style={{ display: 'flex', flexDirection: 'column' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
-                <ArrowDownLeft size={16} color="var(--accent-emerald)" />
-                <h4 style={{ fontSize: '0.875rem' }}>Incoming Transfers ({data.in_count})</h4>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', marginBottom: '0.85rem' }}>
+                <ArrowDownLeft size={16} color="var(--accent-green)" />
+                <h4 style={{ fontSize: '0.9rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+                  Incoming Transfers ({data.in_count})
+                </h4>
               </div>
-              <div className="rt-table-container">
+              <div className="rt-table-container" style={{ maxHeight: '300px', overflowY: 'auto' }}>
                 <table className="rt-table">
                   <thead>
                     <tr>
@@ -421,7 +463,7 @@ export const TransactionExplorer: React.FC<TransactionExplorerProps> = ({
                   </thead>
                   <tbody>
                     {data.incoming.length === 0 ? (
-                      <tr><td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '1.5rem' }}>No incoming transfers</td></tr>
+                      <tr><td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>No incoming transfers</td></tr>
                     ) : (
                       data.incoming.map((t) => (
                         <tr key={t.tx_id}>
@@ -429,14 +471,14 @@ export const TransactionExplorer: React.FC<TransactionExplorerProps> = ({
                             <button
                               onClick={() => fetchAccount(t.src)}
                               className="mono"
-                              style={{ background: 'none', border: 'none', color: 'var(--accent-cyan)', cursor: 'pointer', padding: 0 }}
+                              style={{ background: 'none', border: 'none', color: 'var(--brand-forest)', cursor: 'pointer', padding: 0, fontWeight: 600, textDecoration: 'underline' }}
                             >
                               {t.src}
                             </button>
                           </td>
-                          <td style={{ textAlign: 'right', fontWeight: 600 }}>{formatAmount(t.amount)}</td>
-                          <td><span className="rt-badge" style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}>{t.tx_type}</span></td>
-                          <td style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>{formatTime(t.ts).substring(0, 10)}</td>
+                          <td style={{ textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{formatAmount(t.amount)}</td>
+                          <td><span className="rt-badge rt-badge-gray" style={{ fontSize: '0.675rem' }}>{t.tx_type}</span></td>
+                          <td style={{ fontSize: '0.725rem', color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>{formatTime(t.ts).substring(0, 10)}</td>
                         </tr>
                       ))
                     )}

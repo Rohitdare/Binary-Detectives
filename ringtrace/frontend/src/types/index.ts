@@ -109,7 +109,13 @@ export interface CycleCandidate {
   explanation: string;
 }
 
-export type DetectorPattern = 'cycle' | 'fan_in' | 'fan_out';
+export type DetectorPattern =
+  | 'cycle'
+  | 'fan_in'
+  | 'fan_out'
+  | 'relay_chain'
+  | 'scatter_gather'
+  | 'gather_scatter';
 
 export interface DetectorTransaction {
   tx_id: string;
@@ -225,6 +231,113 @@ export interface CycleEvaluationReport {
     total_recall: number;
     precision: number;
   };
+}
+
+export interface CaseScoreBreakdown {
+  severity: number;
+  amount: number;
+  velocity: number;
+  account_count: number;
+  corroboration: number;
+  total: number;
+  origin_context_adjustment?: number;
+  total_amount?: number;
+  duration_seconds?: number;
+  severity_label?: string;
+}
+
+export interface CaseRecord {
+  case_id: string;
+  status: string;
+  severity: 'low' | 'medium' | 'high' | string;
+  score: number;
+  patterns: string[];
+  account_count: number;
+  tx_count: number;
+  total_amount: number;
+  first_ts?: string | null;
+  last_ts?: string | null;
+  similar_case_count?: number;
+  updated_at: string;
+  score_breakdown?: CaseScoreBreakdown | null;
+}
+
+export interface CaseHit {
+  hit_id: string;
+  pattern: string;
+  account_ids: string[];
+  tx_ids: string[];
+  measurements: Record<string, any>;
+  explanation: string;
+  transactions?: TransactionRecord[];
+  account_roles?: Record<string, string>;
+}
+
+export interface CaseTransaction {
+  tx_id: string;
+  src: string;
+  dst: string;
+  amount: number;
+  ts: string | number;
+  tx_type?: string;
+}
+
+export interface CaseDecision {
+  decision_id: string;
+  case_id?: string;
+  decision: string;
+  note: string;
+  actor: string;
+  ts: string;
+}
+
+export interface CaseDetail extends CaseRecord {
+  hits: CaseHit[];
+  transactions: CaseTransaction[];
+  decisions: CaseDecision[];
+}
+
+export interface CaseListResponse {
+  items: CaseRecord[];
+  next_cursor: string | null;
+}
+
+export interface CaseGraphNode {
+  id: string;
+  type: string;
+  roles: string[];
+  in_case: boolean;
+}
+
+export interface CaseGraphEdge {
+  tx_id: string;
+  source: string;
+  target: string;
+  amount: number;
+  ts: string | number;
+}
+
+export interface CaseGraphData {
+  nodes: CaseGraphNode[];
+  edges: CaseGraphEdge[];
+}
+
+export interface ScanReceipt {
+  scan_id: string;
+  status: string;
+}
+
+export interface ScanStatus {
+  scan_id: string;
+  status: string;
+  graph?: string;
+  detector_reports?: Record<string, any>;
+  detector_errors?: Record<string, string>;
+  hit_count?: number;
+  case_count?: number;
+  limitations?: string[];
+  skipped_non_case_generating_hit_ids?: string[];
+  skipped_oversized_hit_ids?: string[];
 }
 
 

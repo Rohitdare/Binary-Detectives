@@ -11,8 +11,10 @@ if BACKEND_DIR not in sys.path:
     sys.path.insert(0, BACKEND_DIR)
 
 from app.detectors.cycle import detect_cycles
-from app.detectors.fan_in import detect_fan_in
-from app.detectors.fan_out import detect_fan_out
+from app.detectors.fan_in import detect_fan_in, extract_fan_in_bursts
+from app.detectors.fan_out import detect_fan_out, extract_fan_out_bursts
+from app.queries import GET_ACCOUNT_INCOMING_TRANSFERS, GET_ACCOUNT_OUTGOING_TRANSFERS, GET_CYCLE_EDGES
+from app.detectors.windowing import normalize_transaction_rows
 
 
 def cycle_rows(last_ts: int = 3000):
@@ -46,6 +48,48 @@ class TestCycleAlgorithmUnit(unittest.TestCase):
         self.assertEqual(len(result), 1)
         self.assertFalse(result[0]["suspicious"])
         self.assertIn("cycle candidate only", result[0]["explanation"])
+
+    def test_equal_timestamp_hops_are_not_chronologically_ordered(self):
+        self.db.execute_query.return_value = SimpleNamespace(result_set=[
+            ["A", "B", "TX_AB", 10000.0, 1000, 1, "UPI"],
+            ["B", "C", "TX_BC", 9500.0, 1000, 1, "UPI"],
+            ["C", "A", "TX_CA", 9000.0, 3000, 1, "UPI"],
+        ])
+        result = detect_cycles(min_length=3, max_length=3, db=self.db)
+        self.assertEqual(result, [])
+
+    def test_cycle_can_start_at_earliest_edge_not_smallest_account(self):
+        self.db.execute_query.return_value = SimpleNamespace(result_set=[
+            ["Z", "A", "TX_ZA", 10000.0, 1000, 1, "UPI"],
+            ["A", "B", "TX_AB", 9500.0, 2000, 1, "UPI"],
+            ["B", "Z", "TX_BZ", 9000.0, 3000, 1, "UPI"],
+        ])
+        result = detect_cycles(min_length=3, max_length=3, db=self.db)
+        self.assertEqual(len(result), 1)
+        # Output accounts rotate to the canonical smallest transaction ID, so
+        # they need not start at the earliest transaction's source.
+        self.assertEqual(result[0]["accounts"], ["A", "B", "Z"])
+        self.assertTrue(result[0]["suspicious"])
+
+    def test_malformed_transaction_rows_are_skipped_and_reported(self):
+        valid, skipped = normalize_transaction_rows([
+            ["TX_OK", "A", "B", 10.0, 100, 1, "UPI"],
+            ["TX_BAD", "A", "B", "not-an-amount", 101, 1, "UPI"],
+        ])
+        self.assertEqual(len(valid), 1)
+        self.assertEqual(skipped, 1)
+
+        self.db.execute_query.return_value = SimpleNamespace(result_set=[
+            ["A", "B", "TX_AB", 10000.0, 1000, 1, "UPI"],
+            ["B", "C", "TX_BC", 9500.0, 2000, 1, "UPI"],
+            ["C", "A", "TX_CA", 9000.0, 3000, 1, "UPI"],
+            ["BAD", "A", "B", None, "bad-ts", 1, "UPI"],
+        ])
+        result = detect_cycles(min_length=3, max_length=3, db=self.db)
+        self.assertEqual(len(result), 1)
+        self.assertTrue(result.truncated)
+        self.assertEqual(result.truncation_reason, "invalid_transaction_rows")
+        self.assertEqual(result.invalid_rows_skipped, 1)
 
     def test_cycle_limit_prioritizes_suspicious_results(self):
         rows = [
@@ -138,6 +182,76 @@ class TestCycleAlgorithmUnit(unittest.TestCase):
         self.assertTrue(hits[0]["measurements"]["suspicious"])
         self.assertTrue(hits.truncated)
 
+    def test_fan_results_expose_incomplete_account_history(self):
+        rows = [["TX1", "S1", "SINK", 100.0, 100, 1, "UPI"]]
+        self.db.execute_query.side_effect = [
+            SimpleNamespace(result_set=[["SINK", "personal", 8, 2]]),
+            SimpleNamespace(result_set=rows),
+        ]
+        result = detect_fan_in(limit=10, max_txs_per_account=1, db=self.db)
+        self.assertTrue(result.truncated)
+        self.assertEqual(result.truncation_reason, "account_history_limit_reached")
+        self.assertIn("ORDER BY t.ts DESC", GET_ACCOUNT_INCOMING_TRANSFERS)
+        self.assertIn("ORDER BY t.ts DESC", GET_ACCOUNT_OUTGOING_TRANSFERS)
+        self.assertIn("ORDER BY t.ts DESC", GET_CYCLE_EDGES)
+
+    def test_truncated_payroll_history_yields_indeterminate_classification(self):
+        rows = [[f"T{i}", "PAYROLL", f"R{i}", 1000.0, 1000 + i * 60, 1, "NEFT"] for i in range(8)]
+        self.db.execute_query.side_effect = [
+            SimpleNamespace(result_set=[["PAYROLL", "payroll", 8, 9]]),
+            SimpleNamespace(result_set=rows),
+        ]
+        result = detect_fan_out(limit=10, max_txs_per_account=8, db=self.db)
+        self.assertTrue(result.truncated)
+        self.assertEqual(result.truncation_reason, "account_history_limit_reached")
+        self.assertEqual(len(result), 1)
+        self.assertFalse(result[0]["measurements"]["suspicious"])
+        self.assertTrue(result[0]["measurements"]["suspicion_indeterminate"])
+        self.assertEqual(result[0]["measurements"]["payroll_recurrence_status"], "unknown_incomplete_history")
+
+    def test_fan_in_retains_overlapping_qualifying_windows_as_separate_bursts(self):
+        transactions = [
+            {"tx_id": f"A{i}", "src": f"A{i}", "dst": "SINK", "ts": 0}
+            for i in range(8)
+        ] + [
+            {"tx_id": f"B{i}", "src": f"B{i}", "dst": "SINK", "ts": 172800}
+            for i in range(4)
+        ] + [
+            {"tx_id": f"C{i}", "src": f"C{i}", "dst": "SINK", "ts": 259200}
+            for i in range(4)
+        ]
+        bursts = extract_fan_in_bursts(transactions, window_seconds=172800, min_senders=8)
+        self.assertEqual(len(bursts), 2)
+        self.assertTrue({f"B{i}" for i in range(4)}.issubset({tx["tx_id"] for tx in bursts[0]}))
+        self.assertTrue({f"B{i}" for i in range(4)}.issubset({tx["tx_id"] for tx in bursts[1]}))
+
+    def test_fan_out_retains_overlapping_qualifying_windows_as_separate_bursts(self):
+        transactions = [
+            {"tx_id": f"A{i}", "src": "ORIGIN", "dst": f"A{i}", "ts": 0}
+            for i in range(8)
+        ] + [
+            {"tx_id": f"B{i}", "src": "ORIGIN", "dst": f"B{i}", "ts": 172800}
+            for i in range(4)
+        ] + [
+            {"tx_id": f"C{i}", "src": "ORIGIN", "dst": f"C{i}", "ts": 259200}
+            for i in range(4)
+        ]
+        bursts = extract_fan_out_bursts(transactions, window_seconds=172800, min_receivers=8)
+        self.assertEqual(len(bursts), 2)
+        self.assertTrue({f"B{i}" for i in range(4)}.issubset({tx["tx_id"] for tx in bursts[0]}))
+        self.assertTrue({f"B{i}" for i in range(4)}.issubset({tx["tx_id"] for tx in bursts[1]}))
+
+    def test_fan_window_includes_exact_boundary_but_excludes_one_second_beyond(self):
+        inside = [
+            {"tx_id": "T1", "src": "S1", "dst": "R1", "ts": 100},
+            {"tx_id": "T2", "src": "S2", "dst": "R2", "ts": 200},
+        ]
+        outside = [dict(inside[0]), dict(inside[1], ts=201)]
+        self.assertEqual(len(extract_fan_in_bursts(inside, window_seconds=100, min_senders=2)), 1)
+        self.assertEqual(len(extract_fan_in_bursts(outside, window_seconds=100, min_senders=2)), 0)
+        self.assertEqual(len(extract_fan_out_bursts(inside, window_seconds=100, min_receivers=2)), 1)
+        self.assertEqual(len(extract_fan_out_bursts(outside, window_seconds=100, min_receivers=2)), 0)
+
     def test_api_returns_evidence_metadata_and_timeout_error(self):
         with patch("app.db.FalkorDBClient"):
             from app import main
@@ -148,6 +262,7 @@ class TestCycleAlgorithmUnit(unittest.TestCase):
         self.assertEqual(data["suspicious_count"], 1)
         self.assertEqual(data["cycles"][0]["transactions"][0]["tx_id"], "TX_AB")
         self.assertGreaterEqual(data["execution_time_ms"], 0)
+        self.assertIn("invalid_rows_skipped", data)
 
         with patch.object(main.db_client, "execute_query", side_effect=TimeoutError("query timed out")):
             with self.assertRaises(main.HTTPException) as raised:
