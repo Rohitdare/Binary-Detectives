@@ -8,6 +8,14 @@
 
 ## 1. Completed Capabilities
 
+- [x] **Member B Step 1: Memory graph and seed cases (2026-10-16):**
+  - New FalkorDB graph `memorygraph` (env `FALKORDB_MEMORY_GRAPH`; the plan calls it `memory`).
+  - Cypher in `backend/app/queries_memory.py`; lifecycle in `backend/app/memory/graph.py`; seeds in `backend/app/memory/seed.py`.
+  - `python scripts/seed_memory.py [--reset]` seeds CASE_0001 (4-hop cycle), CASE_0002 and CASE_0003 (payroll ACC_02975 fan-outs to the same 15 people, one month apart).
+  - Live counts: 3 Case, 3 Hit, 20 AccountRef. Re-running gives the same counts.
+  - Tests: `tests/test_memory_seed.py` 9/9 on throwaway graphs; full suite 29/29.
+  - Next: Step 2, the eight MCP graph tools.
+
 - [x] **Directed Transaction Cycle Detector (Phase 3):**
   - Centralized Cypher queries (`CYCLE_3_QUERY`, `CYCLE_4_QUERY`, `CYCLE_5_QUERY` in `backend/app/queries.py`) with canonical node ordering (`a.id < b.id ...`) to guarantee rotational deduplication at the database query level.
   - Core detector engine in `backend/app/detectors/cycle.py` (`detect_cycles(min_length=3, max_length=5, limit=50)`) calculating cycle length, duration, time-ordering verification, amount conservation ratio, and factual explanations.

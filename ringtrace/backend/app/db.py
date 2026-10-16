@@ -18,7 +18,13 @@ class FalkorDBClient:
     def __init__(self, host: str = DEFAULT_HOST, port: int = DEFAULT_PORT):
         self.host = host
         self.port = port
-        self.client = FalkorDB(host=self.host, port=self.port)
+        self._client = None
+
+    @property
+    def client(self):
+        if self._client is None:
+            self._client = FalkorDB(host=self.host, port=self.port)
+        return self._client
 
     def select_graph(self, graph_name: str):
         return self.client.select_graph(graph_name)

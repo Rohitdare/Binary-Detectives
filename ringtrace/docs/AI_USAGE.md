@@ -26,6 +26,10 @@ This document records code generated or modified by AI agents and the concrete v
 | `backend/app/evaluator.py` | Ground truth evaluator against `labels` | Generated evaluator logic | Ran on live database; proved 100% structural recovery of all 22 planted alerts. | **Verified** |
 | `backend/tests/test_cycle_detector.py` | Unit & integration test suite for cycle detection | Generated test cases | Ran `unittest`; 10/10 tests passed in 0.15s. | **Verified** |
 | `frontend/src/components/patterns/CycleDetectionView.tsx` | React UI for cycle candidate inspection & Cytoscape graph | Generated React component | TypeScript compilation passed; browser subagent verified live on Vite dev server. | **Verified** |
+| `backend/app/queries_memory.py` | Member B Cypher layer for the memory graph (indexes, idempotent seed writes, summary reads) | Generated Cypher | Executed against throwaway graphs in tests and against live `memorygraph`. | **Verified** |
+| `backend/app/memory/graph.py`, `backend/app/memory/seed.py` | Memory graph lifecycle and hand-made seed cases built from real `txn` transactions | Generated implementation; seed transactions chosen by AI from simulator CSV / `txn` (never `labels`) | Seeded live `memorygraph` twice: identical counts (3 Case, 3 Hit, 20 AccountRef). | **Verified** |
+| `backend/scripts/seed_memory.py` | CLI to seed / reset the memory graph | Generated script | First run crashed on a wrong keyword in the summary print; fixed, re-run OK. | **Verified** |
+| `backend/tests/test_memory_seed.py` | Seed tests on throwaway graphs | Generated test cases | 9/9 passed; full suite 29/29. | **Verified** |
 
 
 ---
