@@ -376,12 +376,18 @@
        - Consecutive scans over identical evidence maintain stable `case_id`s with zero duplicate Case, Hit, or AccountRef nodes in the memory graph.
     3. `test_03_isolated_test_graph_lifecycle_and_cleanup`:
        - Verifies that isolated test graphs (`test_e2e_txn_*`, `test_e2e_mem_*`) are created and cleanly dropped, with `app.state.graph_name` restored to guarantee zero state leakage across the test suite.
-- **Verification Results:**
-  - Full backend regression suite: 128/128 tests passed in 23.715s with zero failures (`python -m unittest discover tests`).
-  - Frontend production build: `npm run build` completed in 994ms with exit code 0 (`dist/assets/index-pM3BGqm6.js 790.80 kB`).
-  - Frontend linter: `npm run lint` (`oxlint`) passed with 0 errors across 28 files.
-  - Contract & Boundary Invariants:
-    - `backend/app/db.py` and `backend/app/main.py` were NOT modified.
-    - Member B files, schemas, and endpoints were NOT modified.
-    - Case IDs remain strictly opaque strings (`CASE_{12-character hash}`).
+- **Cycle Detection Investigation & UI Filter Resolution (Phase 5.1):**
+  - **Issue Investigated:** User observed only 1 cycle detected during interactive cycle workspace execution.
+  - **Root Cause Identified:**
+    - The backend cycle detector (`detect_cycles`) was verified against the live FalkorDB graph (40,661 transactions) and ground-truth evaluation, correctly identifying all 10 planted fraud cycles (1 3-hop, 3 4-hop, and 6 5-hop cycles) with 100% recovery and 0 false positives on benign look-alikes.
+    - The interactive UI workspace (`DetectorWorkspace.tsx`) had initialized `cycleLength` state to `'3'` instead of `'3-5'`.
+    - Running the detector with `cycleLength = '3'` queried only 3-hop cycles (`/api/v1/detectors/cycles?min_length=3&max_length=3`), matching the single 3-hop cycle in the dataset (`CYC_3_ca4aa7f234`).
+    - Changing the select dropdown did not automatically trigger re-query.
+  - **Fix Applied:**
+    - Updated initial `cycleLength` state to `'3-5'` in `DetectorWorkspace.tsx`.
+    - Wired `onChange` handler on the hops `<select>` to trigger `onExecute('cycle', nextVal)` immediately when the user changes the filter.
+    - Updated labels in dropdown to clarify "3 to 5 hops (All)", "3 hops", "4 hops", "5 hops".
+  - **Verification:**
+    - `npm run lint` and `npm run build` passed with 0 errors.
+    - `python -m unittest tests.test_cycle_detector tests.test_cycle_algorithm_unit` ran 32 tests with 100% pass rate.
 

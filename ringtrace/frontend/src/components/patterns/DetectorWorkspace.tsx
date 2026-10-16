@@ -57,7 +57,7 @@ export const DetectorWorkspace: React.FC<DetectorWorkspaceProps> = ({
 }) => {
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
   const [selectedTx, setSelectedTx] = useState<DetectorTransaction | null>(null);
-  const [cycleLength, setCycleLength] = useState<'3-5' | '3' | '4' | '5'>('3');
+  const [cycleLength, setCycleLength] = useState<'3-5' | '3' | '4' | '5'>('3-5');
 
   const selectedCandidate =
     (selectedCandidateId ? candidates.find((c) => c.id === selectedCandidateId) : null) ??
@@ -168,7 +168,13 @@ export const DetectorWorkspace: React.FC<DetectorWorkspaceProps> = ({
                 <span>Hops:</span>
                 <select
                   value={cycleLength}
-                  onChange={(e) => setCycleLength(e.target.value as typeof cycleLength)}
+                  onChange={(e) => {
+                    const nextVal = e.target.value as typeof cycleLength;
+                    setCycleLength(nextVal);
+                    if (pattern === 'cycle' && !isRunning) {
+                      void onExecute('cycle', nextVal);
+                    }
+                  }}
                   className="rt-input"
                   style={{
                     padding: '0.25rem 0.5rem',
@@ -178,7 +184,7 @@ export const DetectorWorkspace: React.FC<DetectorWorkspaceProps> = ({
                   disabled={isRunning}
                   aria-label="Cycle hops range"
                 >
-                  <option value="3-5">3 to 5 hops</option>
+                  <option value="3-5">3 to 5 hops (All)</option>
                   <option value="3">3 hops</option>
                   <option value="4">4 hops</option>
                   <option value="5">5 hops</option>

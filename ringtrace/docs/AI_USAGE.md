@@ -177,9 +177,10 @@ Seed-43 exact labeled outcomes were: cycle 6/10 TP and 0/12 benign FP; fan-in 8/
 | `frontend/src/components/cases/CaseDetailView.tsx` | Master case detail view with opaque ID copy button, severity badges, Member B handoff action, tab navigation, and 404 error screen. | Verified case switching and error states. |
 | `frontend/src/components/cases/CaseGraphCanvas.tsx` | Cytoscape.js dark canvas (`#080C10`), directed 1-edge-per-transaction topology with INR labels, role-coded nodes, edge selection sync, and zoom/fit toolbar. | Verified topology rendering and interaction. |
 | `frontend/src/components/cases/CaseScoreBreakdownView.tsx` | 5-part triage score breakdown with progress meters (severity /35, amount /20, velocity /15, account_count /10, corroboration /20) and merchant/payroll discount notes. | Mathematical invariant displayed and verified. |
-| `frontend/src/components/cases/CaseTransactionTable.tsx` | Supporting transaction ledger with INR currency, copyable TX IDs, synced edge selection, search, and account drawer links. | Edge-to-row selection sync verified. |
-| `frontend/src/components/cases/CaseHitsList.tsx` | Clustered detector hits with typology badge, explanation, structured measurements, and involved accounts. | Evidence card rendering verified. |
-| `frontend/src/components/layout/Sidebar.tsx`, `frontend/src/App.tsx` | Connected `CaseManagementView` to the `investigations` tab with active navigation status pill. | Production build passed; routing verified. |
-| `backend/tests/test_e2e_workflow.py` | Added end-to-end regression test suite (9-step workflow, 202 scan receipt, polling, case list, 5-part score breakdown invariant, unmerged graph edges, 404 contract error envelope, rescan idempotency, test graph isolation). | 3/3 tests passed in 0.456s; 128/128 full backend suite passed in 23.715s. |
-| `docs/STATUS.md`, `docs/AI_USAGE.md` | Documented Phase 5 frontend integration, stale-data prevention, test suite execution, and system boundary verification. | Verified against real test and build outputs. |
+## Phase 5.1: Cycle Detection Investigation & UI Filter Resolution — 2026-10-16
+
+| File / Component | AI-assisted change | Verification |
+|---|---|---|
+| `frontend/src/components/patterns/DetectorWorkspace.tsx` | Fixed `cycleLength` state initialization from `'3'` to `'3-5'`; updated hops `<select>` `onChange` to auto-trigger `onExecute('cycle', nextVal)` so candidates update dynamically upon selector change. | `npm run lint` and `npm run build` passed with 0 errors. Live query on `txn` verified returning all 10 cycles for 3-5 hops. |
+| `docs/STATUS.md`, `docs/AI_USAGE.md` | Documented root cause analysis (1 cycle of 3 hops, 3 cycles of 4 hops, 6 cycles of 5 hops; frontend defaulted to 3 hops only) and resolution. | Verified against live FalkorDB queries and unit test suite. |
 
