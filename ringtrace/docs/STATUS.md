@@ -8,13 +8,20 @@
 
 ## 1. Completed Capabilities
 
+- [x] **Member B Step 2: The 8 MCP Graph Tools (2026-10-16):**
+  - Implemented in `backend/app/mcp_server/tools.py`: `get_case`, `expand_neighborhood`, `trace_funds`, `shortest_path`, `run_algorithm`, `find_similar_cases`, `record_finding`, `propose_action`.
+  - Zero raw Cypher exposed to caller; strict input boundaries, bounded traversal limits, and standardized evidence payloads (`account_ids`, `tx_ids`).
+  - Added queries in `backend/app/queries_memory.py`.
+  - Comprehensive unit and integration test suite in `backend/tests/test_mcp_tools.py`: 16/16 passed in 0.23s.
+  - Full test suite: 45/45 tests passing.
+  - Next: Step 3, Agent Loop, Anti-Hallucination Validator & Safe Fallback.
+
 - [x] **Member B Step 1: Memory graph and seed cases (2026-10-16):**
-  - New FalkorDB graph `memorygraph` (env `FALKORDB_MEMORY_GRAPH`; the plan calls it `memory`).
+  - Configured FalkorDB graph `memory` (env `FALKORDB_MEMORY_GRAPH`).
   - Cypher in `backend/app/queries_memory.py`; lifecycle in `backend/app/memory/graph.py`; seeds in `backend/app/memory/seed.py`.
   - `python scripts/seed_memory.py [--reset]` seeds CASE_0001 (4-hop cycle), CASE_0002 and CASE_0003 (payroll ACC_02975 fan-outs to the same 15 people, one month apart).
-  - Live counts: 3 Case, 3 Hit, 20 AccountRef. Re-running gives the same counts.
-  - Tests: `tests/test_memory_seed.py` 9/9 on throwaway graphs; full suite 29/29.
-  - Next: Step 2, the eight MCP graph tools.
+  - Live counts: 3 Case, 3 Hit, 20 AccountRef. Re-running gives identical counts.
+  - Tests: `tests/test_memory_seed.py` 9/9 passed.
 
 - [x] **Directed Transaction Cycle Detector (Phase 3):**
   - Centralized Cypher queries (`CYCLE_3_QUERY`, `CYCLE_4_QUERY`, `CYCLE_5_QUERY` in `backend/app/queries.py`) with canonical node ordering (`a.id < b.id ...`) to guarantee rotational deduplication at the database query level.

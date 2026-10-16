@@ -13,9 +13,9 @@ except ImportError:
     from backend.app.db import FalkorDBClient
     from backend.app.queries_memory import COUNT_MEMORY_NODES, MEMORY_INDEXES
 
-# The plan document calls this graph `memory`; this project uses `memorygraph`.
+# Per AGENTS_MEMBER_B.md plan, the memory graph is named `memory`.
 # Override with the FALKORDB_MEMORY_GRAPH environment variable if needed.
-MEMORY_GRAPH = os.getenv("FALKORDB_MEMORY_GRAPH", "memorygraph")
+MEMORY_GRAPH = os.getenv("FALKORDB_MEMORY_GRAPH", "memory")
 TXN_GRAPH = os.getenv("FALKORDB_GRAPH", "txn")
 
 

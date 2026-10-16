@@ -30,6 +30,7 @@ MEMORY_INDEXES = [
     "CREATE INDEX FOR (d:Decision) ON (d.decision_id)",
     "CREATE INDEX FOR (i:Investigation) ON (i.id)",
     "CREATE INDEX FOR (f:Finding) ON (f.id)",
+    "CREATE INDEX FOR (act:ProposedAction) ON (act.action_id)",
 ]
 
 # ---------------------------------------------------------------------------
@@ -102,3 +103,86 @@ MATCH (n)
 RETURN labels(n)[0] AS label, count(n) AS n
 ORDER BY label
 """
+
+# Fetch single case metadata
+GET_CASE_BY_ID = """
+MATCH (c:Case {id: $case_id})
+RETURN c.id, c.status, c.score, c.score_breakdown, c.patterns, c.signature, c.updated_at
+"""
+
+# Fetch hits associated with a case
+GET_CASE_HITS = """
+MATCH (c:Case {id: $case_id})-[:HAS_HIT]->(h:Hit)
+RETURN h.hit_id, h.pattern, h.account_ids, h.tx_ids, h.measurements, h.explanation
+ORDER BY h.hit_id
+"""
+
+# Fetch accounts involved in a case
+GET_CASE_ACCOUNTS = """
+MATCH (c:Case {id: $case_id})-[r:INVOLVES]->(a:AccountRef)
+RETURN a.id, a.type, r.roles
+ORDER BY a.id
+"""
+
+# Fetch decisions recorded for a case (if any)
+GET_CASE_DECISIONS = """
+MATCH (c:Case {id: $case_id})-[:DECIDED]->(d:Decision)
+RETURN d.decision_id, d.decision, d.note, d.actor, d.ts
+ORDER BY d.ts DESC
+"""
+
+# Find similar cases by shared accounts
+FIND_SIMILAR_CASES_SHARED_ACCOUNTS = """
+MATCH (c:Case {id: $case_id})-[:INVOLVES]->(a:AccountRef)<-[:INVOLVES]-(other:Case)
+WHERE other.id <> $case_id
+OPTIONAL MATCH (other)-[:DECIDED]->(d:Decision)
+WITH other, collect(DISTINCT a.id) AS shared_accs, d
+ORDER BY d.ts DESC
+WITH other, shared_accs, head(collect(d)) AS latest_decision
+RETURN other.id, other.status, other.score, other.patterns, other.signature,
+       shared_accs, latest_decision.decision, latest_decision.ts
+ORDER BY size(shared_accs) DESC, other.score DESC
+LIMIT $limit
+"""
+
+# Find similar cases by identical structural signature
+FIND_SIMILAR_CASES_SAME_SIGNATURE = """
+MATCH (c:Case {id: $case_id}), (other:Case)
+WHERE other.id <> $case_id AND other.signature = c.signature
+OPTIONAL MATCH (other)-[:DECIDED]->(d:Decision)
+WITH other, d
+ORDER BY d.ts DESC
+WITH other, head(collect(d)) AS latest_decision
+RETURN other.id, other.status, other.score, other.patterns, other.signature,
+       latest_decision.decision, latest_decision.ts
+ORDER BY other.score DESC
+LIMIT $limit
+"""
+
+# Write a Finding node linked to Case (and optionally Investigation)
+RECORD_FINDING_CYPHER = """
+MATCH (c:Case {id: $case_id})
+MERGE (f:Finding {id: $finding_id})
+SET f.text = $text,
+    f.evidence_ids = $evidence_ids,
+    f.created_at = $created_at
+MERGE (c)-[:HAS_FINDING]->(f)
+"""
+
+# Link Finding to Investigation if investigation_id is provided
+LINK_FINDING_TO_INVESTIGATION = """
+MATCH (i:Investigation {id: $investigation_id}), (f:Finding {id: $finding_id})
+MERGE (i)-[:FOUND]->(f)
+"""
+
+# Store ProposedAction linked to Case
+PROPOSE_ACTION_CYPHER = """
+MATCH (c:Case {id: $case_id})
+MERGE (act:ProposedAction {action_id: $action_id})
+SET act.type = $type,
+    act.reason = $reason,
+    act.status = 'pending',
+    act.created_at = $created_at
+MERGE (c)-[:HAS_PROPOSED_ACTION]->(act)
+"""
+

@@ -30,6 +30,8 @@ This document records code generated or modified by AI agents and the concrete v
 | `backend/app/memory/graph.py`, `backend/app/memory/seed.py` | Memory graph lifecycle and hand-made seed cases built from real `txn` transactions | Generated implementation; seed transactions chosen by AI from simulator CSV / `txn` (never `labels`) | Seeded live `memorygraph` twice: identical counts (3 Case, 3 Hit, 20 AccountRef). | **Verified** |
 | `backend/scripts/seed_memory.py` | CLI to seed / reset the memory graph | Generated script | First run crashed on a wrong keyword in the summary print; fixed, re-run OK. | **Verified** |
 | `backend/tests/test_memory_seed.py` | Seed tests on throwaway graphs | Generated test cases | 9/9 passed; full suite 29/29. | **Verified** |
+| `backend/app/mcp_server/tools.py` | The 8 restricted MCP Graph Tools implementing sandbox logic, algorithm execution, time-respecting funds tracing, and evidence schemas | Generated implementation | Tested against live FalkorDB `txn` and `memory` graphs; 16/16 automated tests passed. | **Verified** |
+| `backend/tests/test_mcp_tools.py` | Comprehensive test suite for all 8 MCP tools | Generated test suite | 16/16 passed in 0.23s. Full test suite: 45/45 passed. | **Verified** |
 
 
 ---
