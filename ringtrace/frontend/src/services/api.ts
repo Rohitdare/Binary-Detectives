@@ -117,5 +117,40 @@ export const ringtraceApi = {
     });
     return handleResponse<any>(res);
   },
+
+  // --- Member B: Stream Replay & Demo Reset ---
+  async getStreamStatus(): Promise<import('../types').StreamStatus> {
+    const res = await fetch('/api/v1/stream/status');
+    return handleResponse<import('../types').StreamStatus>(res);
+  },
+
+  async startStream(batchSize = 50, intervalSeconds = 1.0): Promise<import('../types').StreamStatus> {
+    const res = await fetch('/api/v1/stream/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ batch_size: batchSize, interval_seconds: intervalSeconds }),
+    });
+    return handleResponse<import('../types').StreamStatus>(res);
+  },
+
+  async pauseStream(): Promise<import('../types').StreamStatus> {
+    const res = await fetch('/api/v1/stream/pause', { method: 'POST' });
+    return handleResponse<import('../types').StreamStatus>(res);
+  },
+
+  async resumeStream(): Promise<import('../types').StreamStatus> {
+    const res = await fetch('/api/v1/stream/resume', { method: 'POST' });
+    return handleResponse<import('../types').StreamStatus>(res);
+  },
+
+  async stopStream(): Promise<import('../types').StreamStatus> {
+    const res = await fetch('/api/v1/stream/stop', { method: 'POST' });
+    return handleResponse<import('../types').StreamStatus>(res);
+  },
+
+  async resetDemo(): Promise<import('../types').DemoResetResponse> {
+    const res = await fetch('/api/v1/demo/reset', { method: 'POST' });
+    return handleResponse<import('../types').DemoResetResponse>(res);
+  },
 };
 

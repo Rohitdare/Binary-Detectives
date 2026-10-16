@@ -190,3 +190,22 @@ export interface SimilarCasesResponse {
   next_cursor?: string | null;
 }
 
+export interface StreamStatus {
+  state: 'idle' | 'running' | 'paused' | 'stopped';
+  sent: number;
+  total: number;
+  batch_size: number;
+  current_index?: number;
+}
+
+export interface DemoResetResponse {
+  status: string;
+  removed_demo_accounts: number;
+  removed_demo_edges: number;
+  memory_cleared: boolean;
+  replay_reset: boolean;
+  reseeded: boolean;
+  cases_seeded: number;
+}
+
+

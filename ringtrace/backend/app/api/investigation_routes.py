@@ -129,6 +129,11 @@ class ActiveInvestigation:
 _ACTIVE_INVESTIGATIONS: Dict[str, ActiveInvestigation] = {}
 
 
+def clear_active_investigations():
+    """Wipes active in-memory investigations on demo reset."""
+    _ACTIVE_INVESTIGATIONS.clear()
+
+
 def _execute_investigation_task(inv_id: str, case_id: str):
     """Background execution worker for the agent investigation."""
     active = _ACTIVE_INVESTIGATIONS.get(inv_id)

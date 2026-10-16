@@ -8,14 +8,34 @@
 
 ## 1. Completed Capabilities
 
-- [x] **Member B Step 3: Agent Loop, Validator, and Deterministic Fallback (2026-10-16):**
-  - Integrated `google-genai` SDK with centralized caller in `backend/app/agent/llm.py` (`is_llm_available()`, timeout protection, error abstraction).
-  - Defined Gemini tool schemas in `backend/app/agent/tool_definitions.py`.
-  - Built anti-hallucination evidence validator in `backend/app/agent/validator.py` asserting all `ACC_...`, `TX_...`, `demo_...`, and `CASE_...` IDs exist in authorized evidence.
-  - Implemented deterministic safe fallback engine in `backend/app/agent/fallback.py` running fixed tool sequence (`get_case`, `expand_neighborhood`, `pagerank`, `community`, `find_similar_cases`), rule-based action proposal, and structured Markdown narrative template with zero API key requirement.
-  - Multi-turn orchestrator in `backend/app/agent/loop.py` coordinating 8-turn tool budget, step events, validation retries, and seamless fallback.
-  - Test suite in `backend/tests/test_agent.py`: 7/7 passed. Full test suite: 52/52 passed.
-  - Next: Step 4, FastAPI Endpoints + SSE Streaming Feed (`/api/v1`).
+- [x] **Member B Step 6: Stream Replay and Demo Reset (2026-10-16):**
+  - Built `backend/app/stream/worker.py` managing playback of 4,067 withheld transactions into FalkorDB `txn` graph in small configurable bursts (25, 50, 100 tx/s).
+  - Exposes `GET /api/v1/stream/events` emitting real-time SSE stream events (`stream_status`, `tx_batch`, `case_created`, `case_updated`, `heartbeat`).
+  - Added stream control routes `POST /api/v1/stream/start`, `/pause`, `/resume`, `/stop`, `GET /api/v1/stream/status`.
+  - Implemented one-click `POST /api/v1/demo/reset`: wipes `memory` graph, clears any `demo_`-prefixed accounts/edges from `txn`, resets replay position, clears active investigations, and re-seeds clean demo snapshot (`CASE_0001`, `CASE_0002`, `CASE_0003`).
+  - Frontend `frontend/src/features/investigation/DemoControls.tsx`: Live playback progress bar, burst speed selector, start/pause/resume/stop buttons, and prominent One-Click Demo Reset button.
+  - Automated test suite `backend/tests/test_stream_and_reset.py`: 4/4 passed. Full backend suite: 67/67 passed.
+
+- [x] **Member B Step 5: React Frontend Panels (2026-10-16):**
+  - Created dedicated frontend features in `frontend/src/features/investigation/`:
+    - `InvestigationPanel.tsx` / `.jsx`: Connects to live SSE stream via native `new EventSource(...)`, streams progressive tool calls with parameter/output inspectors, renders clickable evidence chips (`ACC_...`, `TX_...`), `MODE: LLM` / `MODE: FALLBACK` badge, and executive narrative with risk level.
+    - `MemoryPanel.tsx` / `.jsx`: Displays historical precedents ("seen before") from FalkorDB with outcome badges, match signatures, and shared accounts.
+    - `DecisionBar.tsx` / `.jsx`: Human-in-the-Loop compliance authority with Escalate, Monitor, Dismiss, and Approve/Reject SAR recommendation buttons plus audit rationale note input.
+    - `DemoControls.tsx`: Stream replay playback and demo reset toolbar.
+  - Updated `frontend/src/components/layout/Sidebar.tsx` activating **Investigations** tab (`badge: 'Live'`).
+  - Mounted `AutonomousInvestigationView` in `frontend/src/App.tsx`.
+  - Verified with `npm run build` (0 TypeScript/Vite errors) and browser automation testing.
+
+- [x] **Member B Step 4: FastAPI Endpoints and Real-Time SSE Streams (2026-10-16):**
+  - Created `backend/app/api/investigation_routes.py` and mounted under prefix `/api/v1` in `main.py`:
+    - `POST /api/v1/cases/{id}/investigations`: Triggers autonomous agent loop (202 Accepted).
+    - `GET /api/v1/investigations/{id}/events`: Real-time SSE streaming (`step`, `done`, `error`, `heartbeat`).
+    - `GET /api/v1/investigations/{id}`: Returns investigation state and findings.
+    - `POST /api/v1/cases/{id}/decisions`: Records human analyst sign-off into FalkorDB memory graph (`(:Case)-[:DECIDED]->(:Decision)`) and updates `Case.status`.
+    - `GET /api/v1/cases/{id}/decisions`: Returns decision audit history.
+    - `GET /api/v1/cases/{id}/similar`: Matches past similar cases by shared accounts or structural signatures.
+    - `POST /api/v1/actions/{action_id}/approve` & `reject`: Approves or rejects proposed actions with Decision logging.
+  - Test suite in `backend/tests/test_investigation_routes.py`: 11/11 passed. Full test suite: 63/63 passed.
 
 - [x] **Member B Step 2: The 8 MCP Graph Tools (2026-10-16):**
   - Implemented in `backend/app/mcp_server/tools.py`: `get_case`, `expand_neighborhood`, `trace_funds`, `shortest_path`, `run_algorithm`, `find_similar_cases`, `record_finding`, `propose_action`.

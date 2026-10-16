@@ -36,6 +36,12 @@ This document records code generated or modified by AI agents and the concrete v
 | `backend/app/agent/validator.py` | Anti-hallucination evidence validator | Generated validator logic | Tested with regex extraction, verified acceptance of real evidence, rejection of invented IDs. | **Verified** |
 | `backend/app/agent/fallback.py`, `backend/app/agent/loop.py` | Deterministic safe fallback rule engine and multi-turn 8-budget agent loop | Generated orchestrator | Tested end-to-end; verified fallback on wrong/missing key; verified payroll dismissal rule. | **Verified** |
 | `backend/tests/test_agent.py` | Unit & integration tests for agent loop, validator, and fallback | Generated test suite | 7/7 passed. Full suite: 52/52 passed. | **Verified** |
+| `backend/app/api/investigation_routes.py` | FastAPI router for investigation triggering, real-time SSE stream, decisions, and similar cases | Generated API routes | Tested against live FalkorDB; 11/11 automated tests passed; verified SSE protocol framing. | **Verified** |
+| `backend/tests/test_investigation_routes.py` | Comprehensive test suite for investigation and decision endpoints | Generated test suite | 11/11 passed in 0.38s. Full suite: 63/63 passed. | **Verified** |
+| `frontend/src/features/investigation/` | React frontend panels: `InvestigationPanel`, `MemoryPanel`, `DecisionBar`, `DemoControls` | Generated React components | Built with Vite + TypeScript (`npm run build` 0 errors); browser automation verified live on port 5173. | **Verified** |
+| `backend/app/stream/worker.py`, `backend/app/api/stream_routes.py` | Transaction stream replay worker, SSE feed, and one-click demo reset endpoint (`POST /demo/reset`) | Generated stream replay and reset logic | Tested stream start, pause, resume, stop, and demo reset against FalkorDB; 4/4 automated tests passed. Full suite: 67/67 passed. | **Verified** |
+| `backend/tests/test_stream_and_reset.py` | Test suite for stream replay lifecycle and demo reset environment | Generated test suite | 4/4 passed in 2.3s. Full suite: 67/67 passed. | **Verified** |
+
 
 
 ---

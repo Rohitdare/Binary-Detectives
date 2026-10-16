@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 try:
     from app.api.investigation_routes import router as investigation_router
+    from app.api.stream_routes import router as stream_router
     from app.db import FalkorDBClient
     from app.detectors.cycle import detect_cycles
     from app.queries import (
@@ -21,6 +22,7 @@ try:
     )
 except ImportError:
     from backend.app.api.investigation_routes import router as investigation_router
+    from backend.app.api.stream_routes import router as stream_router
     from backend.app.db import FalkorDBClient
     from backend.app.detectors.cycle import detect_cycles
     from backend.app.queries import (
@@ -51,6 +53,8 @@ app.add_middleware(
 
 # Mount Member B Investigation & Memory Router
 app.include_router(investigation_router, prefix="/api/v1")
+# Mount Member B Stream Replay & Demo Reset Router
+app.include_router(stream_router, prefix="/api/v1")
 
 GRAPH_NAME = os.getenv("FALKORDB_GRAPH", "txn")
 db_client = FalkorDBClient()
