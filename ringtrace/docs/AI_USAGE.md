@@ -32,6 +32,10 @@ This document records code generated or modified by AI agents and the concrete v
 | `backend/tests/test_memory_seed.py` | Seed tests on throwaway graphs | Generated test cases | 9/9 passed; full suite 29/29. | **Verified** |
 | `backend/app/mcp_server/tools.py` | The 8 restricted MCP Graph Tools implementing sandbox logic, algorithm execution, time-respecting funds tracing, and evidence schemas | Generated implementation | Tested against live FalkorDB `txn` and `memory` graphs; 16/16 automated tests passed. | **Verified** |
 | `backend/tests/test_mcp_tools.py` | Comprehensive test suite for all 8 MCP tools | Generated test suite | 16/16 passed in 0.23s. Full test suite: 45/45 passed. | **Verified** |
+| `backend/app/agent/llm.py`, `backend/app/agent/tool_definitions.py` | Centralized Gemini LLM client, timeout handler, and tool schemas for function calling | Generated implementation | Tested with SDK; Verified error abstraction and timeout wrapper. | **Verified** |
+| `backend/app/agent/validator.py` | Anti-hallucination evidence validator | Generated validator logic | Tested with regex extraction, verified acceptance of real evidence, rejection of invented IDs. | **Verified** |
+| `backend/app/agent/fallback.py`, `backend/app/agent/loop.py` | Deterministic safe fallback rule engine and multi-turn 8-budget agent loop | Generated orchestrator | Tested end-to-end; verified fallback on wrong/missing key; verified payroll dismissal rule. | **Verified** |
+| `backend/tests/test_agent.py` | Unit & integration tests for agent loop, validator, and fallback | Generated test suite | 7/7 passed. Full suite: 52/52 passed. | **Verified** |
 
 
 ---

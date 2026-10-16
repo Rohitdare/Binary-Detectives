@@ -8,6 +8,15 @@
 
 ## 1. Completed Capabilities
 
+- [x] **Member B Step 3: Agent Loop, Validator, and Deterministic Fallback (2026-10-16):**
+  - Integrated `google-genai` SDK with centralized caller in `backend/app/agent/llm.py` (`is_llm_available()`, timeout protection, error abstraction).
+  - Defined Gemini tool schemas in `backend/app/agent/tool_definitions.py`.
+  - Built anti-hallucination evidence validator in `backend/app/agent/validator.py` asserting all `ACC_...`, `TX_...`, `demo_...`, and `CASE_...` IDs exist in authorized evidence.
+  - Implemented deterministic safe fallback engine in `backend/app/agent/fallback.py` running fixed tool sequence (`get_case`, `expand_neighborhood`, `pagerank`, `community`, `find_similar_cases`), rule-based action proposal, and structured Markdown narrative template with zero API key requirement.
+  - Multi-turn orchestrator in `backend/app/agent/loop.py` coordinating 8-turn tool budget, step events, validation retries, and seamless fallback.
+  - Test suite in `backend/tests/test_agent.py`: 7/7 passed. Full test suite: 52/52 passed.
+  - Next: Step 4, FastAPI Endpoints + SSE Streaming Feed (`/api/v1`).
+
 - [x] **Member B Step 2: The 8 MCP Graph Tools (2026-10-16):**
   - Implemented in `backend/app/mcp_server/tools.py`: `get_case`, `expand_neighborhood`, `trace_funds`, `shortest_path`, `run_algorithm`, `find_similar_cases`, `record_finding`, `propose_action`.
   - Zero raw Cypher exposed to caller; strict input boundaries, bounded traversal limits, and standardized evidence payloads (`account_ids`, `tx_ids`).
