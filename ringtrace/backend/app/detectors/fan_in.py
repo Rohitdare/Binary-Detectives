@@ -23,14 +23,12 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 try:
     from app.db import FalkorDBClient
     from app.queries import (
-        COUNT_ACCOUNT_INCOMING_TOTAL,
         FIND_FAN_IN_CANDIDATES,
         GET_ACCOUNT_INCOMING_TRANSFERS,
     )
 except ImportError:
     from backend.app.db import FalkorDBClient
     from backend.app.queries import (
-        COUNT_ACCOUNT_INCOMING_TOTAL,
         FIND_FAN_IN_CANDIDATES,
         GET_ACCOUNT_INCOMING_TRANSFERS,
     )
@@ -177,7 +175,7 @@ def detect_fan_in(
     is_truncated = False
     truncation_reason = None
 
-    candidate_limit = max(limit * 5, 250)
+    candidate_limit = max(limit * 10, 1000)
     cand_res = client.execute_query(
         graph_name,
         FIND_FAN_IN_CANDIDATES,
@@ -197,15 +195,7 @@ def detect_fan_in(
     for row in candidate_rows:
         dst_id = str(row[0])
         dst_type = str(row[1]) if row[1] else "personal"
-
-        # Check total incoming transaction volume to detect safety truncation
-        count_res = client.execute_query(
-            graph_name,
-            COUNT_ACCOUNT_INCOMING_TOTAL,
-            {"account_id": dst_id},
-            caller="detector:fan_in:count",
-        )
-        total_tx_count = count_res.result_set[0][0] if (count_res and count_res.result_set) else 0
+        total_tx_count = int(row[3] or 0)
 
         # Fetch incoming transfers ordered by timestamp
         tx_res = client.execute_query(
@@ -303,17 +293,22 @@ def detect_fan_in(
             }
             hits.append(hit)
 
-            if len(hits) >= limit:
-                is_truncated = True
-                truncation_reason = "result_limit_reached"
-                break
-
-        if len(hits) >= limit:
-            break
-
-    if not is_truncated and cand_truncated:
+    # Prefer hits with explicit suspicious signals so benign high-volume
+    # merchants do not crowd the most useful results out of the response.
+    hits.sort(key=lambda hit: (
+        not hit["measurements"]["suspicious"],
+        -hit["measurements"]["structuring_share"],
+        -hit["measurements"]["distinct_senders"],
+        hit["measurements"]["time_span_seconds"],
+        -hit["measurements"]["total_amount"],
+    ))
+    if len(hits) > limit:
         is_truncated = True
-        truncation_reason = "candidate_limit_reached"
+        truncation_reason = "result_limit_reached"
+
+    if cand_truncated:
+        is_truncated = True
+        truncation_reason = truncation_reason or "candidate_limit_reached"
 
     return FanInDetectionResult(
         hits[:limit],

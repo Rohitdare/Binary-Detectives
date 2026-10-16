@@ -36,6 +36,7 @@ except ImportError:
 
 
 EDGE_SCAN_LIMIT = 250_000
+EDGE_PAGE_SIZE = 10_000
 SEARCH_STEP_LIMIT = 1_000_000
 
 
@@ -130,13 +131,21 @@ def detect_cycles(
         raise ValueError(f"limit must be between 1 and 200 (got {limit}).")
 
     client = db or FalkorDBClient()
-    res = client.execute_query(
-        graph_name,
-        GET_CYCLE_EDGES,
-        {"limit": EDGE_SCAN_LIMIT + 1},
-        caller="detector:cycle:read_edges",
-    )
-    rows = res.result_set if res and res.result_set else []
+    rows: List[Any] = []
+    offset = 0
+    while len(rows) <= EDGE_SCAN_LIMIT:
+        page_limit = min(EDGE_PAGE_SIZE, EDGE_SCAN_LIMIT + 1 - len(rows))
+        res = client.execute_query(
+            graph_name,
+            GET_CYCLE_EDGES,
+            {"offset": offset, "limit": page_limit},
+            caller="detector:cycle:read_edges",
+        )
+        page = res.result_set if res and res.result_set else []
+        rows.extend(page)
+        offset += len(page)
+        if len(page) < page_limit:
+            break
     scan_truncated = len(rows) > EDGE_SCAN_LIMIT
     rows = rows[:EDGE_SCAN_LIMIT]
 

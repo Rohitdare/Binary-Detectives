@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import cytoscape, { type Core } from 'cytoscape';
 import { AlertTriangle, CheckCircle2, CircleDashed, GitBranch, Network, Play, RotateCcw } from 'lucide-react';
-import type { CycleCandidate, DetectorHit, DetectorPattern, DetectorRunSummary, DetectorTransaction } from '../../types';
+import type { CycleCandidate, CycleEvaluationReport, DetectorHit, DetectorPattern, DetectorRunSummary, DetectorTransaction } from '../../types';
 import { ringtraceApi } from '../../services/api';
 
 interface WorkbenchHit {
@@ -66,6 +66,9 @@ export const DetectionWorkbench: React.FC<DetectionWorkbenchProps> = ({ requeste
   const [error, setError] = useState<string | null>(null);
   const [runSummary, setRunSummary] = useState<DetectorRunSummary | null>(null);
   const [truncationReason, setTruncationReason] = useState<string | null>(null);
+  const [evaluation, setEvaluation] = useState<CycleEvaluationReport | null>(null);
+  const [evaluating, setEvaluating] = useState(false);
+  const [evaluationError, setEvaluationError] = useState<string | null>(null);
   const [cycleLength, setCycleLength] = useState<'3-5' | '3' | '4' | '5'>('3-5');
   const graphContainer = useRef<HTMLDivElement>(null);
   const cyRef = useRef<Core | null>(null);
@@ -187,6 +190,17 @@ export const DetectionWorkbench: React.FC<DetectionWorkbenchProps> = ({ requeste
     setSelected(hit);
     setSelectedTx(null);
   };
+  const evaluateCycles = async () => {
+    setEvaluating(true);
+    setEvaluationError(null);
+    try {
+      setEvaluation(await ringtraceApi.evaluateCycles(50));
+    } catch (err) {
+      setEvaluationError(err instanceof Error ? err.message : 'Benchmark evaluation failed.');
+    } finally {
+      setEvaluating(false);
+    }
+  };
   const Icon = ICONS[pattern];
   const measures = selected ? Object.entries(selected.measurements).filter(([key, value]) => key !== 'suspicious' && value !== null && typeof value !== 'boolean') : [];
 
@@ -203,12 +217,17 @@ export const DetectionWorkbench: React.FC<DetectionWorkbenchProps> = ({ requeste
           </div>
           <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
             {pattern === 'cycle' && (
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.76rem' }}>
-                Hops
-                <select aria-label="Cycle length" value={cycleLength} onChange={(event) => setCycleLength(event.target.value as typeof cycleLength)} className="rt-input">
-                  <option value="3-5">3 to 5</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
-                </select>
-              </label>
+              <>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.76rem' }}>
+                  Hops
+                  <select aria-label="Cycle length" value={cycleLength} onChange={(event) => setCycleLength(event.target.value as typeof cycleLength)} className="rt-input">
+                    <option value="3-5">3 to 5</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
+                  </select>
+                </label>
+                <button className="rt-button" onClick={() => void evaluateCycles()} disabled={evaluating}>
+                  {evaluating ? <RotateCcw size={13} className="spin" /> : null}{evaluating ? 'Evaluating…' : 'Evaluate benchmark'}
+                </button>
+              </>
             )}
             <button className="rt-button rt-button-primary" onClick={() => void run(pattern)} disabled={loading}>
               {loading ? <RotateCcw size={14} className="spin" /> : <Play size={13} />}
@@ -221,6 +240,15 @@ export const DetectionWorkbench: React.FC<DetectionWorkbenchProps> = ({ requeste
           {runSummary.status === 'completed' ? `Completed in ${((runSummary.execution_time_ms ?? 0) / 1000).toFixed(2)}s · ${runSummary.hits} candidates · ${runSummary.suspicious} need review${pattern === 'cycle' ? ` · ${runSummary.edges_scanned ?? 0} edges scanned · ${runSummary.search_steps ?? 0} path steps` : ''}` : `Last run failed: ${runSummary.error}`}
         </div>}
       </header>
+
+      {evaluationError && <div role="alert" className="rt-card" style={{ padding: '0.75rem 1rem', color: 'var(--accent-rose)' }}>{evaluationError}</div>}
+      {evaluation && pattern === 'cycle' && <section className="rt-card" style={{ padding: '0.8rem 1rem', fontSize: '0.78rem' }} aria-label="Cycle evaluation summary">
+        <strong>Cycle benchmark · independent synthetic-data evaluation</strong>
+        <div className="text-secondary" style={{ marginTop: '0.35rem' }}>
+          Exact recall {(evaluation.metrics.exact_recall * 100).toFixed(1)}% · Precision {(evaluation.metrics.precision * 100).toFixed(1)}% · {evaluation.ground_truth_summary.planted_fraud_cycle_alerts} planted fraud cycles · {evaluation.ground_truth_summary.planted_benign_look_alikes} benign look-alikes.
+          This measures synthetic recovery only; it is not real-world accuracy.
+        </div>
+      </section>}
 
       {error && <div role="alert" className="rt-card" style={{ padding: '0.85rem 1rem', borderColor: 'rgba(244,63,94,.4)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
         <span style={{ color: 'var(--accent-rose)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><AlertTriangle size={16} />{error}</span>

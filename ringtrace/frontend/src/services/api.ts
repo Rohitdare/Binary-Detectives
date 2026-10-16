@@ -57,21 +57,21 @@ export const ringtraceApi = {
 
   async detectCycles(minLength = 3, maxLength = 5, limit = 50): Promise<import('../types').CycleDetectionResponse> {
     const res = await fetch(
-      `${API_BASE}/detectors/cycles?min_length=${minLength}&max_length=${maxLength}&limit=${limit}`
+      `${API_BASE}/v1/detectors/cycles?min_length=${minLength}&max_length=${maxLength}&limit=${limit}`
     );
     return handleResponse<import('../types').CycleDetectionResponse>(res);
   },
 
   async detectFanIn(minSenders = 8, windowHours = 48, limit = 50): Promise<DetectorRunResponse> {
     const res = await fetch(
-      `${API_BASE}/detectors/fan-in?min_senders=${minSenders}&window_hours=${windowHours}&limit=${limit}`
+      `${API_BASE}/v1/detectors/fan-in?min_senders=${minSenders}&window_hours=${windowHours}&limit=${limit}`
     );
     return handleResponse<DetectorRunResponse>(res);
   },
 
   async detectFanOut(minReceivers = 8, windowHours = 48, limit = 50): Promise<DetectorRunResponse> {
     const res = await fetch(
-      `${API_BASE}/detectors/fan-out?min_receivers=${minReceivers}&window_hours=${windowHours}&limit=${limit}`
+      `${API_BASE}/v1/detectors/fan-out?min_receivers=${minReceivers}&window_hours=${windowHours}&limit=${limit}`
     );
     return handleResponse<DetectorRunResponse>(res);
   },

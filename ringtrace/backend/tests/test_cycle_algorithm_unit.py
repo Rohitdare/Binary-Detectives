@@ -67,8 +67,7 @@ class TestCycleAlgorithmUnit(unittest.TestCase):
         with open(fixture_path, encoding="utf-8") as stream:
             transactions = json.load(stream)["transactions"]
         self.db.execute_query.side_effect = [
-            SimpleNamespace(result_set=[["SINK_01", "personal", 8]]),
-            SimpleNamespace(result_set=[[len(transactions)]]),
+            SimpleNamespace(result_set=[["SINK_01", "personal", 8, len(transactions)]]),
             SimpleNamespace(result_set=[[
                 tx["tx_id"], tx["src"], tx["dst"], tx["amount"], tx["ts"], tx["step"], tx["tx_type"]
             ] for tx in transactions]),
@@ -83,8 +82,7 @@ class TestCycleAlgorithmUnit(unittest.TestCase):
         with open(fixture_path, encoding="utf-8") as stream:
             transactions = json.load(stream)["transactions"]
         self.db.execute_query.side_effect = [
-            SimpleNamespace(result_set=[["ORIG_01", "personal", 9]]),
-            SimpleNamespace(result_set=[[len(transactions)]]),
+            SimpleNamespace(result_set=[["ORIG_01", "personal", 9, len(transactions)]]),
             SimpleNamespace(result_set=[[
                 tx["tx_id"], tx["src"], tx["dst"], tx["amount"], tx["ts"], tx["step"], tx["tx_type"]
             ] for tx in transactions]),
@@ -93,6 +91,35 @@ class TestCycleAlgorithmUnit(unittest.TestCase):
         hit = next(item for item in hits if item["account_ids"][0] == "ORIG_01")
         self.assertTrue(hit["measurements"]["suspicious"])
         self.assertEqual({tx["tx_id"] for tx in hit["transactions"]}, set(hit["tx_ids"]))
+
+    def test_fan_in_prioritizes_suspicious_hit_over_benign_high_volume_hit(self):
+        benign = [[f"TX_B{i}", f"S{i}", "BENIGN", 1000.0, 10000 + i * 60, 1, "UPI"] for i in range(8)]
+        suspicious = [[f"TX_S{i}", f"I{i}", "SUSPICIOUS", 47500.0, 20000 + i * 60, 1, "UPI"] for i in range(8)]
+        self.db.execute_query.side_effect = [
+            SimpleNamespace(result_set=[["BENIGN", "merchant", 8, 8], ["SUSPICIOUS", "personal", 8, 8]]),
+            SimpleNamespace(result_set=benign),
+            SimpleNamespace(result_set=suspicious),
+        ]
+        hits = detect_fan_in(limit=1, db=self.db)
+        self.assertEqual(len(hits), 1)
+        self.assertEqual(hits[0]["account_ids"][0], "SUSPICIOUS")
+        self.assertTrue(hits[0]["measurements"]["suspicious"])
+        self.assertTrue(hits.truncated)
+
+    def test_fan_out_prioritizes_suspicious_hit_over_recurring_payroll(self):
+        def tx_rows(origin, amount):
+            return [[f"TX_{origin}_{i}", origin, f"R{i}", amount, 10000 + i * 60, 1, "UPI"] for i in range(8)]
+
+        self.db.execute_query.side_effect = [
+            SimpleNamespace(result_set=[["PAYROLL", "payroll", 8, 8], ["SUSPICIOUS", "personal", 8, 8]]),
+            SimpleNamespace(result_set=tx_rows("PAYROLL", 1000.0)),
+            SimpleNamespace(result_set=tx_rows("SUSPICIOUS", 47500.0)),
+        ]
+        hits = detect_fan_out(limit=1, db=self.db)
+        self.assertEqual(len(hits), 1)
+        self.assertEqual(hits[0]["account_ids"][0], "SUSPICIOUS")
+        self.assertTrue(hits[0]["measurements"]["suspicious"])
+        self.assertTrue(hits.truncated)
 
     def test_api_returns_evidence_metadata_and_timeout_error(self):
         with patch("app.db.FalkorDBClient"):

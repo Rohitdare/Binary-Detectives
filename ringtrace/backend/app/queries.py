@@ -66,7 +66,7 @@ GET_GRAPH_SAMPLE = (
 GET_CYCLE_EDGES = (
     "MATCH (a:Account)-[t:SENT]->(b:Account) "
     "RETURN a.id, b.id, t.tx_id, t.amount, t.ts, t.step, t.tx_type "
-    "ORDER BY t.ts ASC, t.tx_id ASC LIMIT $limit"
+    "ORDER BY t.ts ASC, t.tx_id ASC SKIP $offset LIMIT $limit"
 )
 
 GET_ACCOUNT_BY_ID = (
@@ -97,9 +97,9 @@ SEARCH_ACCOUNTS = (
 # Fan-In Detection Queries
 FIND_FAN_IN_CANDIDATES = (
     "MATCH (src:Account)-[t:SENT]->(dst:Account) "
-    "WITH dst, count(DISTINCT src) AS distinct_senders "
+    "WITH dst, count(DISTINCT src) AS distinct_senders, count(t) AS total_transactions "
     "WHERE distinct_senders >= $min_senders "
-    "RETURN dst.id, dst.type, distinct_senders "
+    "RETURN dst.id, dst.type, distinct_senders, total_transactions "
     "ORDER BY distinct_senders DESC "
     "LIMIT $limit"
 )
@@ -119,9 +119,9 @@ COUNT_ACCOUNT_INCOMING_TOTAL = (
 # Fan-Out Detection Queries
 FIND_FAN_OUT_CANDIDATES = (
     "MATCH (src:Account)-[t:SENT]->(dst:Account) "
-    "WITH src, count(DISTINCT dst) AS distinct_receivers "
+    "WITH src, count(DISTINCT dst) AS distinct_receivers, count(t) AS total_transactions "
     "WHERE distinct_receivers >= $min_receivers "
-    "RETURN src.id, src.type, distinct_receivers "
+    "RETURN src.id, src.type, distinct_receivers, total_transactions "
     "ORDER BY distinct_receivers DESC "
     "LIMIT $limit"
 )

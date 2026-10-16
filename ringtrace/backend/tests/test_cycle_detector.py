@@ -310,6 +310,16 @@ class TestCycleDetector(unittest.TestCase):
         self.assertFalse(results[0]["suspicious"])
         self.assertIn("cycle candidate only", results[0]["explanation"])
 
+    def test_14_versioned_cycle_route_alias(self):
+        """The v1 cycle route works while the legacy route remains available."""
+        client = TestClient(app)
+        response = client.get("/api/v1/detectors/cycles?min_length=3&max_length=3&limit=5")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("execution_time_ms", data)
+        self.assertIn("suspicious_count", data)
+        self.assertIn("edges_scanned", data)
+
 
 if __name__ == "__main__":
     unittest.main()

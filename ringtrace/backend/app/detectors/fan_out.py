@@ -24,14 +24,12 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 try:
     from app.db import FalkorDBClient
     from app.queries import (
-        COUNT_ACCOUNT_OUTGOING_TOTAL,
         FIND_FAN_OUT_CANDIDATES,
         GET_ACCOUNT_OUTGOING_TRANSFERS,
     )
 except ImportError:
     from backend.app.db import FalkorDBClient
     from backend.app.queries import (
-        COUNT_ACCOUNT_OUTGOING_TOTAL,
         FIND_FAN_OUT_CANDIDATES,
         GET_ACCOUNT_OUTGOING_TRANSFERS,
     )
@@ -218,7 +216,7 @@ def detect_fan_out(
     is_truncated = False
     truncation_reason = None
 
-    candidate_limit = max(limit * 5, 250)
+    candidate_limit = max(limit * 10, 1000)
     cand_res = client.execute_query(
         graph_name,
         FIND_FAN_OUT_CANDIDATES,
@@ -238,15 +236,7 @@ def detect_fan_out(
     for row in candidate_rows:
         src_id = str(row[0])
         src_type = str(row[1]) if row[1] else "personal"
-
-        # Check total outgoing count for truncation detection
-        count_res = client.execute_query(
-            graph_name,
-            COUNT_ACCOUNT_OUTGOING_TOTAL,
-            {"account_id": src_id},
-            caller="detector:fan_out:count",
-        )
-        total_tx_count = count_res.result_set[0][0] if (count_res and count_res.result_set) else 0
+        total_tx_count = int(row[3] or 0)
 
         # Fetch outgoing transfers ordered by timestamp
         tx_res = client.execute_query(
@@ -347,17 +337,22 @@ def detect_fan_out(
             }
             hits.append(hit)
 
-            if len(hits) >= limit:
-                is_truncated = True
-                truncation_reason = "result_limit_reached"
-                break
-
-        if len(hits) >= limit:
-            break
-
-    if not is_truncated and cand_truncated:
+    # Prioritize explicit suspicion signals ahead of common recurring or
+    # otherwise benign high-volume dispersals.
+    hits.sort(key=lambda hit: (
+        not hit["measurements"]["suspicious"],
+        -hit["measurements"]["structuring_share"],
+        -hit["measurements"]["distinct_receivers"],
+        hit["measurements"]["time_span_seconds"],
+        -hit["measurements"]["total_outflow"],
+    ))
+    if len(hits) > limit:
         is_truncated = True
-        truncation_reason = "candidate_limit_reached"
+        truncation_reason = "result_limit_reached"
+
+    if cand_truncated:
+        is_truncated = True
+        truncation_reason = truncation_reason or "candidate_limit_reached"
 
     return FanOutDetectionResult(
         hits[:limit],
