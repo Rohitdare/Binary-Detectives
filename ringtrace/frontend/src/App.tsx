@@ -5,6 +5,7 @@ import { OverviewGraph } from './components/overview/OverviewGraph';
 import { TransactionExplorer } from './components/explorer/TransactionExplorer';
 import { DetectionWorkbench } from './components/patterns/DetectionWorkbench';
 import { CaseManagementView } from './components/cases/CaseManagementView';
+import { InvestigationPanel as AutonomousInvestigationView } from './features/investigation/InvestigationPanel';
 import { PlaceholderView } from './components/common/PlaceholderView';
 import type { DetectorPattern, DetectorRunSummary, HealthStatus, PageTab, SystemStats } from './types';
 import { ringtraceApi } from './services/api';
@@ -20,6 +21,10 @@ export const App: React.FC = () => {
 
   const [inspectedAccountId, setInspectedAccountId] = useState<string | null>(null);
   const [requestedDetector, setRequestedDetector] = useState<DetectorPattern | null>(null);
+
+  // Switch between Case Queue and Autonomous Agent Cockpit under investigations
+  const [investigationMode, setInvestigationMode] = useState<'cases' | 'agent'>('cases');
+  const [selectedCaseForAgent, setSelectedCaseForAgent] = useState<string>('CASE_0001');
 
   const fetchHealth = useCallback(async () => {
     setLoadingHealth(true);
@@ -138,16 +143,64 @@ export const App: React.FC = () => {
             />
           )}
 
+          {currentTab === 'investigations' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {/* Sub-view switcher between Case Queue & Autonomous Agent Cockpit */}
+              <div
+                className="rt-card"
+                style={{
+                  padding: '0.6rem 1rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '0.75rem',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <button
+                    onClick={() => setInvestigationMode('cases')}
+                    className={`rt-button rt-button-sm ${investigationMode === 'cases' ? 'rt-button-primary' : ''}`}
+                    style={{ fontWeight: 600, fontSize: '0.75rem' }}
+                  >
+                    <span>📋 Case Triage Queue</span>
+                  </button>
+                  <button
+                    onClick={() => setInvestigationMode('agent')}
+                    className={`rt-button rt-button-sm ${investigationMode === 'agent' ? 'rt-button-primary' : ''}`}
+                    style={{ fontWeight: 600, fontSize: '0.75rem' }}
+                  >
+                    <span>🤖 Autonomous AI Cockpit & Replay</span>
+                  </button>
+                </div>
+                <span style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>
+                  {investigationMode === 'cases'
+                    ? 'Member A: Scored cases, evidence graphs & triage queue'
+                    : 'Member B: 8-tool LLM agent loop, memory & stream replay'}
+                </span>
+              </div>
+
+              {investigationMode === 'cases' ? (
+                <CaseManagementView
+                  onInspectAccount={handleSelectAccount}
+                  onLaunchAgentInvestigation={(caseId) => {
+                    setSelectedCaseForAgent(caseId);
+                    setInvestigationMode('agent');
+                  }}
+                />
+              ) : (
+                <AutonomousInvestigationView
+                  initialCaseId={selectedCaseForAgent}
+                  onInspectAccount={handleSelectAccount}
+                />
+              )}
+            </div>
+          )}
+
           {currentTab === 'explorer' && (
             <TransactionExplorer
               initialAccountId={inspectedAccountId}
               onBackToOverview={() => setCurrentTab('overview')}
-            />
-          )}
-
-          {currentTab === 'investigations' && (
-            <CaseManagementView
-              onInspectAccount={handleSelectAccount}
             />
           )}
 

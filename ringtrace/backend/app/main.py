@@ -7,6 +7,8 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 try:
+    from app.api.investigation_routes import router as investigation_router
+    from app.api.stream_routes import router as stream_router
     from app.db import FalkorDBClient
     from app.detectors import (
         detect_cycles, detect_fan_in, detect_fan_out,
@@ -24,6 +26,8 @@ try:
         SEARCH_ACCOUNTS,
     )
 except ImportError:
+    from backend.app.api.investigation_routes import router as investigation_router
+    from backend.app.api.stream_routes import router as stream_router
     from backend.app.db import FalkorDBClient
     from backend.app.detectors import (
         detect_cycles, detect_fan_in, detect_fan_out,
@@ -55,6 +59,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount Member B Investigation & Memory Router
+app.include_router(investigation_router, prefix="/api/v1")
+# Mount Member B Stream Replay & Demo Reset Router
+app.include_router(stream_router, prefix="/api/v1")
 
 GRAPH_NAME = os.getenv("FALKORDB_GRAPH", "txn")
 db_client = FalkorDBClient()

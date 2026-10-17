@@ -8,11 +8,13 @@ import { X, ArrowRight, User } from 'lucide-react';
 interface CaseManagementViewProps {
   onInspectAccount: (accountId: string) => void;
   initialCaseId?: string | null;
+  onLaunchAgentInvestigation?: (caseId: string) => void;
 }
 
 export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
   onInspectAccount,
   initialCaseId = null,
+  onLaunchAgentInvestigation,
 }) => {
   const [cases, setCases] = useState<CaseRecord[]>([]);
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(initialCaseId);
@@ -198,6 +200,7 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
             error={detailError}
             onSelectAccount={(accId) => setDrawerAccount(accId)}
             onRetry={() => selectedCaseId && void fetchCaseDetail(selectedCaseId)}
+            onLaunchAgentInvestigation={onLaunchAgentInvestigation}
           />
         </div>
       </div>
