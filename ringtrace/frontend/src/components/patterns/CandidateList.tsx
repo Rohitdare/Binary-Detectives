@@ -174,11 +174,11 @@ export const CandidateList: React.FC<CandidateListProps> = ({
                 }}
                 style={{
                   padding: '0.75rem 0.85rem',
-                  borderRadius: '7px',
-                  backgroundColor: isSelected ? 'var(--brand-mint-subtle)' : 'var(--surface-primary)',
-                  border: `1px solid ${isSelected ? 'var(--brand-teal)' : 'var(--border-subtle)'}`,
+                  borderRadius: '8px',
+                  backgroundColor: isSelected ? '#F8FAFC' : '#FFFFFF',
+                  border: `1px solid ${isSelected ? '#0F172A' : '#E2E8F0'}`,
                   boxShadow: isSelected
-                    ? '0 1px 4px rgba(45, 122, 107, 0.12)'
+                    ? '0 1px 4px rgba(15, 23, 42, 0.08)'
                     : 'none',
                   cursor: 'pointer',
                   transition: 'all 0.12s ease',
@@ -198,7 +198,7 @@ export const CandidateList: React.FC<CandidateListProps> = ({
                     style={{
                       fontSize: '0.8rem',
                       fontWeight: 700,
-                      color: isSelected ? 'var(--brand-forest)' : 'var(--text-primary)',
+                      color: isSelected ? '#0F172A' : '#1E293B',
                       lineHeight: 1.3,
                     }}
                   >

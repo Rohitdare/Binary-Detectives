@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, RefreshCw, CheckCircle2, AlertCircle, Database, ShieldCheck } from 'lucide-react';
+import { Search, RefreshCw, Database } from 'lucide-react';
 import type { HealthStatus, SearchResultAccount } from '../../types';
 import { ringtraceApi } from '../../services/api';
 
 interface NavbarProps {
-  health: HealthStatus | null;
-  onRefreshHealth: () => void;
+  health?: HealthStatus | null;
+  onRefreshHealth?: () => void;
   onSelectAccount: (accountId: string) => void;
 }
 
@@ -14,7 +14,10 @@ export const Navbar: React.FC<NavbarProps> = ({ health, onRefreshHealth, onSelec
   const [results, setResults] = useState<SearchResultAccount[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+
+  const isConnected = Boolean(health?.falkordb_connected);
 
   useEffect(() => {
     if (!query.trim() || query.length < 2) {
@@ -64,179 +67,181 @@ export const Navbar: React.FC<NavbarProps> = ({ health, onRefreshHealth, onSelec
     setShowDropdown(false);
   };
 
-  const isConnected = Boolean(health?.falkordb_connected);
-
   return (
-    <header style={{
-      height: '64px',
-      backgroundColor: 'var(--surface-primary)',
-      borderBottom: '1px solid var(--border-subtle)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      padding: '0 2rem',
-      flexShrink: 0,
-      position: 'relative',
-      zIndex: 15
-    }}>
-      {/* Search Input */}
-      <div ref={searchRef} style={{ position: 'relative', width: '380px' }}>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.6rem',
-          backgroundColor: 'var(--surface-secondary)',
-          border: '1px solid var(--border-subtle)',
-          borderRadius: '8px',
-          padding: '0.5rem 0.85rem',
-          color: 'var(--text-secondary)',
-          transition: 'all 0.15s ease'
-        }}>
-          <Search size={15} color="var(--text-muted)" />
+    <header
+      style={{
+        height: '56px',
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        backdropFilter: 'blur(12px)',
+        borderBottom: '1px solid #E2E8F0',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '0 1.5rem',
+        flexShrink: 0,
+        position: 'relative',
+        zIndex: 15,
+        boxShadow: '0 1px 4px rgba(0, 0, 0, 0.02)',
+      }}
+    >
+      {/* Minimal Aesthetic Search Bar */}
+      <div ref={searchRef} style={{ position: 'relative', width: '380px', maxWidth: '100%' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.55rem',
+            backgroundColor: isFocused ? '#FFFFFF' : '#F8FAFC',
+            border: isFocused ? '1px solid #6366F1' : '1px solid #E2E8F0',
+            borderRadius: '8px',
+            padding: '0.4rem 0.75rem',
+            color: '#334155',
+            boxShadow: isFocused ? '0 0 0 3px rgba(99, 102, 241, 0.08)' : 'none',
+            transition: 'all 0.18s ease',
+          }}
+        >
+          {isSearching ? (
+            <RefreshCw size={14} className="spin" color="#64748B" />
+          ) : (
+            <Search size={14} color={isFocused ? '#6366F1' : '#94A3B8'} />
+          )}
           <input
             type="text"
-            placeholder="Search account ID (e.g. ACC_00001)..."
+            placeholder="Search accounts, transactions, cases..."
             value={query}
             onChange={handleQueryChange}
-            onFocus={() => { if (results.length > 0) setShowDropdown(true); }}
+            onFocus={() => {
+              setIsFocused(true);
+              if (results.length > 0) setShowDropdown(true);
+            }}
+            onBlur={() => setIsFocused(false)}
             style={{
-              background: 'transparent',
               border: 'none',
+              background: 'transparent',
               outline: 'none',
-              color: 'var(--text-primary)',
-              fontSize: '0.825rem',
+              color: '#0F172A',
+              fontSize: '0.8rem',
               width: '100%',
-              fontFamily: 'var(--font-sans)'
+              fontFamily: 'var(--font-sans)',
             }}
           />
-          {isSearching && <RefreshCw size={12} className="spin" color="var(--brand-teal)" />}
         </div>
 
-        {/* Autocomplete Dropdown */}
+        {/* Dropdown Search Results */}
         {showDropdown && results.length > 0 && (
-          <div style={{
-            position: 'absolute',
-            top: 'calc(100% + 6px)',
-            left: 0,
-            right: 0,
-            backgroundColor: 'var(--surface-primary)',
-            border: '1px solid var(--border-medium)',
-            borderRadius: '8px',
-            boxShadow: 'var(--shadow-popover)',
-            zIndex: 50,
-            overflow: 'hidden'
-          }}>
-            <div style={{
-              padding: '0.5rem 0.85rem',
-              fontSize: '0.675rem',
-              color: 'var(--text-muted)',
-              borderBottom: '1px solid var(--border-subtle)',
-              textTransform: 'uppercase',
-              letterSpacing: '0.04em',
-              fontWeight: 600,
-              backgroundColor: 'var(--surface-secondary)'
-            }}>
-              Matching Accounts ({results.length})
+          <div
+            style={{
+              position: 'absolute',
+              top: 'calc(100% + 6px)',
+              left: 0,
+              right: 0,
+              backgroundColor: '#FFFFFF',
+              border: '1px solid #E2E8F0',
+              borderRadius: '10px',
+              boxShadow: '0 10px 25px -5px rgba(15, 23, 42, 0.1), 0 8px 10px -6px rgba(15, 23, 42, 0.04)',
+              overflow: 'hidden',
+              zIndex: 50,
+            }}
+          >
+            <div
+              style={{
+                padding: '0.4rem 0.75rem',
+                fontSize: '0.65rem',
+                textTransform: 'uppercase',
+                fontWeight: 700,
+                color: '#64748B',
+                backgroundColor: '#F8FAFC',
+                borderBottom: '1px solid #E2E8F0',
+              }}
+            >
+              Account Candidates
             </div>
             {results.map((acc) => (
               <div
                 key={acc.id}
                 onClick={() => handleSelect(acc.id)}
                 style={{
-                  padding: '0.65rem 0.85rem',
+                  padding: '0.55rem 0.85rem',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   cursor: 'pointer',
-                  borderBottom: '1px solid var(--border-subtle)',
-                  transition: 'background-color 0.1s ease'
+                  borderBottom: '1px solid #F1F5F9',
+                  transition: 'background-color 0.12s ease',
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--surface-muted)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#FAF5FF')}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span className="mono" style={{ fontSize: '0.825rem', fontWeight: 600, color: 'var(--brand-forest)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
+                  <span style={{ fontWeight: 600, fontSize: '0.8rem', color: '#0F172A', fontFamily: 'var(--font-mono)' }}>
                     {acc.id}
                   </span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <span className={`rt-badge badge-${acc.type}`} style={{ fontSize: '0.65rem' }}>
+                  <span
+                    style={{
+                      fontSize: '0.65rem',
+                      padding: '0.1rem 0.45rem',
+                      borderRadius: '9999px',
+                      backgroundColor:
+                        acc.type === 'merchant'
+                          ? '#EFF6FF'
+                          : acc.type === 'payroll'
+                          ? '#ECFDF5'
+                          : '#F1F5F9',
+                      color:
+                        acc.type === 'merchant'
+                          ? '#0284C7'
+                          : acc.type === 'payroll'
+                          ? '#047857'
+                          : '#475569',
+                      fontWeight: 600,
+                    }}
+                  >
                     {acc.type}
                   </span>
-                  <span style={{ fontSize: '0.675rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                    C{acc.community}
-                  </span>
                 </div>
+                <span style={{ fontSize: '0.725rem', color: '#64748B', fontFamily: 'var(--font-mono)' }}>
+                  community #{acc.community}
+                </span>
               </div>
             ))}
           </div>
         )}
       </div>
 
-      {/* Right controls */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-        {/* Workspace Mode Badge */}
-        <div style={{
+      {/* Minimal FalkorDB Status Icon on Right */}
+      <button
+        onClick={onRefreshHealth}
+        title={
+          isConnected
+            ? `FalkorDB Online (${health?.graph || 'txn'}) — Click to verify`
+            : 'FalkorDB Offline — Click to re-check connection'
+        }
+        style={{
+          width: '32px',
+          height: '32px',
+          borderRadius: '8px',
+          backgroundColor: '#FFFFFF',
+          border: '1px solid #E2E8F0',
           display: 'flex',
           alignItems: 'center',
-          gap: '0.45rem',
-          padding: '0.35rem 0.75rem',
-          borderRadius: '6px',
-          backgroundColor: 'var(--surface-secondary)',
-          border: '1px solid var(--border-subtle)',
-          fontSize: '0.75rem',
-          color: 'var(--text-secondary)'
-        }}>
-          <ShieldCheck size={14} color="var(--brand-teal)" />
-          <span style={{ fontWeight: 500 }}>FIU Live Intelligence</span>
-        </div>
-
-        {/* Database Status Pill */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.55rem',
-          padding: '0.35rem 0.85rem',
-          borderRadius: '20px',
-          backgroundColor: isConnected ? 'var(--accent-green-subtle)' : 'var(--accent-red-subtle)',
-          border: `1px solid ${isConnected ? 'var(--accent-green-border)' : 'var(--accent-red-border)'}`
-        }}>
-          {isConnected ? (
-            <CheckCircle2 size={13} color="var(--accent-green)" />
-          ) : (
-            <AlertCircle size={13} color="var(--accent-red)" />
-          )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-            <Database size={11} color={isConnected ? 'var(--accent-green)' : 'var(--accent-red)'} />
-            <span style={{
-              fontSize: '0.75rem',
-              fontWeight: 600,
-              color: isConnected ? 'var(--accent-green)' : 'var(--accent-red)'
-            }}>
-              {isConnected ? `FalkorDB: ${health?.graph || 'txn'}` : 'FalkorDB: Offline'}
-            </span>
-          </div>
-          <button
-            onClick={onRefreshHealth}
-            title="Refresh database connection status"
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              padding: '2px',
-              color: isConnected ? 'var(--accent-green)' : 'var(--accent-red)',
-              opacity: 0.8,
-              transition: 'opacity 0.15s ease'
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.8'; }}
-          >
-            <RefreshCw size={11} />
-          </button>
-        </div>
-      </div>
+          justifyContent: 'center',
+          cursor: 'pointer',
+          color: isConnected ? '#475569' : '#DC2626',
+          boxShadow: '0 1px 2px rgba(15, 23, 42, 0.02)',
+          transition: 'all 0.15s ease',
+          flexShrink: 0,
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = '#F8FAFC';
+          e.currentTarget.style.borderColor = '#CBD5E1';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = '#FFFFFF';
+          e.currentTarget.style.borderColor = '#E2E8F0';
+        }}
+      >
+        <Database size={15} color={isConnected ? '#475569' : '#DC2626'} />
+      </button>
     </header>
   );
 };

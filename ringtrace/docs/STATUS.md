@@ -1,12 +1,86 @@
 # RingTrace Project Status & Roadmap
 
-**Current Milestone:** Phase 3 — Directed Transaction Cycle Detector  
-**Status:** Complete & Fully Validated (Backend, Cypher, UI, & Tests)  
-**Last Updated:** 2026-10-15  
+**Current Milestone:** Detector Audit, Verification & Documentation
+**Status:** Audit complete; documented reliability and contract gaps remain
+**Last Updated:** 2026-10-17
 
 ---
 
 ## 1. Completed Capabilities
+
+- [x] **Automated Fraud Detection Scheduler & Concurrency Coordinator (2026-10-17):**
+  - Designed and implemented a production-conscious periodic fraud detection scheduler in [`app/scheduler/service.py`](file:///d:/vortex/ringtrace/backend/app/scheduler/service.py) with validated configuration in [`app/scheduler/config.py`](file:///d:/vortex/ringtrace/backend/app/scheduler/config.py).
+  - Integrated into FastAPI native lifecycle via `lifespan` in [`app/main.py`](file:///d:/vortex/ringtrace/backend/app/main.py) with graceful shutdown handling and cancellation support.
+  - Enforced atomic mutual exclusion in [`app/scan_service.py`](file:///d:/vortex/ringtrace/backend/app/scan_service.py) with `_scan_execution_lock`: concurrent scheduled or manual triggers do not overlap; overlapping requests are safely recorded as `status: 'skipped'`.
+  - Guaranteed error isolation: isolated detector failures record `status: 'partial'` without halting other detectors.
+  - Preserved existing 9-pattern `DETECTOR_REGISTRY`, case builder, heuristic scorer, and idempotent FalkorDB `MERGE` case persistence.
+  - Added observability endpoints: `GET /api/v1/scheduler/status`, `GET /api/v1/scans/latest`, `GET /api/v1/scans`.
+  - Authored comprehensive documentation in [`docs/DETECTION_SCHEDULER.md`](file:///d:/vortex/ringtrace/docs/DETECTION_SCHEDULER.md) detailing architecture, API contracts, deployment topologies, and verified operational cautions:
+    1. *Shutdown Safety:* Cooperative cancellation at detector boundaries (`is_shutting_down()`) ensures in-flight scans do not outlive shutdown in an unsafe state and lock is reliably released in `finally:`.
+    2. *Timeout Truth:* Supervisory `asyncio.wait_for` flags the timeout threshold without falsely claiming Python can forcefully abort synchronous socket I/O in worker threads; the lock remains held until the active query finishes, safely skipping subsequent runs.
+    3. *Detection Bounds:* Clarified that a 250,000-edge snapshot cap and search step ceilings provide bounded-latency heuristic triage rather than an unconstrained guarantee of 100% graph-wide detection.
+    4. *Process Concurrency Scope:* Clarified that `threading.Lock` protects single-process instances; multi-replica deployments must employ a single scheduler owner or distributed coordinator.
+    5. *HTTP 202 Skipped Semantics:* Standardized HTTP 202 response to include `active_scan_id` and explanatory `message` so clients and UI (`CaseManagementView.tsx`) do not confuse skipped runs with active jobs.
+  - Validated with 18 dedicated unit/integration tests in [`tests/test_scheduler.py`](file:///d:/vortex/ringtrace/backend/tests/test_scheduler.py); all 195 backend tests passed in 23.2s.
+
+- [x] **Detector Catalog: Minimal Header & Popover Glitch Resolution (2026-10-17):**
+  - Removed wide open scheduler bar from the main catalog canvas to keep the page header minimal, compact, and completely uncluttered per user request.
+  - Implemented a sleek [`SchedulerButton.tsx`](file:///d:/vortex/ringtrace/frontend/src/components/patterns/SchedulerButton.tsx) placed neatly on the far right of the header alongside `Understanding Candidates & IDs`.
+  - **Fixed UI Clipping Glitch:** Constrained popover width (`width: 300px`, `maxWidth: 'calc(100vw - 32px)'`), aligned popover flush right (`right: 0`), and anchored header actions container (`marginLeft: 'auto'`), eliminating the left-edge viewport clipping when opening the popover.
+  - **Minimized Card Content:** Removed the redundant multi-line explanation paragraph and extra badges from the card header in [`DetectorCatalog.tsx`](file:///d:/vortex/ringtrace/frontend/src/components/patterns/DetectorCatalog.tsx), leaving a clean single-row header (`Detector Catalog` + `9 Active Engines`).
+  - Toggles an elegant popover with:
+    1. **Live Scheduler State:** Active pulsing indicator and interval display (`every 5m`).
+    2. **Next Scheduled Run:** Real-time countdown timer (`in Xm Ys` updating every second).
+    3. **Last Run:** Relative completion timestamp (`2m ago`), status pill (`Complete`, `Partial`), and evidence hits discovered.
+    4. **Manual Run Now:** Interactive button triggering `POST /api/v1/scan` with real-time feedback and automatic refresh upon completion.
+  - Added `getSchedulerStatus` and `getLatestScan` methods to `ringtraceApi` ([`api.ts`](file:///d:/vortex/ringtrace/frontend/src/services/api.ts)).
+  - Verified 100% clean production build (`npm run build`) in 774ms with 0 errors, plus verified live browser rendering without clipping.
+
+- [x] **Network Toolbar Refinement: Minimal Controls & Unified Grouping (2026-10-17):**
+  - Streamlined the top canvas toolbar in [`OverviewGraph.tsx`](file:///d:/vortex/ringtrace/frontend/src/components/overview/OverviewGraph.tsx) to eliminate visual noise and fragmented buttons.
+  - Removed bulky redundant `Focus` button; enabled immediate search-and-focus on Enter with clear button `✕`.
+  - Shortened sampling dropdown options from verbose (`Sample: 300 transfers`) to clean and compact (`300 tx`).
+  - Streamlined `Labels On` button into a sleek, minimal toggle (`Labels`).
+  - Unified fragmented zoom in/out, fit to viewport, and reload network buttons into a single 28px segmented control group (`[ ＋ | － | ⤢ | ⟳ ]`).
+  - Verified 100% clean production build (`npm run build`) in 808ms with 0 errors.
+
+- [x] **Catalog Header Cleanup: Removed Breadcrumb & Watchdog Banner (2026-10-17):**
+  - Removed the breadcrumbs (`Intelligence Workspace > Detectors Catalog FALKORDB v2.4`) and the notification card (`Autonomous Watchdog: Active topology detection across transaction nodes`) from [`DetectorCatalog.tsx`](file:///d:/vortex/ringtrace/frontend/src/components/patterns/DetectorCatalog.tsx).
+  - Cleaned up unused `ChevronRight` import.
+  - Verified 100% clean production build (`npm run build`) in 812ms with 0 errors.
+
+- [x] **Top Bar Refinement: Minimal Search & Right-Aligned FalkorDB Status Icon (2026-10-17):**
+  - Shifted the minimal FalkorDB status icon button to the far right of the top navigation bar ([`Navbar.tsx`](file:///d:/vortex/ringtrace/frontend/src/components/layout/Navbar.tsx)), removing the green dot indicator to keep the styling ultra-clean and minimal.
+  - Removed the `⌘K` badge icon from the search bar, leaving an uncluttered input field.
+  - Set navbar layout to `justifyContent: 'space-between'` for optimal aesthetic balance.
+  - Verified 100% clean production build (`npm run build`) in 508ms with 0 errors.
+
+- [x] **UI Streamlining: Minimal Header & Non-Congested Metrics Bar (2026-10-17):**
+  - Replaced the congested 4-KPI card grid (~180px tall) in `OverviewGraph.tsx` with a single sleek, minimal inline metrics header row.
+  - Eliminated noisy, redundant elements: pill badges (`98.2% Active`, `In-Flight`, `FalkorDB v2.4`, `4 High Risk`), card separator lines, and verbose taglines (`FalkorDB txn graph`, `Temporal sequencing verified`, `In-memory redis shard`).
+  - Positioned 4 lightweight metric chips (`3,000 Accounts`, `40,661 Transfers`, `12 Flagged`, `0.8ms Latency`) directly adjacent to the network title, freeing over 120px of vertical space for the canvas.
+  - Verified 100% clean production build (`npm run build`) in 791ms with 0 errors.
+
+- [x] **Brand Identity: Replaced Legacy Header with Official SPYNEX Logo (2026-10-17):**
+  - Replaced legacy text and generic shield badge with the official high-resolution **SPYNEX** brand logo (`spynex-logo.png` and `spynex-mark.png`).
+  - Extracted and antialiased transparent vector-aligned brand assets into `frontend/public/` with clean alpha channel.
+  - Updated Sidebar brand header ([`Sidebar.tsx`](file:///d:/vortex/ringtrace/frontend/src/components/layout/Sidebar.tsx)) to cleanly render the official emblem (`[nexus mark] SPYNEX — FOLLOW THE MONEY. UNRAVEL THE WEB.`).
+  - Updated browser favicon in [`index.html`](file:///d:/vortex/ringtrace/frontend/index.html) to the SPYNEX brand mark (`spynex-mark.png`).
+  - Visually confirmed with browser automated screenshot; verified 100% clean production build (`npm run build`) in 1.1s.
+
+- [x] **UI Cleanup: Removal of Redundant Header & Sidebar Badges (2026-10-17):**
+  - Removed `v2.4` badge pill from the Sidebar brand header (`Sidebar.tsx`).
+  - Removed redundant utility controls cluster from the top navigation bar (`Navbar.tsx`): `FIU Live Intelligence` telemetry pill, `FalkorDB Online | Shard #04 (txn)` pill, manual refresh button, and notification bell icon. (Engine status remains cleanly visible in the dedicated Sidebar engine status card).
+  - Cleaned up unused Lucide imports and sanitized Navbar props.
+  - Verified 100% clean production build (`npm run build`) in 847ms with 0 errors.
+
+- [x] **Asset Cleanup & Unused Logo Removal (2026-10-17):**
+  - Audited all image and logo assets across the frontend repository (`frontend/src/assets/logo/`, `frontend/src/assets/`, `frontend/public/`).
+  - Removed 35 unused PNG files from `src/assets/logo/` (legacy mockups, section screenshots, and untracked raster assets totaling ~800KB).
+  - Removed obsolete boilerplate assets: `hero.png`, `react.svg`, and `vite.svg`.
+  - Removed unused duplicate raster files and external social sprites: `public/favicon-64.png`, `public/favicon.png`, `public/icons.svg`.
+  - Replaced bulky base64 data with clean, crisp, unified vector SVGs: `public/shield.svg` and `public/favicon.svg`.
+  - Verified 100% clean production build (`npm run build`) in 899ms with 0 errors.
 
 - [x] **Member A: 9/9 Active Graph Detection Typologies Integrated into Frontend UI (2026-10-17):**
   - Integrated the remaining 3 backend detectors (`bipartite`, `dense_cluster`, and `hub_account`) into the React frontend detection workbench and catalog.
@@ -447,5 +521,29 @@
     - Updated labels in dropdown to clarify "3 to 5 hops (All)", "3 hops", "4 hops", "5 hops".
   - **Verification:**
     - `npm run lint` and `npm run build` passed with 0 errors.
-    - `python -m unittest tests.test_cycle_detector tests.test_cycle_algorithm_unit` ran 32 tests with 100% pass rate.
+- **Phase 5.2: Full Design System Overhaul (Stitch Project 477170120480282653) — 2026-10-17:**
+  - **Aesthetic Overhaul:** Applied Stitch "Financial Intelligence & Graph Forensics" design system tokens across all screens with zero functional breakage.
+  - **Typography:** Upgraded font stack to **Inter** (300-800) for all UI, headings, labels and **JetBrains Mono** for all account IDs, transaction hashes, timestamps, and amounts with `fontVariantNumeric: 'tabular-nums'`.
+  - **Palette & Tokens:** Replaced legacy green styling with `#F8F9FF` ethereal violet-slate background, `#FFFFFF` cards with hairline `#E2E8F0` borders, `#0F172A` deep slate navy headers, and `#7C3AED` electric ultraviolet accents.
+  - **Screens Redesigned:**
+    1. **Sidebar & Navbar (`Sidebar.tsx`, `Navbar.tsx`):** Exact SPYNEX v2.4 layout, FalkorDB 0.8ms pulse indicator, `⌘K` keyboard search shortcut with live query debounce, FIU Live Intelligence pill, and Rohit Dare profile badge.
+    2. **Detectors Catalog (`DetectorCatalog.tsx`):** Added 4 top KPI metric cards (Total Engines, Candidates Flagged, High Risk Layering, Graph Speed), spotlight investigation banner, and searchable graph engines table with 9 active detectors.
+    3. **Detector Workspace (`DetectorWorkspace.tsx`, `CandidateList.tsx`):** Refined hops/parameters toolbars, clean candidate card borders, and benchmark cards.
+    4. **Cases & Triage (`CaseDetailView.tsx`, `CaseQueueList.tsx`):** Added Stitch Screen 2 Sub-Header / Case Focus Strip (Case ID, high risk pill, triage score, forensic metrics snapshot), 4 Top Metric KPI cards, and streamlined queue list.
+    5. **Transaction Network (`OverviewGraph.tsx`):** Added 4 Top Metric KPI cards (Monitored Accounts, Transfers Analyzed, Layering Subgraphs, Graph Latency), modern control shelf, and `#090D16` deep forensic canvas.
+    6. **Transaction Explorer (`TransactionExplorer.tsx`):** Added 1-hop interactive vector canvas header, helper strip, and dual Inflow/Outflow ledger tables.
+    7. **Autonomous Cockpit & Replay (`InvestigationPanel.tsx`, `DemoControls.tsx`, `DecisionBar.tsx`):** Overhauled agent telemetry feed, event stream cards, and human-in-the-loop decision bar.
+    8. **Evidence & Settings (`PlaceholderView.tsx`):** Created full-fidelity Evidence & Audit Ground-Truth sandbox and System Settings configuration screens.
+  - **Verification:**
+    - `npm run build` completed with 0 errors in 789ms.
+    - Python test suites (`test_case_scorer.py`, `test_cycle_algorithm_unit.py`, `test_case_grouping.py`, `test_evaluator_metrics.py`) passed with 100% success rate.
 
+## Comprehensive Detector Audit — 2026-10-17
+
+- **Baseline inspected before edits:** current Git history through `f19abc7`; working tree had existing edits in `docs/STATUS.md`, `docs/AI_USAGE.md`, and the frontend. No backend files were dirty. Those frontend edits were not changed by this audit.
+- **Inventory:** all nine documented detectors exist and are registered in `backend/app/scan_service.py:DETECTOR_REGISTRY`. The scan executes every fraud detector against a shared, bounded transaction snapshot; case building and scoring are wired through `cases/builder.py` and `cases/scorer.py`. `run_algorithm` in Member B's MCP tools is separate and supports general graph algorithms, not fraud detector dispatch.
+- **Audit result:** no detector implementation defect was confirmed that could be safely fixed without changing detector semantics or compatibility. A missing cycle fixture-coverage gap was fixed with positive and slow-cycle negative fixtures plus exact evidence assertions. No detector implementation or Member B file was changed. Added [`docs/DETECTOR_GUIDE.md`](DETECTOR_GUIDE.md) with implementation-faithful algorithms, parameters, evidence shapes, test status, API flow, and limitations.
+- **Full backend suite:** `.venv\Scripts\python.exe -m unittest discover -s tests -v` from `backend/` — 177 tests passed in 20.662 seconds. Tests connected to local FalkorDB and used disposable test graphs.
+- **Fresh independent evaluation:** seed-43 dataset (`data/sim2`) loaded to temporary graphs: 3,000 accounts, 39,924 transactions, 116 alerts. Both temporary graphs were deleted after evaluation. Results: cycle 6/10 TP, 0/12 benign FP; fan-in 8/10, 0/12; fan-out 3/10, 3/6; relay-chain 10/10, 0/6; scatter-gather 10/10 with no benign labels; gather-scatter 7/10 with no benign labels; bipartite and dense-cluster 0/10 exact matches and partial; hub-account not evaluable. Thresholds were not tuned on seed 43.
+- **Open issues:** fan-out's observed benign false positives and low recall need analysis on seed 42; do not tune on seed 43. Bipartite has no suspiciousness criteria; dense-cluster and hub-account have no time window, and dense-cluster uses local ego-neighborhood density rather than components/community detection. These are documented rather than silently redefined. Several detector reports hit their candidate limit, so their metrics are partial.
+- **Contract and ownership findings:** there is no `/contract` directory or generated example-validation suite. Pydantic models exist. Actual transaction timestamps are Unix integers although examples describe ISO strings (`TransactionModel.ts` accepts either). Legacy detector endpoints in `main.py` do not declare response models. `backend/app/mcp_server/tools.py` includes inline Cypher and belongs to Member B; it was not edited. No evaluation metrics imply real-world accuracy.

@@ -53,19 +53,52 @@ class CaseListResponse(BaseModel):
 class ScanReceipt(BaseModel):
     scan_id: str
     status: str
+    active_scan_id: Optional[str] = None
+    message: Optional[str] = None
+    model_config = ConfigDict(extra="allow")
+
 
 
 class ScanStatus(BaseModel):
     scan_id: str
     status: str
+    trigger: Optional[str] = "manual"
     graph: Optional[str] = None
+    started_at: Optional[str] = None
+    finished_at: Optional[str] = None
+    duration_ms: Optional[float] = None
+    effective_window_start: Optional[str] = None
+    effective_window_end: Optional[str] = None
+    detectors_completed: List[str] = Field(default_factory=list)
+    detectors_failed: List[str] = Field(default_factory=list)
     detector_reports: Dict[str, Any] = Field(default_factory=dict)
     detector_errors: Dict[str, str] = Field(default_factory=dict)
+    error_summary: Optional[str] = None
+    hits_found: Optional[int] = None
     hit_count: Optional[int] = None
+    cases_created_or_updated: Optional[int] = None
     case_count: Optional[int] = None
     limitations: List[str] = Field(default_factory=list)
     skipped_non_case_generating_hit_ids: List[str] = Field(default_factory=list)
     skipped_oversized_hit_ids: List[str] = Field(default_factory=list)
+    model_config = ConfigDict(extra="allow")
+
+
+class SchedulerStatusResponse(BaseModel):
+    enabled: bool
+    running: bool
+    interval_seconds: int
+    scan_on_startup: bool = False
+    next_run_at: Optional[str] = None
+    last_run_at: Optional[str] = None
+    run_count: int = 0
+    failure_count: int = 0
+    skip_count: int = 0
+    is_scan_active: bool = False
+    active_scan_id: Optional[str] = None
+    latest_scan: Optional[ScanStatus] = None
+    model_config = ConfigDict(extra="allow")
+
 
 
 class GraphSummary(BaseModel):

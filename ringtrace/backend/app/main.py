@@ -45,10 +45,39 @@ except ImportError:
         SEARCH_ACCOUNTS,
     )
 
+from contextlib import asynccontextmanager
+
+GRAPH_NAME = os.getenv("FALKORDB_GRAPH", "txn")
+db_client = FalkorDBClient()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """FastAPI lifespan context manager for startup and graceful shutdown."""
+    try:
+        from app.scheduler import init_scheduler, shutdown_scheduler
+    except ImportError:
+        from backend.app.scheduler import init_scheduler, shutdown_scheduler
+
+    memory_graph = os.getenv("FALKORDB_MEMORY_GRAPH", "memory")
+    scheduler = init_scheduler(
+        db_client=db_client,
+        graph_name=GRAPH_NAME,
+        memory_graph=memory_graph,
+    )
+    app.state.scheduler = scheduler
+    await scheduler.start()
+
+    yield
+
+    await shutdown_scheduler(grace_period=10.0)
+
+
 app = FastAPI(
     title="RingTrace API",
     description="Explainable Graph-Based Financial Crime Investigation API powered by FalkorDB",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 # Enable CORS for frontend Vite dev server
@@ -65,10 +94,9 @@ app.include_router(investigation_router, prefix="/api/v1")
 # Mount Member B Stream Replay & Demo Reset Router
 app.include_router(stream_router, prefix="/api/v1")
 
-GRAPH_NAME = os.getenv("FALKORDB_GRAPH", "txn")
-db_client = FalkorDBClient()
 app.state.db_client = db_client
 app.state.graph_name = GRAPH_NAME
+
 
 
 @app.get("/api/health")

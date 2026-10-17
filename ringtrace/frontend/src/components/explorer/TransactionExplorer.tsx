@@ -317,54 +317,54 @@ export const TransactionExplorer: React.FC<TransactionExplorerProps> = ({
       {data && (
         <>
           {/* Account Profile Card */}
-          <div className="rt-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1.5rem' }}>
+          <div className="rt-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1.5rem', backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <div style={{
-                width: '50px',
-                height: '50px',
+                width: '48px',
+                height: '48px',
                 borderRadius: '10px',
-                backgroundColor: 'var(--brand-mint-subtle)',
-                border: '1px solid rgba(56, 161, 137, 0.3)',
+                backgroundColor: '#F1F5F9',
+                border: '1px solid #E2E8F0',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: 'var(--brand-forest)'
+                color: '#0F172A'
               }}>
-                <Compass size={26} />
+                <Compass size={24} />
               </div>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                  <h3 className="mono" style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--brand-forest)', margin: 0 }}>
+                  <h3 className="mono" style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0F172A', margin: 0 }}>
                     {data.account.id}
                   </h3>
                   <span className={`rt-badge badge-${data.account.type}`}>
                     {data.account.type}
                   </span>
                   <span className="rt-badge rt-badge-gray">
-                    Community: #{data.account.community}
+                    Community #{data.account.community}
                   </span>
                 </div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '0.25rem' }}>
                   Account Created: {data.account.created}
                 </div>
               </div>
             </div>
 
             {/* Inflow / Outflow Sample Summary */}
-            <div style={{ display: 'flex', gap: '2rem' }}>
-              <div>
-                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
+            <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+              <div style={{ padding: '0.5rem 1rem', borderRadius: '8px', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}>
+                <div style={{ fontSize: '0.68rem', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
                   Outgoing Sent ({data.out_count})
                 </div>
-                <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--accent-red)', fontVariantNumeric: 'tabular-nums' }}>
+                <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#DC2626', fontFamily: 'JetBrains Mono, monospace' }}>
                   {formatAmount(data.total_sent_sample)}
                 </div>
               </div>
-              <div>
-                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
+              <div style={{ padding: '0.5rem 1rem', borderRadius: '8px', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}>
+                <div style={{ fontSize: '0.68rem', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
                   Incoming Received ({data.in_count})
                 </div>
-                <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--accent-green)', fontVariantNumeric: 'tabular-nums' }}>
+                <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#059669', fontFamily: 'JetBrains Mono, monospace' }}>
                   {formatAmount(data.total_received_sample)}
                 </div>
               </div>
@@ -372,27 +372,42 @@ export const TransactionExplorer: React.FC<TransactionExplorerProps> = ({
           </div>
 
           {/* Interactive Neighborhood Topology */}
-          <div className="rt-card" style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div className="rt-card" style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
-                <Network size={16} color="var(--brand-forest)" />
-                <h4 style={{ fontSize: '0.925rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
-                  Local 1-Hop Transfer Network
-                </h4>
+                <div style={{ width: '28px', height: '28px', borderRadius: '6px', backgroundColor: '#0F172A', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFFFFF' }}>
+                  <Network size={16} />
+                </div>
+                <div>
+                  <h4 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0, color: '#0F172A' }}>
+                    Local 1-Hop Transfer Network
+                  </h4>
+                  <p style={{ margin: 0, fontSize: '0.725rem', color: '#64748B' }}>
+                    Topological star-burst schema of direct account counterparties
+                  </p>
+                </div>
               </div>
-              <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>
-                Click any neighboring node to trace and re-center graph
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span style={{ fontSize: '0.7rem', color: '#64748B', backgroundColor: '#F1F5F9', padding: '0.2rem 0.5rem', borderRadius: '4px', border: '1px solid #E2E8F0', fontFamily: 'JetBrains Mono, monospace' }}>
+                  Canvas: Vector Accelerated
+                </span>
               </div>
             </div>
+
+            {/* Hint Helper Strip */}
+            <div style={{ padding: '0.35rem 0.75rem', borderRadius: '6px', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.725rem', color: '#475569' }}>
+              <span>Click any neighboring node to trace and re-center graph topology. Drag background to pan.</span>
+            </div>
+
             <div
               ref={cyContainerRef}
               style={{
                 width: '100%',
-                height: '340px',
-                background: 'var(--graph-bg)',
+                height: '380px',
+                background: '#0B121E',
                 borderRadius: '8px',
-                border: '1px solid var(--graph-border)',
-                boxShadow: 'inset 0 2px 8px rgba(0, 0, 0, 0.4)'
+                border: '1px solid #1E293B',
+                boxShadow: 'inset 0 2px 10px rgba(0, 0, 0, 0.5)'
               }}
             />
           </div>
@@ -427,7 +442,7 @@ export const TransactionExplorer: React.FC<TransactionExplorerProps> = ({
                             <button
                               onClick={() => fetchAccount(t.dst)}
                               className="mono"
-                              style={{ background: 'none', border: 'none', color: 'var(--brand-forest)', cursor: 'pointer', padding: 0, fontWeight: 600, textDecoration: 'underline' }}
+                              style={{ background: 'none', border: 'none', color: '#0F172A', cursor: 'pointer', padding: 0, fontWeight: 600, textDecoration: 'underline' }}
                             >
                               {t.dst}
                             </button>
@@ -471,7 +486,7 @@ export const TransactionExplorer: React.FC<TransactionExplorerProps> = ({
                             <button
                               onClick={() => fetchAccount(t.src)}
                               className="mono"
-                              style={{ background: 'none', border: 'none', color: 'var(--brand-forest)', cursor: 'pointer', padding: 0, fontWeight: 600, textDecoration: 'underline' }}
+                              style={{ background: 'none', border: 'none', color: '#0F172A', cursor: 'pointer', padding: 0, fontWeight: 600, textDecoration: 'underline' }}
                             >
                               {t.src}
                             </button>

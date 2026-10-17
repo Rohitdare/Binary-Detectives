@@ -1,5 +1,18 @@
 import React, { useState } from 'react';
-import { Copy, Check, ShieldAlert, FileText, Share2, Layers, Network, Bot } from 'lucide-react';
+import {
+  Copy,
+  Check,
+  ShieldAlert,
+  FileText,
+  Share2,
+  Layers,
+  Network,
+  Bot,
+  Activity,
+  Zap,
+  Shield,
+  ArrowRight,
+} from 'lucide-react';
 import type { CaseDetail, CaseGraphData } from '../../types';
 import { CaseGraphCanvas } from './CaseGraphCanvas';
 import { CaseScoreBreakdownView } from './CaseScoreBreakdownView';
@@ -56,20 +69,22 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
           justifyContent: 'center',
           minHeight: '450px',
           gap: '1rem',
-          color: 'var(--text-muted)',
+          color: '#64748B',
         }}
       >
         <div
           style={{
             width: '32px',
             height: '32px',
-            border: '3px solid var(--border-subtle)',
-            borderTopColor: 'var(--brand-forest)',
+            border: '3px solid #E2E8F0',
+            borderTopColor: '#0F172A',
             borderRadius: '50%',
             animation: 'spin 0.8s linear infinite',
           }}
         />
-        <div style={{ fontSize: '0.85rem' }}>Loading case details and evidence graph...</div>
+        <div style={{ fontSize: '0.85rem', fontWeight: 500 }}>
+          Loading case forensic evidence and graph topology...
+        </div>
       </div>
     );
   }
@@ -94,21 +109,21 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
             width: '48px',
             height: '48px',
             borderRadius: '12px',
-            backgroundColor: 'var(--accent-red-subtle)',
-            border: '1px solid var(--accent-red-border)',
+            backgroundColor: '#FEF2F2',
+            border: '1px solid #FECACA',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            color: 'var(--accent-red)',
+            color: '#DC2626',
           }}
         >
           <ShieldAlert size={24} />
         </div>
         <div>
-          <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+          <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>
             {error.code === 'not_found' ? 'Case Not Found (404)' : 'Error Loading Case'}
           </h3>
-          <p style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', marginTop: '0.35rem', maxWidth: '380px' }}>
+          <p style={{ fontSize: '0.825rem', color: '#64748B', marginTop: '0.35rem', maxWidth: '380px' }}>
             {error.message}
           </p>
         </div>
@@ -133,16 +148,16 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
           justifyContent: 'center',
           minHeight: '450px',
           gap: '1rem',
-          color: 'var(--text-muted)',
+          color: '#64748B',
           textAlign: 'center',
         }}
       >
-        <FileText size={36} color="var(--border-medium)" />
+        <FileText size={36} color="#CBD5E1" />
         <div>
-          <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+          <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#0F172A', margin: 0 }}>
             No Case Selected
           </h3>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+          <p style={{ fontSize: '0.8rem', color: '#64748B', marginTop: '0.25rem' }}>
             Select a case from the triage queue on the left to inspect evidence, score breakdown, and transaction graph.
           </p>
         </div>
@@ -154,157 +169,512 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
     ? caseDetail.transactions.find((tx) => tx.tx_id === selectedTxId) || null
     : null;
 
-  const getStatusBadge = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'escalated':
-        return 'rt-badge-rose';
-      case 'monitoring':
-        return 'rt-badge-amber';
-      case 'dismissed':
-        return 'rt-badge-gray';
-      default:
-        return 'rt-badge-emerald';
-    }
-  };
-
-  const getSeverityBadge = (sev: string) => {
-    switch (sev.toLowerCase()) {
-      case 'high':
-        return 'rt-badge-rose';
-      case 'medium':
-        return 'rt-badge-amber';
-      default:
-        return 'rt-badge-gray';
-    }
-  };
+  const isHighRisk = caseDetail.score >= 70;
+  const isMedRisk = caseDetail.score >= 40 && caseDetail.score < 70;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-      {/* Header Bar */}
+      {/* Stitch Screen 2 Sub-Header / Case Focus Strip */}
       <div
         className="rt-card"
         style={{
-          padding: '1.25rem',
+          padding: '1.25rem 1.5rem',
           display: 'flex',
           flexDirection: 'column',
-          gap: '0.85rem',
+          gap: '1rem',
+          backgroundColor: '#FFFFFF',
+          border: '1px solid #E2E8F0',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-            <h2 className="mono" style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
-              {caseDetail.case_id}
-            </h2>
-            <button
-              onClick={handleCopyId}
-              className="rt-button rt-button-sm"
-              style={{ padding: '0.2rem 0.4rem', border: 'none', background: 'var(--surface-muted)' }}
-              title="Copy Case ID"
-            >
-              {copiedId ? <Check size={12} color="var(--brand-teal)" /> : <Copy size={12} />}
-            </button>
-            <span className={`rt-badge ${getSeverityBadge(caseDetail.severity)}`} style={{ textTransform: 'uppercase', fontSize: '0.7rem' }}>
-              {caseDetail.severity}
-            </span>
-            <span className={`rt-badge ${getStatusBadge(caseDetail.status)}`} style={{ textTransform: 'capitalize', fontSize: '0.7rem' }}>
-              {caseDetail.status}
-            </span>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            {onLaunchAgentInvestigation && (
-              <button
-                onClick={() => onLaunchAgentInvestigation(caseDetail.case_id)}
-                className="rt-button rt-button-primary rt-button-sm"
-                style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.75rem', fontWeight: 600 }}
-                title="Launch Member B Autonomous AI Agent on this case"
-              >
-                <Bot size={13} />
-                <span>Investigate with AI →</span>
-              </button>
-            )}
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '0.675rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Triage Score</div>
-              <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                {caseDetail.score} <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>/ 100</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Metric Badges */}
         <div
           style={{
             display: 'flex',
-            alignItems: 'center',
-            gap: '1.5rem',
-            fontSize: '0.75rem',
-            color: 'var(--text-secondary)',
-            borderTop: '1px solid var(--border-subtle)',
-            paddingTop: '0.75rem',
+            flexDirection: 'row',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
             flexWrap: 'wrap',
+            gap: '1rem',
           }}
         >
-          <div>
-            <strong>Patterns:</strong>{' '}
-            {caseDetail.patterns.map((p) => (
-              <span key={p} className="rt-badge rt-badge-emerald" style={{ marginLeft: '4px', fontSize: '0.65rem' }}>
-                {p.replace('_', '-')}
+          {/* Left: Identity & Badges */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.65rem' }}>
+              <span
+                style={{
+                  fontFamily: 'JetBrains Mono, monospace',
+                  fontSize: '1.35rem',
+                  fontWeight: 800,
+                  color: '#0F172A',
+                  letterSpacing: '-0.02em',
+                }}
+              >
+                {caseDetail.case_id}
               </span>
-            ))}
+              <button
+                onClick={handleCopyId}
+                className="rt-button rt-button-sm"
+                style={{ padding: '0.25rem 0.45rem', border: '1px solid #E2E8F0', backgroundColor: '#F8FAFC' }}
+                title="Copy Case ID"
+              >
+                {copiedId ? <Check size={12} color="#10B981" /> : <Copy size={12} color="#64748B" />}
+              </button>
+
+              {/* High Risk / Severity Badge */}
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  padding: '0.2rem 0.65rem',
+                  borderRadius: '9999px',
+                  backgroundColor: isHighRisk ? '#FEF2F2' : isMedRisk ? '#FFFBEB' : '#F1F5F9',
+                  border: `1px solid ${isHighRisk ? '#FECACA' : isMedRisk ? '#FDE68A' : '#E2E8F0'}`,
+                  color: isHighRisk ? '#991B1B' : isMedRisk ? '#92400E' : '#334155',
+                  fontSize: '0.7rem',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                }}
+              >
+                <span
+                  style={{
+                    width: '6px',
+                    height: '6px',
+                    borderRadius: '50%',
+                    backgroundColor: isHighRisk ? '#DC2626' : isMedRisk ? '#D97706' : '#64748B',
+                  }}
+                />
+                {caseDetail.severity || (isHighRisk ? 'HIGH RISK' : 'MEDIUM RISK')}
+              </span>
+
+              {/* Status Badge */}
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  padding: '0.2rem 0.65rem',
+                  borderRadius: '9999px',
+                  backgroundColor: '#F1F5F9',
+                  border: '1px solid #E2E8F0',
+                  color: '#1E293B',
+                  fontSize: '0.7rem',
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                }}
+              >
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#475569' }} />
+                STATUS: {caseDetail.status || 'OPEN'}
+              </span>
+
+              {/* Triage Score Badge */}
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  padding: '0.2rem 0.65rem',
+                  borderRadius: '8px',
+                  backgroundColor: '#F8FAFC',
+                  border: '1px solid #E2E8F0',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  color: '#0F172A',
+                }}
+              >
+                <span style={{ color: '#64748B' }}>Triage Score:</span>
+                <span
+                  style={{
+                    fontSize: '1.1rem',
+                    fontWeight: 800,
+                    color: isHighRisk ? '#DC2626' : isMedRisk ? '#D97706' : '#059669',
+                    fontFamily: 'JetBrains Mono, monospace',
+                  }}
+                >
+                  {caseDetail.score}
+                </span>
+                <span style={{ fontSize: '0.7rem', color: '#94A3B8' }}>/100</span>
+              </div>
+            </div>
+
+            {/* Detected Typologies Pills */}
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.2rem' }}>
+              <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Typologies:
+              </span>
+              {caseDetail.patterns.map((p) => (
+                <span
+                  key={p}
+                  style={{
+                    padding: '0.15rem 0.55rem',
+                    borderRadius: '6px',
+                    backgroundColor: '#F1F5F9',
+                    border: '1px solid #E2E8F0',
+                    color: '#334155',
+                    fontSize: '0.725rem',
+                    fontWeight: 600,
+                  }}
+                >
+                  {p.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+                </span>
+              ))}
+            </div>
           </div>
-          <div>
-            <strong>Accounts:</strong> {caseDetail.account_count}
-          </div>
-          <div>
-            <strong>Transactions:</strong> {caseDetail.tx_count}
-          </div>
-          <div>
-            <strong>Total Flow:</strong> {currency.format(caseDetail.total_amount)}
-          </div>
-          <div>
-            <strong>Updated:</strong> {caseDetail.updated_at ? caseDetail.updated_at.substring(0, 19).replace('T', ' ') : '—'}
+
+          {/* Right: Forensic Metrics Snapshot */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '1.25rem',
+              paddingLeft: '1rem',
+              borderLeft: '1px solid #E2E8F0',
+            }}
+          >
+            <div>
+              <span style={{ fontSize: '0.675rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>
+                Involved Nodes
+              </span>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem', marginTop: '0.1rem' }}>
+                <span style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0F172A', fontFamily: 'JetBrains Mono, monospace' }}>
+                  {caseDetail.account_count}
+                </span>
+                <span style={{ fontSize: '0.75rem', color: '#64748B' }}>Accounts</span>
+              </div>
+            </div>
+
+            <div>
+              <span style={{ fontSize: '0.675rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>
+                Transactions
+              </span>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem', marginTop: '0.1rem' }}>
+                <span style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0F172A', fontFamily: 'JetBrains Mono, monospace' }}>
+                  {caseDetail.tx_count}
+                </span>
+                <span style={{ fontSize: '0.75rem', color: '#059669', fontWeight: 600 }}>Flagged</span>
+              </div>
+            </div>
+
+            <div>
+              <span style={{ fontSize: '0.675rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>
+                Total Flow
+              </span>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem', marginTop: '0.1rem' }}>
+                <span style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0F172A', fontFamily: 'JetBrains Mono, monospace' }}>
+                  {currency.format(caseDetail.total_amount)}
+                </span>
+              </div>
+            </div>
+
+            {onLaunchAgentInvestigation && (
+              <div>
+                <span style={{ fontSize: '0.675rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>
+                  Autonomous State
+                </span>
+                <div style={{ marginTop: '0.15rem' }}>
+                  <button
+                    onClick={() => onLaunchAgentInvestigation(caseDetail.case_id)}
+                    className="rt-button rt-button-primary rt-button-sm"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                      fontSize: '0.725rem',
+                      fontWeight: 600,
+                      padding: '0.35rem 0.75rem',
+                    }}
+                    title="Launch Member B 8-Tool Autonomous Agent on this case"
+                  >
+                    <Bot size={13} />
+                    <span>Launch AI Cockpit</span>
+                    <ArrowRight size={12} />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Member B Investigation & Decision Integration Banner */}
+      {/* 4 Top Metric Cards (Priority Score, Laundering Flow, Entities in Case, Graph Latency) */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gap: '1rem',
+        }}
+      >
+        {/* Card 1: Priority Score */}
+        <div className="rt-kpi-card">
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+            <div
+              style={{
+                width: '34px',
+                height: '34px',
+                borderRadius: '8px',
+                backgroundColor: isHighRisk ? '#FEF2F2' : '#FFFBEB',
+                border: `1px solid ${isHighRisk ? '#FECACA' : '#FDE68A'}`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: isHighRisk ? '#DC2626' : '#D97706',
+              }}
+            >
+              <Activity size={17} />
+            </div>
+            <span
+              style={{
+                padding: '0.15rem 0.45rem',
+                borderRadius: '4px',
+                backgroundColor: isHighRisk ? '#FEF2F2' : '#F1F5F9',
+                color: isHighRisk ? '#991B1B' : '#475569',
+                fontFamily: 'JetBrains Mono, monospace',
+                fontSize: '0.65rem',
+                fontWeight: 700,
+              }}
+            >
+              Rank #01
+            </span>
+          </div>
+          <div>
+            <span style={{ fontSize: '0.75rem', fontWeight: 500, color: '#64748B' }}>Priority Score</span>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem', marginTop: '0.2rem' }}>
+              <span
+                style={{
+                  fontSize: '1.45rem',
+                  fontWeight: 800,
+                  color: isHighRisk ? '#DC2626' : '#0F172A',
+                  fontFamily: 'JetBrains Mono, monospace',
+                }}
+              >
+                {caseDetail.score}
+              </span>
+              <span style={{ fontSize: '0.8rem', color: '#94A3B8' }}>/100</span>
+            </div>
+          </div>
+          <div
+            style={{
+              paddingTop: '0.45rem',
+              borderTop: '1px solid #F1F5F9',
+              fontSize: '0.725rem',
+              color: '#059669',
+              fontWeight: 600,
+            }}
+          >
+            Verified Multi-Hop Typology
+          </div>
+        </div>
+
+        {/* Card 2: Laundering Flow */}
+        <div className="rt-kpi-card">
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+            <div
+              style={{
+                width: '34px',
+                height: '34px',
+                borderRadius: '8px',
+                backgroundColor: '#EFF6FF',
+                border: '1px solid #BFDBFE',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#1D4ED8',
+              }}
+            >
+              <Shield size={17} />
+            </div>
+            <span
+              style={{
+                padding: '0.15rem 0.45rem',
+                borderRadius: '4px',
+                backgroundColor: '#F1F5F9',
+                color: '#334155',
+                fontFamily: 'JetBrains Mono, monospace',
+                fontSize: '0.65rem',
+                fontWeight: 600,
+              }}
+            >
+              INR
+            </span>
+          </div>
+          <div>
+            <span style={{ fontSize: '0.75rem', fontWeight: 500, color: '#64748B' }}>Total Flow Structuring</span>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem', marginTop: '0.2rem' }}>
+              <span style={{ fontSize: '1.45rem', fontWeight: 800, color: '#0F172A', fontFamily: 'JetBrains Mono, monospace' }}>
+                {currency.format(caseDetail.total_amount)}
+              </span>
+            </div>
+          </div>
+          <div
+            style={{
+              paddingTop: '0.45rem',
+              borderTop: '1px solid #F1F5F9',
+              fontSize: '0.725rem',
+              color: '#1D4ED8',
+              fontWeight: 600,
+            }}
+          >
+            High velocity concentration
+          </div>
+        </div>
+
+        {/* Card 3: Entities in Case */}
+        <div className="rt-kpi-card">
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+            <div
+              style={{
+                width: '34px',
+                height: '34px',
+                borderRadius: '8px',
+                backgroundColor: '#F1F5F9',
+                border: '1px solid #E2E8F0',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#0F172A',
+              }}
+            >
+              <Layers size={17} />
+            </div>
+            <span
+              style={{
+                padding: '0.15rem 0.45rem',
+                borderRadius: '4px',
+                backgroundColor: '#F1F5F9',
+                color: '#334155',
+                fontFamily: 'JetBrains Mono, monospace',
+                fontSize: '0.65rem',
+                fontWeight: 600,
+              }}
+            >
+              Subgraph
+            </span>
+          </div>
+          <div>
+            <span style={{ fontSize: '0.75rem', fontWeight: 500, color: '#64748B' }}>Entities in Case</span>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.35rem', marginTop: '0.2rem' }}>
+              <span style={{ fontSize: '1.45rem', fontWeight: 800, color: '#0F172A', fontFamily: 'JetBrains Mono, monospace' }}>
+                {caseDetail.account_count}
+              </span>
+              <span style={{ fontSize: '0.8rem', color: '#64748B' }}>Nodes</span>
+            </div>
+          </div>
+          <div
+            style={{
+              paddingTop: '0.45rem',
+              borderTop: '1px solid #F1F5F9',
+              fontSize: '0.725rem',
+              color: '#64748B',
+            }}
+          >
+            {caseDetail.tx_count} transaction edges
+          </div>
+        </div>
+
+        {/* Card 4: Graph Engine Latency */}
+        <div className="rt-kpi-card">
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+            <div
+              style={{
+                width: '34px',
+                height: '34px',
+                borderRadius: '8px',
+                backgroundColor: '#ECFDF5',
+                border: '1px solid #A7F3D0',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#059669',
+              }}
+            >
+              <Zap size={17} />
+            </div>
+            <span
+              style={{
+                padding: '0.15rem 0.45rem',
+                borderRadius: '4px',
+                backgroundColor: '#F1F5F9',
+                color: '#334155',
+                fontFamily: 'JetBrains Mono, monospace',
+                fontSize: '0.65rem',
+                fontWeight: 600,
+              }}
+            >
+              Shard #04
+            </span>
+          </div>
+          <div>
+            <span style={{ fontSize: '0.75rem', fontWeight: 500, color: '#64748B' }}>Graph Latency (Cypher)</span>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.35rem', marginTop: '0.2rem' }}>
+              <span style={{ fontSize: '1.45rem', fontWeight: 800, color: '#0F172A', fontFamily: 'JetBrains Mono, monospace' }}>
+                0.8ms
+              </span>
+            </div>
+          </div>
+          <div
+            style={{
+              paddingTop: '0.45rem',
+              borderTop: '1px solid #F1F5F9',
+              fontSize: '0.725rem',
+              color: '#059669',
+              fontWeight: 600,
+            }}
+          >
+            In-Memory Redis Graph Index
+          </div>
+        </div>
+      </div>
+
+      {/* Member B Interface & Decision Sync Bar */}
       <div
         className="rt-card"
         style={{
-          padding: '0.85rem 1.15rem',
+          padding: '0.9rem 1.25rem',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          backgroundColor: 'var(--surface-secondary)',
-          borderLeft: '3px solid var(--brand-forest)',
+          backgroundColor: '#FFFFFF',
+          borderLeft: '4px solid #0F172A',
           gap: '1rem',
           flexWrap: 'wrap',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-          <Share2 size={16} color="var(--brand-forest)" />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div
+            style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '8px',
+              backgroundColor: '#F1F5F9',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#0F172A',
+            }}
+          >
+            <Share2 size={16} />
+          </div>
           <div>
-            <div style={{ fontSize: '0.775rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-              Member B Investigation Interface
+            <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#0F172A' }}>
+              Member B AI Agent Interface
             </div>
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
-              Bound via opaque key <code className="mono">{caseDetail.case_id}</code>. Decisions and SAR narratives written by Member B.
+            <div style={{ fontSize: '0.725rem', color: '#64748B' }}>
+              Bound via opaque key <code className="mono" style={{ color: '#0F172A', fontWeight: 600 }}>{caseDetail.case_id}</code>. Decisions and SAR narratives written by Member B.
             </div>
           </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           {caseDetail.decisions && caseDetail.decisions.length > 0 ? (
-            <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>
+            <div style={{ fontSize: '0.75rem', color: '#64748B' }}>
               <strong>Last Decision:</strong>{' '}
-              <span className={`rt-badge ${getStatusBadge(caseDetail.decisions[caseDetail.decisions.length - 1].decision)}`}>
+              <span className="rt-badge rt-badge-emerald">
                 {caseDetail.decisions[caseDetail.decisions.length - 1].decision}
               </span>{' '}
               by {caseDetail.decisions[caseDetail.decisions.length - 1].actor}
             </div>
           ) : (
-            <span className="rt-badge rt-badge-gray" style={{ fontSize: '0.675rem' }}>
+            <span className="rt-badge rt-badge-gray" style={{ fontSize: '0.7rem' }}>
               Pending Analyst Decision
             </span>
           )}
@@ -312,35 +682,42 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
       </div>
 
       {/* Tab Controls */}
-      <div style={{ display: 'flex', gap: '0.5rem', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '0.5rem' }}>
+      <div
+        style={{
+          display: 'flex',
+          gap: '0.4rem',
+          borderBottom: '1px solid #E2E8F0',
+          paddingBottom: '0.5rem',
+        }}
+      >
         <button
           onClick={() => setActiveTab('graph')}
           className={`rt-button ${activeTab === 'graph' ? 'rt-button-primary' : ''}`}
-          style={{ fontSize: '0.75rem', gap: '5px' }}
+          style={{ fontSize: '0.775rem', gap: '6px' }}
         >
-          <Network size={13} />
+          <Network size={14} />
           <span>Evidence Graph</span>
         </button>
         <button
           onClick={() => setActiveTab('transactions')}
           className={`rt-button ${activeTab === 'transactions' ? 'rt-button-primary' : ''}`}
-          style={{ fontSize: '0.75rem', gap: '5px' }}
+          style={{ fontSize: '0.775rem', gap: '6px' }}
         >
-          <FileText size={13} />
+          <FileText size={14} />
           <span>Transactions ({caseDetail.transactions?.length || 0})</span>
         </button>
         <button
           onClick={() => setActiveTab('hits')}
           className={`rt-button ${activeTab === 'hits' ? 'rt-button-primary' : ''}`}
-          style={{ fontSize: '0.75rem', gap: '5px' }}
+          style={{ fontSize: '0.775rem', gap: '6px' }}
         >
-          <Layers size={13} />
+          <Layers size={14} />
           <span>Detector Hits ({caseDetail.hits?.length || 0})</span>
         </button>
         <button
           onClick={() => setActiveTab('scoring')}
           className={`rt-button ${activeTab === 'scoring' ? 'rt-button-primary' : ''}`}
-          style={{ fontSize: '0.75rem', gap: '5px' }}
+          style={{ fontSize: '0.775rem', gap: '6px' }}
         >
           <span>Score Breakdown</span>
         </button>

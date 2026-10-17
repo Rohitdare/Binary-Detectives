@@ -8,7 +8,7 @@ import {
   Radio,
   CheckCircle2,
   AlertTriangle,
-  Loader2
+  Loader2,
 } from 'lucide-react';
 import { ringtraceApi } from '../../services/api';
 import type { StreamStatus, DemoResetResponse } from '../../types';
@@ -134,16 +134,19 @@ export const DemoControls: React.FC<DemoControlsProps> = ({ onResetComplete = ()
   };
 
   const handleResetDemo = async () => {
+    if (!window.confirm('Reset Demo Environment?\n\nThis will wipe the memory graph, delete all demo_ injected accounts, reset transaction stream replay to 0, and re-seed clean seed cases (CASE_0001, CASE_0002, CASE_0003).')) {
+      return;
+    }
+
     setLoadingAction('reset');
     setResetFeedback(null);
     try {
       const res = await ringtraceApi.resetDemo();
-      setStreamStatus((prev) => ({ ...prev, state: 'idle', sent: 0 }));
-      setRecentBurst(null);
       setResetFeedback(`Demo Environment Reset: Cleared memory graph, wiped ${res.removed_demo_accounts} demo accounts, reset replay stream, and restored ${res.cases_seeded} clean seed cases.`);
+      setStreamStatus((prev) => ({ ...prev, current_index: 0, sent: 0, state: 'idle' }));
       onResetComplete(res);
     } catch (err: any) {
-      setResetFeedback(`Reset failed: ${err?.message || 'Error executing demo reset.'}`);
+      setResetFeedback(`Demo Reset Failed: ${err?.message || 'Check backend logs.'}`);
     } finally {
       setLoadingAction(null);
     }
@@ -155,38 +158,66 @@ export const DemoControls: React.FC<DemoControlsProps> = ({ onResetComplete = ()
     <div
       className="rt-card"
       style={{
-        marginBottom: '1.25rem',
-        backgroundColor: 'rgba(11, 17, 28, 0.95)',
-        border: '1px solid var(--border-subtle)',
+        padding: '1.15rem 1.35rem',
+        marginBottom: '1rem',
+        backgroundColor: '#FFFFFF',
+        border: '1px solid #E2E8F0',
+        boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifySelf: 'stretch', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
         {/* Left: Replay Status & Live Indicator */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
           <div
             style={{
-              padding: '0.45rem',
+              padding: '0.55rem',
               borderRadius: '8px',
-              backgroundColor: streamStatus.state === 'running' ? 'rgba(56, 189, 248, 0.2)' : 'rgba(255, 255, 255, 0.05)',
-              color: streamStatus.state === 'running' ? 'var(--accent-cyan)' : 'var(--text-muted)',
+              backgroundColor: streamStatus.state === 'running' ? '#EFF6FF' : '#F1F5F9',
+              color: streamStatus.state === 'running' ? '#0284C7' : '#64748B',
+              border: '1px solid #E2E8F0',
             }}
           >
-            <Radio size={20} className={streamStatus.state === 'running' ? 'spin' : ''} />
+            <Radio size={19} className={streamStatus.state === 'running' ? 'spin' : ''} />
           </div>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
+              <span style={{ fontSize: '0.875rem', fontWeight: 700, color: '#0F172A' }}>
                 Live Transaction Stream Replay
               </span>
               <span
-                className={`rt-badge ${streamStatus.state === 'running' ? 'badge-merchant' : streamStatus.state === 'paused' ? 'badge-warning' : 'badge-personal'}`}
-                style={{ fontSize: '0.675rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}
+                style={{
+                  fontSize: '0.675rem',
+                  textTransform: 'uppercase',
+                  fontWeight: 600,
+                  letterSpacing: '0.04em',
+                  padding: '0.15rem 0.5rem',
+                  borderRadius: '9999px',
+                  backgroundColor:
+                    streamStatus.state === 'running'
+                      ? '#EFF6FF'
+                      : streamStatus.state === 'paused'
+                      ? '#FFFBEB'
+                      : '#F1F5F9',
+                  color:
+                    streamStatus.state === 'running'
+                      ? '#0284C7'
+                      : streamStatus.state === 'paused'
+                      ? '#B45309'
+                      : '#475569',
+                  border: `1px solid ${
+                    streamStatus.state === 'running'
+                      ? '#BFDBFE'
+                      : streamStatus.state === 'paused'
+                      ? '#FCD34D'
+                      : '#E2E8F0'
+                  }`,
+                }}
               >
                 {streamStatus.state}
               </span>
             </div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-              Replaying withheld transaction bursts ({streamStatus.sent.toLocaleString()} / {streamStatus.total.toLocaleString()} txs • {percent}%)
+            <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '0.15rem' }}>
+              Replaying withheld transaction bursts (<span className="mono" style={{ fontWeight: 600 }}>{streamStatus.sent.toLocaleString()}</span> / <span className="mono">{streamStatus.total.toLocaleString()}</span> txs • <span className="mono" style={{ fontWeight: 600 }}>{percent}%</span>)
             </div>
           </div>
         </div>
@@ -195,18 +226,19 @@ export const DemoControls: React.FC<DemoControlsProps> = ({ onResetComplete = ()
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
           {/* Burst Size Selector */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-            <span style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>Burst:</span>
+            <span style={{ fontSize: '0.725rem', color: '#64748B', fontWeight: 500 }}>Burst:</span>
             <select
               value={batchSize}
               onChange={(e) => setBatchSize(Number(e.target.value))}
               disabled={streamStatus.state === 'running'}
               style={{
-                backgroundColor: 'rgba(0, 0, 0, 0.4)',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: '4px',
+                backgroundColor: '#FFFFFF',
+                border: '1px solid #CBD5E1',
+                borderRadius: '6px',
                 padding: '0.25rem 0.5rem',
-                color: 'var(--text-primary)',
+                color: '#0F172A',
                 fontSize: '0.75rem',
+                fontWeight: 500,
               }}
             >
               <option value={25}>25 tx/s</option>
@@ -220,8 +252,8 @@ export const DemoControls: React.FC<DemoControlsProps> = ({ onResetComplete = ()
             <button
               onClick={streamStatus.state === 'paused' ? handleResume : handleStart}
               disabled={loadingAction !== null}
-              className="rt-button rt-button-sm"
-              style={{ backgroundColor: 'rgba(56, 189, 248, 0.15)', borderColor: 'rgba(56, 189, 248, 0.35)', color: 'var(--accent-cyan)' }}
+              className="rt-button rt-button-primary rt-button-sm"
+              style={{ gap: '0.35rem' }}
               title="Start Playback"
             >
               <Play size={13} />
@@ -234,7 +266,7 @@ export const DemoControls: React.FC<DemoControlsProps> = ({ onResetComplete = ()
               onClick={handlePause}
               disabled={loadingAction !== null}
               className="rt-button rt-button-sm"
-              style={{ backgroundColor: 'rgba(245, 158, 11, 0.15)', borderColor: 'rgba(245, 158, 11, 0.35)', color: 'var(--accent-amber)' }}
+              style={{ backgroundColor: '#FFFBEB', borderColor: '#FCD34D', color: '#B45309' }}
               title="Pause Playback"
             >
               <Pause size={13} />
@@ -247,7 +279,7 @@ export const DemoControls: React.FC<DemoControlsProps> = ({ onResetComplete = ()
               onClick={handleStop}
               disabled={loadingAction !== null}
               className="rt-button rt-button-sm"
-              style={{ backgroundColor: 'rgba(244, 63, 94, 0.12)', borderColor: 'rgba(244, 63, 94, 0.3)', color: 'var(--accent-rose)' }}
+              style={{ backgroundColor: '#FEF2F2', borderColor: '#FCA5A5', color: '#B91C1C' }}
               title="Stop Playback"
             >
               <Square size={13} />
@@ -261,9 +293,9 @@ export const DemoControls: React.FC<DemoControlsProps> = ({ onResetComplete = ()
             disabled={loadingAction !== null}
             className="rt-button rt-button-sm"
             style={{
-              backgroundColor: 'rgba(244, 63, 94, 0.18)',
-              borderColor: 'rgba(244, 63, 94, 0.45)',
-              color: 'var(--accent-rose)',
+              backgroundColor: '#FEF2F2',
+              borderColor: '#FCA5A5',
+              color: '#B91C1C',
               fontWeight: 600,
             }}
             title="Wipe memory, clean injected demo data, and restore clean seed cases"
@@ -278,18 +310,19 @@ export const DemoControls: React.FC<DemoControlsProps> = ({ onResetComplete = ()
       <div
         style={{
           width: '100%',
-          height: '4px',
-          backgroundColor: 'rgba(255, 255, 255, 0.05)',
-          borderRadius: '2px',
-          marginTop: '0.75rem',
+          height: '5px',
+          backgroundColor: '#F1F5F9',
+          borderRadius: '9999px',
+          marginTop: '0.85rem',
           overflow: 'hidden',
+          border: '1px solid #E2E8F0',
         }}
       >
         <div
           style={{
             height: '100%',
             width: `${percent}%`,
-            backgroundColor: streamStatus.state === 'running' ? 'var(--accent-cyan)' : 'var(--accent-purple)',
+            background: 'linear-gradient(90deg, #7C3AED 0%, #0284C7 100%)',
             transition: 'width 0.3s ease',
           }}
         />
@@ -297,8 +330,8 @@ export const DemoControls: React.FC<DemoControlsProps> = ({ onResetComplete = ()
 
       {/* Live Burst Info or Reset Feedback */}
       {recentBurst && (
-        <div style={{ marginTop: '0.65rem', fontSize: '0.725rem', color: 'var(--accent-cyan)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-          <Activity size={12} />
+        <div style={{ marginTop: '0.65rem', fontSize: '0.725rem', color: '#7C3AED', display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 500 }}>
+          <Activity size={13} />
           <span>{recentBurst}</span>
         </div>
       )}
@@ -309,13 +342,14 @@ export const DemoControls: React.FC<DemoControlsProps> = ({ onResetComplete = ()
             marginTop: '0.75rem',
             padding: '0.55rem 0.85rem',
             borderRadius: '6px',
-            backgroundColor: resetFeedback.includes('failed') ? 'rgba(244, 63, 94, 0.15)' : 'rgba(16, 185, 129, 0.15)',
-            border: `1px solid ${resetFeedback.includes('failed') ? 'rgba(244, 63, 94, 0.35)' : 'rgba(16, 185, 129, 0.35)'}`,
-            color: resetFeedback.includes('failed') ? 'var(--accent-rose)' : 'var(--accent-emerald)',
+            backgroundColor: resetFeedback.includes('failed') ? '#FEF2F2' : '#ECFDF5',
+            border: `1px solid ${resetFeedback.includes('failed') ? '#FCA5A5' : '#6EE7B7'}`,
+            color: resetFeedback.includes('failed') ? '#B91C1C' : '#047857',
             fontSize: '0.75rem',
             display: 'flex',
             alignItems: 'center',
             gap: '0.5rem',
+            fontWeight: 500,
           }}
         >
           {resetFeedback.includes('failed') ? <AlertTriangle size={14} /> : <CheckCircle2 size={14} />}

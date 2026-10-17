@@ -391,19 +391,42 @@ export interface CaseGraphData {
 export interface ScanReceipt {
   scan_id: string;
   status: string;
+  active_scan_id?: string | null;
+  message?: string;
 }
 
 export interface ScanStatus {
   scan_id: string;
   status: string;
+  trigger?: string;
   graph?: string;
+  started_at?: string | null;
+  finished_at?: string | null;
+  duration_ms?: number | null;
   detector_reports?: Record<string, any>;
   detector_errors?: Record<string, string>;
+  hits_found?: number;
   hit_count?: number;
+  cases_created_or_updated?: number;
   case_count?: number;
   limitations?: string[];
   skipped_non_case_generating_hit_ids?: string[];
   skipped_oversized_hit_ids?: string[];
+}
+
+export interface SchedulerStatus {
+  enabled: boolean;
+  running: boolean;
+  interval_seconds: number;
+  scan_on_startup: boolean;
+  next_run_at: string | null;
+  last_run_at: string | null;
+  run_count: number;
+  failure_count: number;
+  skip_count: number;
+  is_scan_active: boolean;
+  active_scan_id: string | null;
+  latest_scan: ScanStatus | null;
 }
 
 export interface SimilarCaseItem {

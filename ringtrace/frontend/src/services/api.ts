@@ -11,6 +11,7 @@ import type {
   CaseGraphData,
   ScanReceipt,
   ScanStatus,
+  SchedulerStatus,
 } from '../types';
 
 const API_BASE = '/api';
@@ -182,6 +183,16 @@ export const ringtraceApi = {
 
   async getScanStatus(scanId: string): Promise<ScanStatus> {
     const res = await fetch(`${API_BASE}/v1/scan/${encodeURIComponent(scanId)}`);
+    return handleResponse<ScanStatus>(res);
+  },
+
+  async getSchedulerStatus(): Promise<SchedulerStatus> {
+    const res = await fetch(`${API_BASE}/v1/scheduler/status`);
+    return handleResponse<SchedulerStatus>(res);
+  },
+
+  async getLatestScan(): Promise<ScanStatus> {
+    const res = await fetch(`${API_BASE}/v1/scans/latest`);
     return handleResponse<ScanStatus>(res);
   },
 

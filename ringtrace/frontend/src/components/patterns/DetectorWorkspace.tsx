@@ -143,23 +143,23 @@ export const DetectorWorkspace: React.FC<DetectorWorkspaceProps> = ({
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <div
                 style={{
-                  width: '30px',
-                  height: '30px',
-                  borderRadius: '7px',
-                  backgroundColor: 'var(--brand-mint-subtle)',
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '8px',
+                  backgroundColor: '#F1F5F9',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  border: '1px solid var(--border-subtle)',
+                  border: '1px solid #E2E8F0',
                 }}
               >
-                <IconComponent size={16} color="var(--brand-forest)" />
+                <IconComponent size={16} color="#0F172A" />
               </div>
               <h2
                 style={{
                   fontSize: '1.15rem',
                   fontWeight: 700,
-                  color: 'var(--brand-forest)',
+                  color: '#0F172A',
                   margin: 0,
                   letterSpacing: '-0.01em',
                 }}
@@ -456,25 +456,25 @@ export const DetectorWorkspace: React.FC<DetectorWorkspaceProps> = ({
           style={{
             padding: '0.85rem 1.25rem',
             fontSize: '0.78rem',
-            backgroundColor: 'var(--brand-mint-subtle)',
-            borderColor: 'var(--brand-teal)',
+            backgroundColor: '#F8FAFC',
+            borderColor: '#E2E8F0',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontWeight: 700, color: 'var(--brand-forest)', marginBottom: '0.25rem' }}>
-            <SlidersHorizontal size={14} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontWeight: 700, color: '#0F172A', marginBottom: '0.25rem' }}>
+            <SlidersHorizontal size={14} color="#7C3AED" />
             <span>Cycle Typology Benchmark · Synthetic Ground-Truth Evaluation</span>
           </div>
-          <div style={{ color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+          <div style={{ color: '#475569', lineHeight: 1.5 }}>
             Exact recall:{' '}
-            <strong style={{ color: 'var(--brand-forest)', fontVariantNumeric: 'tabular-nums' }}>
+            <strong style={{ color: '#0F172A', fontVariantNumeric: 'tabular-nums' }}>
               {(evaluation.metrics.exact_recall * 100).toFixed(1)}%
             </strong>{' '}
             · Total recall:{' '}
-            <strong style={{ color: 'var(--brand-forest)', fontVariantNumeric: 'tabular-nums' }}>
+            <strong style={{ color: '#0F172A', fontVariantNumeric: 'tabular-nums' }}>
               {(evaluation.metrics.total_recall * 100).toFixed(1)}%
             </strong>{' '}
             · Precision:{' '}
-            <strong style={{ color: 'var(--brand-forest)', fontVariantNumeric: 'tabular-nums' }}>
+            <strong style={{ color: '#0F172A', fontVariantNumeric: 'tabular-nums' }}>
               {(evaluation.metrics.precision * 100).toFixed(1)}%
             </strong>{' '}
             · {evaluation.ground_truth_summary.planted_fraud_cycle_alerts} planted fraud cycles ·{' '}
@@ -596,19 +596,19 @@ export const DetectorWorkspace: React.FC<DetectorWorkspaceProps> = ({
               width: '48px',
               height: '48px',
               borderRadius: '50%',
-              backgroundColor: 'var(--surface-secondary)',
-              border: '1px solid var(--border-medium)',
+              backgroundColor: '#F1F5F9',
+              border: '1px solid #E2E8F0',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: 'var(--brand-forest)',
+              color: '#0F172A',
             }}
           >
             <IconComponent size={24} />
           </div>
 
           <div style={{ maxWidth: '420px' }}>
-            <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+            <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>
               {summary?.status === 'completed'
                 ? 'No Graph Matches Found'
                 : 'Workspace Ready for Detection'}

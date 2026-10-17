@@ -30,7 +30,9 @@ export const CandidateIdInfo: React.FC = () => {
           position: 'absolute',
           top: 'calc(100% + 8px)',
           right: 0,
-          width: '380px',
+          width: '360px',
+          maxWidth: 'calc(100vw - 32px)',
+          boxSizing: 'border-box',
           backgroundColor: 'var(--surface-primary)',
           border: '1px solid var(--border-medium)',
           borderRadius: '10px',
@@ -43,8 +45,8 @@ export const CandidateIdInfo: React.FC = () => {
         }}>
           {/* Header */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '0.5rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontWeight: 700, color: 'var(--brand-forest)', fontSize: '0.85rem' }}>
-              <Shield size={16} color="var(--brand-teal)" />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontWeight: 700, color: '#0F172A', fontSize: '0.85rem' }}>
+              <Shield size={16} color="#7C3AED" />
               <span>Candidate Semantics & Identifiers</span>
             </div>
             <button

@@ -238,9 +238,9 @@ export const CaseQueueList: React.FC<CaseQueueListProps> = ({
                   flexDirection: 'column',
                   gap: '0.45rem',
                   cursor: 'pointer',
-                  borderLeft: isSelected ? '3px solid var(--brand-forest)' : '1px solid var(--border-subtle)',
-                  backgroundColor: isSelected ? 'var(--surface-secondary)' : 'var(--surface-primary)',
-                  boxShadow: isSelected ? 'var(--shadow-hover)' : 'var(--shadow-sm)',
+                  borderLeft: isSelected ? '3px solid #0F172A' : '1px solid #E2E8F0',
+                  backgroundColor: isSelected ? '#F8FAFC' : '#FFFFFF',
+                  boxShadow: isSelected ? '0 1px 3px rgba(15,23,42,0.08)' : '0 1px 2px rgba(15,23,42,0.03)',
                   transition: 'all 0.15s ease',
                 }}
               >

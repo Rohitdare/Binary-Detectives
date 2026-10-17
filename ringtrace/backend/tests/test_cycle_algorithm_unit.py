@@ -34,6 +34,34 @@ class TestCycleAlgorithmUnit(unittest.TestCase):
         self.db = MagicMock()
         self.db.execute_query.return_value = SimpleNamespace(result_set=cycle_rows())
 
+    def _fixture_snapshot(self, filename):
+        fixture_path = os.path.join(BACKEND_DIR, "tests", "fixtures", filename)
+        with open(fixture_path, encoding="utf-8") as stream:
+            fixture = json.load(stream)
+        edges = [{key: tx[key] for key in ("tx_id", "src", "dst", "amount", "ts", "step", "tx_type")}
+                 for tx in fixture["transactions"]]
+        return fixture, (edges, False, 0)
+
+    def test_cycle_positive_fixture_returns_exact_suspicious_evidence(self):
+        fixture, snapshot = self._fixture_snapshot("cycle_positive.json")
+        result = detect_cycles(min_length=3, max_length=3, db=self.db, edge_snapshot=snapshot)
+        self.assertEqual(len(result), 1)
+        self.assertTrue(result[0]["suspicious"])
+        self.assertEqual(set(result[0]["accounts"]), {account["id"] for account in fixture["accounts"]})
+        self.assertEqual(set(result[0]["canonical_edge_sequence"]),
+                         {tx["tx_id"] for tx in fixture["transactions"]})
+        self.assertEqual({tx["tx_id"] for tx in result[0]["transactions"]},
+                         {tx["tx_id"] for tx in fixture["transactions"]})
+
+    def test_cycle_negative_fixture_is_structural_but_not_suspicious(self):
+        fixture, snapshot = self._fixture_snapshot("cycle_negative.json")
+        result = detect_cycles(min_length=4, max_length=4, db=self.db, edge_snapshot=snapshot)
+        self.assertEqual(len(result), 1)
+        self.assertFalse(result[0]["suspicious"])
+        self.assertEqual(result[0]["duration_seconds"], 97200)
+        self.assertEqual(set(result[0]["canonical_edge_sequence"]),
+                         {tx["tx_id"] for tx in fixture["transactions"]})
+
     def test_fast_cycle_is_review_candidate_with_complete_evidence(self):
         result = detect_cycles(min_length=3, max_length=3, db=self.db)
         self.assertEqual(len(result), 1)

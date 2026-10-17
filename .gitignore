@@ -37,6 +37,31 @@ htmlcov/
 .hypothesis/
 pip-log.txt
 pip-delete-this-directory.txt
+test-results/
+**/test-results/
+test_output/
+**/test_output/
+test_outputs/
+**/test_outputs/
+test_runs/
+**/test_runs/
+test_report/
+**/test_report/
+test_reports/
+**/test_reports/
+playwright-report/
+**/playwright-report/
+cypress/videos/
+**/cypress/videos/
+cypress/screenshots/
+**/cypress/screenshots/
+test_screenshots/
+**/test_screenshots/
+*.test.log
+**/test_*.log
+test.log
+tests/*.log
+**/tests/*.log
 
 # Python Build & Distribution
 build/
@@ -210,11 +235,15 @@ appendonly.aof
 *.duckdb
 test_*.db
 test_*.sqlite
+test_*.sqlite3
+test_*.duckdb
+*.test.db
 falkordb_data/
 **/falkordb_data/
 redis_data/
 **/redis_data/
 *.dump
+test_*.dump
 *.sql.gz
 
 # ------------------------------------------------------------------------------
@@ -260,21 +289,51 @@ ehthumbs.db
 **/.cache/
 
 # ------------------------------------------------------------------------------
-# Agent Tooling, Local Configurations & Scratch
+# Agent Tooling, Reference, Local Configurations & Scratch
 # ------------------------------------------------------------------------------
 .agents/
+**/.agents/
+agents/
+**/agents/
+reference/
+**/reference/
+references/
+**/references/
 skills-lock.json
+**/skills-lock.json
 .system_generated/
 **/.system_generated/
+.tempmediaStorage/
 **/.tempmediaStorage/
+.click_feedback/
 **/.click_feedback/
 **/click_feedback_*.png
 scratch/
 **/scratch/
 .gemini/
+**/.gemini/
 .claude/
+**/.claude/
 .antigravity/
+**/.antigravity/
 temp/
 **/temp/
 tmp/
 **/tmp/
+test_temp/
+**/test_temp/
+test_tmp/
+**/test_tmp/
+test_scratch*/
+**/test_scratch*/
+**/tests/temp/
+**/tests/tmp/
+**/tests/scratch/
+
+# Test Media & Recordings
+*.webm
+*.webp
+
+# Unoptimized Raw Assets
+*-original.png
+**/*-original.png

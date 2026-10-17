@@ -16,7 +16,7 @@ try:
         AccountProfile, CaseDetail, CaseListResponse, CaseRecord, DetectorResponse,
         EvaluationJob, EvaluationResponse, EvaluationStatus, GraphData, GraphSummary, HealthResponse,
         ScanReceipt, ScanStatus, ScenarioInjectionResponse, ScenarioListResponse,
-        ScenarioRequest,
+        ScenarioRequest, SchedulerStatusResponse,
     )
     from app.cases.builder import load_account_types
     from app.db import FalkorDBClient
@@ -29,13 +29,17 @@ try:
         GET_CASE_PATTERN_COUNTS, GET_NEIGHBORHOOD_EDGES, MERGE_ACCOUNTS,
         MERGE_TRANSACTIONS, PING_FALKORDB,
     )
-    from app.scan_service import create_scan_job, get_scan_job, run_scan
+    from app.scan_service import (
+        create_scan_job, get_active_scan_id, get_latest_scan_job, get_scan_job,
+        is_scan_active, list_scan_jobs, record_skipped_scan, run_scan,
+    )
+    from app.scheduler import get_scheduler
 except ImportError:
     from backend.app.api.models import (
         AccountProfile, CaseDetail, CaseListResponse, CaseRecord, DetectorResponse,
         EvaluationJob, EvaluationResponse, EvaluationStatus, GraphData, GraphSummary, HealthResponse,
         ScanReceipt, ScanStatus, ScenarioInjectionResponse, ScenarioListResponse,
-        ScenarioRequest,
+        ScenarioRequest, SchedulerStatusResponse,
     )
     from backend.app.cases.builder import load_account_types
     from backend.app.db import FalkorDBClient
@@ -48,7 +52,11 @@ except ImportError:
         GET_CASE_PATTERN_COUNTS, GET_NEIGHBORHOOD_EDGES, MERGE_ACCOUNTS,
         MERGE_TRANSACTIONS, PING_FALKORDB,
     )
-    from backend.app.scan_service import create_scan_job, get_scan_job, run_scan
+    from backend.app.scan_service import (
+        create_scan_job, get_active_scan_id, get_latest_scan_job, get_scan_job,
+        is_scan_active, list_scan_jobs, record_skipped_scan, run_scan,
+    )
+    from backend.app.scheduler import get_scheduler
 
 
 router = APIRouter()
@@ -123,9 +131,32 @@ def graph_summary(request: Request):
 @router.post("/api/scan", status_code=202, response_model=ScanReceipt)
 @router.post("/api/v1/scan", status_code=202, response_model=ScanReceipt)
 def start_scan(request: Request, background_tasks: BackgroundTasks):
-    scan_id = create_scan_job()
-    background_tasks.add_task(run_scan, scan_id, _db(request), _graph(request), _memory_graph())
-    return {"scan_id": scan_id, "status": "running"}
+    if is_scan_active():
+        active_id = get_active_scan_id()
+        skipped_id = create_scan_job(trigger="manual")
+        record_skipped_scan(skipped_id, active_id=active_id, trigger="manual")
+        return {
+            "scan_id": skipped_id,
+            "status": "skipped",
+            "active_scan_id": active_id,
+            "message": f"Scan skipped: another scan ({active_id}) is currently executing. Track progress at /api/v1/scan/{active_id}",
+        }
+
+    scan_id = create_scan_job(trigger="manual")
+    background_tasks.add_task(
+        run_scan,
+        scan_id=scan_id,
+        db=_db(request),
+        graph_name=_graph(request),
+        memory_graph=_memory_graph(),
+        trigger="manual",
+    )
+    return {
+        "scan_id": scan_id,
+        "status": "running",
+        "active_scan_id": None,
+        "message": "Scan dispatched",
+    }
 
 
 @router.get("/api/scan/{scan_id}", response_model=ScanStatus)
@@ -133,6 +164,49 @@ def start_scan(request: Request, background_tasks: BackgroundTasks):
 def scan_status(scan_id: str):
     job = get_scan_job(scan_id)
     return job if job else _error(404, "not_found", "Scan was not found")
+
+
+@router.get("/api/scheduler/status", response_model=SchedulerStatusResponse)
+@router.get("/api/v1/scheduler/status", response_model=SchedulerStatusResponse)
+def scheduler_status():
+    scheduler = get_scheduler()
+    if scheduler:
+        return scheduler.get_status()
+    try:
+        from app.scheduler.config import SchedulerConfig
+    except ImportError:
+        from backend.app.scheduler.config import SchedulerConfig
+    cfg = SchedulerConfig.from_env()
+    return {
+        "enabled": cfg.enabled,
+        "running": False,
+        "interval_seconds": cfg.interval_seconds,
+        "scan_on_startup": cfg.scan_on_startup,
+        "next_run_at": None,
+        "last_run_at": None,
+        "run_count": 0,
+        "failure_count": 0,
+        "skip_count": 0,
+        "is_scan_active": is_scan_active(),
+        "active_scan_id": get_active_scan_id(),
+        "latest_scan": get_latest_scan_job(),
+    }
+
+
+@router.get("/api/scans/latest", response_model=ScanStatus)
+@router.get("/api/v1/scans/latest", response_model=ScanStatus)
+def latest_scan():
+    latest = get_latest_scan_job()
+    if not latest:
+        return _error(404, "not_found", "No scan has been executed yet")
+    return latest
+
+
+@router.get("/api/scans", response_model=list[ScanStatus])
+@router.get("/api/v1/scans", response_model=list[ScanStatus])
+def list_scans(limit: int = Query(default=20, ge=1, le=100)):
+    return list_scan_jobs(limit=limit)
+
 
 
 @router.get("/api/cases", response_model=CaseListResponse)

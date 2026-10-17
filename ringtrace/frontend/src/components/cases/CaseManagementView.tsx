@@ -125,8 +125,12 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
     setScanProgress('Initiating scan...');
     try {
       const receipt = await ringtraceApi.startScan();
-      const scanId = receipt.scan_id;
-      setScanProgress('Running detectors...');
+      const scanId = receipt.active_scan_id || receipt.scan_id;
+      if (receipt.status === 'skipped') {
+        setScanProgress(`Scan already active (${scanId}). Tracking progress...`);
+      } else {
+        setScanProgress('Running detectors...');
+      }
 
       // Poll until complete
       const pollInterval = setInterval(async () => {
@@ -145,6 +149,13 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
               setIsScanning(false);
               setScanProgress(null);
               alert('Scan failed to complete.');
+            }
+          } else if (statusRes.status === 'skipped') {
+            clearInterval(pollInterval);
+            if (isMountedRef.current) {
+              setIsScanning(false);
+              setScanProgress(null);
+              void fetchCases();
             }
           }
         } catch {

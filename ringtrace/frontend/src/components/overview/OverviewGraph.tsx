@@ -12,7 +12,8 @@ import {
   X,
   Layers,
   ArrowRight,
-  Database
+  Database,
+  Zap,
 } from 'lucide-react';
 import type { GraphNodeData, NetworkGraphData, SystemStats } from '../../types';
 import { ringtraceApi } from '../../services/api';
@@ -273,44 +274,129 @@ export const OverviewGraph: React.FC<OverviewGraphProps> = ({ stats, onInspectAc
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', height: '100%' }}>
-      {/* Compact Page Header — Batica inspired bold typography */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'baseline',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '0.75rem'
-      }}>
+      {/* Header with Minimal Inline Metrics */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '0.75rem',
+          paddingBottom: '0.15rem',
+        }}
+      >
         <div>
-          <h1 style={{
-            fontSize: '1.45rem',
-            fontWeight: 800,
-            color: 'var(--text-primary)',
-            letterSpacing: '-0.03em',
-            margin: 0,
-            fontFamily: 'var(--font-sans)'
-          }}>
+          <h1
+            style={{
+              fontSize: '1.25rem',
+              fontWeight: 800,
+              color: 'var(--text-primary)',
+              letterSpacing: '-0.025em',
+              margin: 0,
+              fontFamily: 'var(--font-sans)',
+            }}
+          >
             Transaction Network
           </h1>
-          <p style={{
-            fontSize: '0.8rem',
-            color: 'var(--text-secondary)',
-            marginTop: '0.2rem',
-            margin: 0
-          }}>
-            Directed financial transfers and monitored account entities across the production FalkorDB <span className="mono" style={{ color: 'var(--brand-forest)', fontWeight: 600 }}>txn</span> graph.
+          <p
+            style={{
+              fontSize: '0.75rem',
+              color: 'var(--text-secondary)',
+              marginTop: '0.15rem',
+              margin: 0,
+            }}
+          >
+            Directed financial transfers and account entities across production FalkorDB <span className="mono" style={{ color: 'var(--brand-forest)', fontWeight: 600 }}>txn</span>
           </p>
         </div>
 
-        {/* Minimal Graph Summary Chips */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-          <span className="rt-badge rt-badge-emerald" style={{ fontSize: '0.725rem' }}>
-            <Database size={11} />
-            <span>{stats?.total_accounts?.toLocaleString() ?? '3,000'} Monitored Accounts</span>
-          </span>
-          <span className="rt-badge rt-badge-gray" style={{ fontSize: '0.725rem' }}>
-            <span>{stats?.total_transactions?.toLocaleString() ?? '40,661'} Transfers Analyzed</span>
-          </span>
+        {/* Minimal Metrics Row — Clean, horizontal, uncluttered */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            flexWrap: 'wrap',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              padding: '0.35rem 0.65rem',
+              backgroundColor: '#FFFFFF',
+              border: '1px solid #E2E8F0',
+              borderRadius: '6px',
+              fontSize: '0.75rem',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
+            }}
+          >
+            <Database size={13} color="#64748B" />
+            <span style={{ fontWeight: 700, color: '#0F172A', fontFamily: 'JetBrains Mono, monospace' }}>
+              {stats?.total_accounts?.toLocaleString() ?? '3,000'}
+            </span>
+            <span style={{ color: '#64748B' }}>Accounts</span>
+          </div>
+
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              padding: '0.35rem 0.65rem',
+              backgroundColor: '#FFFFFF',
+              border: '1px solid #E2E8F0',
+              borderRadius: '6px',
+              fontSize: '0.75rem',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
+            }}
+          >
+            <Layers size={13} color="#64748B" />
+            <span style={{ fontWeight: 700, color: '#0F172A', fontFamily: 'JetBrains Mono, monospace' }}>
+              {stats?.total_transactions?.toLocaleString() ?? '40,661'}
+            </span>
+            <span style={{ color: '#64748B' }}>Transfers</span>
+          </div>
+
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              padding: '0.35rem 0.65rem',
+              backgroundColor: '#FEF2F2',
+              border: '1px solid #FECACA',
+              borderRadius: '6px',
+              fontSize: '0.75rem',
+            }}
+          >
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#DC2626' }} />
+            <span style={{ fontWeight: 700, color: '#DC2626', fontFamily: 'JetBrains Mono, monospace' }}>
+              12
+            </span>
+            <span style={{ color: '#991B1B', fontWeight: 500 }}>Flagged Subgraphs</span>
+          </div>
+
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              padding: '0.35rem 0.65rem',
+              backgroundColor: '#FFFFFF',
+              border: '1px solid #E2E8F0',
+              borderRadius: '6px',
+              fontSize: '0.75rem',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
+            }}
+          >
+            <Zap size={13} color="#059669" />
+            <span style={{ fontWeight: 700, color: '#0F172A', fontFamily: 'JetBrains Mono, monospace' }}>
+              0.8ms
+            </span>
+            <span style={{ color: '#64748B' }}>Latency</span>
+          </div>
         </div>
       </div>
 
@@ -324,31 +410,32 @@ export const OverviewGraph: React.FC<OverviewGraphProps> = ({ stats, onInspectAc
         borderRadius: '12px',
         overflow: 'hidden'
       }}>
-        {/* Top Floating Toolbar */}
+        {/* Top Minimal Toolbar */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           flexWrap: 'wrap',
-          gap: '0.75rem',
-          marginBottom: '0.65rem'
+          gap: '0.65rem',
+          marginBottom: '0.5rem'
         }}>
           {/* Node Search in Canvas */}
-          <form onSubmit={handleSearchNode} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+          <form onSubmit={handleSearchNode} style={{ display: 'flex', alignItems: 'center' }}>
             <div style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '0.45rem',
+              gap: '0.4rem',
               backgroundColor: 'var(--surface-secondary)',
               border: '1px solid var(--border-subtle)',
               borderRadius: '6px',
-              padding: '0.35rem 0.65rem',
-              color: 'var(--text-secondary)'
+              padding: '0 0.55rem',
+              height: '28px',
+              boxSizing: 'border-box'
             }}>
-              <Search size={13} color="var(--text-muted)" />
+              <Search size={12} color="var(--text-muted)" />
               <input
                 type="text"
-                placeholder="Find in network (e.g. ACC_00125)..."
+                placeholder="Find node (e.g. ACC_00125)..."
                 value={searchAccountInput}
                 onChange={(e) => setSearchAccountInput(e.target.value)}
                 style={{
@@ -356,19 +443,34 @@ export const OverviewGraph: React.FC<OverviewGraphProps> = ({ stats, onInspectAc
                   border: 'none',
                   outline: 'none',
                   color: 'var(--text-primary)',
-                  fontSize: '0.75rem',
-                  width: '200px',
+                  fontSize: '0.72rem',
+                  width: '180px',
                   fontFamily: 'var(--font-mono)'
                 }}
               />
+              {searchAccountInput && (
+                <button
+                  type="button"
+                  onClick={() => setSearchAccountInput('')}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    cursor: 'pointer',
+                    color: 'var(--text-muted)',
+                    display: 'flex',
+                    alignItems: 'center'
+                  }}
+                  title="Clear search"
+                >
+                  <X size={11} />
+                </button>
+              )}
             </div>
-            <button type="submit" className="rt-button rt-button-sm">
-              Focus
-            </button>
           </form>
 
           {/* Graph Controls */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
             <select
               value={limit}
               onChange={(e) => setLimit(Number(e.target.value))}
@@ -376,40 +478,134 @@ export const OverviewGraph: React.FC<OverviewGraphProps> = ({ stats, onInspectAc
                 background: 'var(--surface-secondary)',
                 border: '1px solid var(--border-subtle)',
                 borderRadius: '6px',
-                padding: '0.35rem 0.65rem',
+                height: '28px',
+                padding: '0 0.55rem',
                 color: 'var(--text-primary)',
-                fontSize: '0.75rem',
+                fontSize: '0.72rem',
                 outline: 'none',
                 fontFamily: 'var(--font-sans)',
-                fontWeight: 600
+                fontWeight: 600,
+                cursor: 'pointer'
               }}
             >
-              <option value={40}>Sample: 40 transfers</option>
-              <option value={80}>Sample: 80 transfers</option>
-              <option value={150}>Sample: 150 transfers</option>
-              <option value={300}>Sample: 300 transfers</option>
+              <option value={40}>40 tx</option>
+              <option value={80}>80 tx</option>
+              <option value={100}>100 tx</option>
+              <option value={150}>150 tx</option>
+              <option value={300}>300 tx</option>
             </select>
 
             <button
+              type="button"
               onClick={handleToggleLabels}
-              className="rt-button rt-button-sm"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                height: '28px',
+                padding: '0 0.55rem',
+                fontSize: '0.72rem',
+                fontWeight: 600,
+                background: showLabels ? 'var(--surface-secondary)' : 'transparent',
+                color: showLabels ? 'var(--text-primary)' : 'var(--text-muted)',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
               title={showLabels ? 'Hide Labels' : 'Show Labels'}
             >
-              {showLabels ? <Eye size={13} /> : <EyeOff size={13} />}
-              <span>{showLabels ? 'Labels On' : 'Labels Off'}</span>
+              {showLabels ? <Eye size={12} /> : <EyeOff size={12} />}
+              <span>Labels</span>
             </button>
-            <button onClick={handleZoomIn} className="rt-button rt-button-sm" title="Zoom In">
-              <ZoomIn size={13} />
-            </button>
-            <button onClick={handleZoomOut} className="rt-button rt-button-sm" title="Zoom Out">
-              <ZoomOut size={13} />
-            </button>
-            <button onClick={handleFit} className="rt-button rt-button-sm" title="Fit to Viewport">
-              <Maximize2 size={13} />
-            </button>
-            <button onClick={() => loadGraph(limit)} disabled={loading} className="rt-button rt-button-sm" title="Reload network">
-              <RefreshCw size={13} className={loading ? 'spin' : ''} />
-            </button>
+
+            {/* Segmented Zoom & View Controls */}
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              backgroundColor: 'var(--surface-secondary)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: '6px',
+              overflow: 'hidden',
+              height: '28px'
+            }}>
+              <button
+                type="button"
+                onClick={handleZoomIn}
+                title="Zoom In"
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  borderRight: '1px solid var(--border-subtle)',
+                  padding: '0 0.5rem',
+                  height: '100%',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  color: 'var(--text-secondary)'
+                }}
+              >
+                <ZoomIn size={12} />
+              </button>
+              <button
+                type="button"
+                onClick={handleZoomOut}
+                title="Zoom Out"
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  borderRight: '1px solid var(--border-subtle)',
+                  padding: '0 0.5rem',
+                  height: '100%',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  color: 'var(--text-secondary)'
+                }}
+              >
+                <ZoomOut size={12} />
+              </button>
+              <button
+                type="button"
+                onClick={handleFit}
+                title="Fit to Viewport"
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  borderRight: '1px solid var(--border-subtle)',
+                  padding: '0 0.5rem',
+                  height: '100%',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  color: 'var(--text-secondary)'
+                }}
+              >
+                <Maximize2 size={12} />
+              </button>
+              <button
+                type="button"
+                onClick={() => loadGraph(limit)}
+                disabled={loading}
+                title="Reload network"
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  padding: '0 0.5rem',
+                  height: '100%',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  color: 'var(--text-secondary)'
+                }}
+              >
+                <RefreshCw size={12} className={loading ? 'spin' : ''} />
+              </button>
+            </div>
           </div>
         </div>
 

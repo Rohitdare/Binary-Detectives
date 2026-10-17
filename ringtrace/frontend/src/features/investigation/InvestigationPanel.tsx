@@ -1,18 +1,18 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
   FileSearch,
-  Bot,
-  ShieldAlert,
-  Play,
-  RotateCcw,
   Sparkles,
   Cpu,
+  RotateCcw,
+  Play,
+  Terminal,
+  FileText,
+  AlertCircle,
   ChevronDown,
   ChevronRight,
-  Terminal,
-  AlertCircle,
-  FileText,
-  BadgeAlert
+  ShieldAlert,
+  Clock,
+  Bot,
 } from 'lucide-react';
 import { ringtraceApi } from '../../services/api';
 import { DecisionBar } from './DecisionBar';
@@ -22,7 +22,7 @@ import type {
   DecisionRecord,
   InvestigationAssessment,
   InvestigationStep,
-  ProposedAction
+  ProposedAction,
 } from '../../types';
 
 export interface InvestigationPanelProps {
@@ -58,15 +58,34 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
   const [mode, setMode] = useState<'llm' | 'fallback'>('llm');
   const [streamError, setStreamError] = useState<string | null>(null);
   const [caseStatus, setCaseStatus] = useState('open');
-  const [expandedSteps, setExpandedSteps] = useState<Record<number, boolean>>({});
+
+  // Trigger MemoryPanel re-fetch when new decisions or cases are processed
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  // Expanded steps for inspecting raw tool arguments
+  const [expandedSteps, setExpandedSteps] = useState<Record<number, boolean>>({});
 
   const eventSourceRef = useRef<EventSource | null>(null);
   const stepsEndRef = useRef<HTMLDivElement | null>(null);
 
   const activeCaseId = customCaseId.trim() || selectedCaseId;
 
-  // Cleanup EventSource on unmount
+  // Sync initialCaseId when changed by parent queue selection
+  useEffect(() => {
+    if (initialCaseId) {
+      setSelectedCaseId(initialCaseId);
+      setCustomCaseId('');
+    }
+  }, [initialCaseId]);
+
+  // Auto-scroll tool steps container on new SSE events
+  useEffect(() => {
+    if (isRunning && stepsEndRef.current) {
+      stepsEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [steps, isRunning]);
+
+  // Clean up SSE connection on unmount
   useEffect(() => {
     return () => {
       if (eventSourceRef.current) {
@@ -75,24 +94,15 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
     };
   }, []);
 
-  // Auto-scroll tool logs
-  useEffect(() => {
-    if (stepsEndRef.current && isRunning) {
-      stepsEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [steps, isRunning]);
-
-  const toggleStepExpand = (idx: number) => {
-    setExpandedSteps((prev) => ({ ...prev, [idx]: !prev[idx] }));
+  const toggleStepExpand = (index: number) => {
+    setExpandedSteps((prev) => ({ ...prev, [index]: !prev[index] }));
   };
 
   const startInvestigation = async () => {
-    if (!activeCaseId) return;
+    if (!activeCaseId || isRunning) return;
 
-    // Reset current state
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
-      eventSourceRef.current = null;
     }
 
     setIsRunning(true);
@@ -161,43 +171,47 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
     }
   };
 
-  const handleDecisionRecorded = (decRecord: DecisionRecord | null) => {
-    if (decRecord) {
-      const statusMap: Record<string, string> = {
-        escalate: 'escalated',
-        monitor: 'monitoring',
-        dismiss: 'dismissed',
-        draft_sar: 'sar_drafted',
-      };
-      setCaseStatus(statusMap[decRecord.decision] || decRecord.decision);
-      if (proposedAction) {
-        setProposedAction((prev) => (prev ? { ...prev, status: 'approved' } : null));
-      }
+  const handleDecisionRecorded = (record: DecisionRecord | null) => {
+    if (record) {
+      const decisionType = record.decision.toLowerCase();
+      if (decisionType === 'escalate') setCaseStatus('escalated');
+      else if (decisionType === 'monitor') setCaseStatus('monitoring');
+      else if (decisionType === 'dismiss') setCaseStatus('dismissed');
+      setProposedAction(null);
+      setRefreshTrigger((prev) => prev + 1);
     }
-    setRefreshTrigger((prev) => prev + 1);
   };
 
-  const renderRiskBadge = (level?: string) => {
-    const l = (level || '').toLowerCase();
-    if (l === 'high') {
+  const renderRiskBadge = (risk?: string) => {
+    const level = (risk || '').toLowerCase();
+    if (level === 'high') {
       return (
-        <span className="rt-badge badge-danger" style={{ fontSize: '0.75rem', fontWeight: 600 }}>
-          <BadgeAlert size={12} />
+        <span
+          className="rt-badge rt-badge-rose"
+          style={{ fontSize: '0.75rem', padding: '0.25rem 0.65rem' }}
+        >
+          <ShieldAlert size={13} />
           HIGH RISK
         </span>
       );
     }
-    if (l === 'medium') {
+    if (level === 'medium') {
       return (
-        <span className="rt-badge badge-warning" style={{ fontSize: '0.75rem', fontWeight: 600 }}>
-          <ShieldAlert size={12} />
+        <span
+          className="rt-badge rt-badge-amber"
+          style={{ fontSize: '0.75rem', padding: '0.25rem 0.65rem' }}
+        >
+          <Clock size={13} />
           MEDIUM RISK
         </span>
       );
     }
     return (
-      <span className="rt-badge badge-success" style={{ fontSize: '0.75rem', fontWeight: 600 }}>
-        <Bot size={12} />
+      <span
+        className="rt-badge rt-badge-emerald"
+        style={{ fontSize: '0.75rem', padding: '0.25rem 0.65rem' }}
+      >
+        <Bot size={13} />
         LOW RISK
       </span>
     );
@@ -220,52 +234,63 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
       <div
         className="rt-card"
         style={{
+          padding: '1.25rem 1.5rem',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           flexWrap: 'wrap',
           gap: '1rem',
-          borderLeft: '4px solid var(--accent-cyan)'
+          backgroundColor: '#FFFFFF',
+          border: '1px solid #E2E8F0',
+          borderLeft: '4px solid #7C3AED',
+          boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
           <div
             style={{
-              width: '40px',
-              height: '40px',
+              width: '38px',
+              height: '38px',
               borderRadius: '8px',
-              backgroundColor: 'rgba(56, 189, 248, 0.15)',
+              backgroundColor: '#F5F3FF',
+              border: '1px solid #DDD6FE',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: 'var(--accent-cyan)',
+              color: '#7C3AED',
             }}
           >
-            <FileSearch size={22} />
+            <FileSearch size={20} />
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-              <h2 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Autonomous Investigation Agent</h2>
-              {/* Mode Badge per User Requirement */}
+              <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>
+                Autonomous AI Cockpit & Replay
+              </h2>
+              {/* Mode Badge */}
               <span
-                className="rt-badge"
                 style={{
                   fontSize: '0.7rem',
                   fontWeight: 700,
-                  backgroundColor: mode === 'llm' ? 'rgba(168, 85, 247, 0.18)' : 'rgba(245, 158, 11, 0.18)',
-                  borderColor: mode === 'llm' ? 'rgba(168, 85, 247, 0.4)' : 'rgba(245, 158, 11, 0.4)',
-                  color: mode === 'llm' ? 'var(--accent-purple)' : 'var(--accent-amber)',
-                  letterSpacing: '0.04em'
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  padding: '0.15rem 0.55rem',
+                  borderRadius: '9999px',
+                  backgroundColor: mode === 'llm' ? '#F5F3FF' : '#FFFBEB',
+                  border: `1px solid ${mode === 'llm' ? '#DDD6FE' : '#FCD34D'}`,
+                  color: mode === 'llm' ? '#7C3AED' : '#B45309',
+                  letterSpacing: '0.04em',
                 }}
               >
                 {mode === 'llm' ? <Sparkles size={11} /> : <Cpu size={11} />}
                 MODE: {mode.toUpperCase()}
               </span>
             </div>
-            <div style={{ fontSize: '0.775rem', color: 'var(--text-secondary)' }}>
+            <div style={{ fontSize: '0.775rem', color: '#64748B', marginTop: '0.2rem' }}>
               8-Tool Restricted Graph Engine with Real-Time SSE Stream & Anti-Hallucination Guardrails
               {investigationId && (
-                <span style={{ marginLeft: '0.5rem', color: 'var(--accent-cyan)' }}>
+                <span style={{ marginLeft: '0.5rem', color: '#7C3AED', fontWeight: 600 }}>
                   • Active Run: <span className="mono">{investigationId}</span>
                 </span>
               )}
@@ -283,16 +308,17 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
             }}
             disabled={isRunning}
             style={{
-              backgroundColor: 'rgba(0, 0, 0, 0.4)',
-              border: '1px solid var(--border-subtle)',
+              backgroundColor: '#FFFFFF',
+              border: '1px solid #CBD5E1',
               borderRadius: '6px',
               padding: '0.45rem 0.75rem',
-              color: 'var(--text-primary)',
+              color: '#0F172A',
               fontSize: '0.8rem',
+              fontWeight: 500,
             }}
           >
             {PRESET_CASES.map((c) => (
-              <option key={c.id} value={c.id} style={{ background: '#0f172a' }}>
+              <option key={c.id} value={c.id}>
                 {c.label}
               </option>
             ))}
@@ -305,13 +331,15 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
             onChange={(e) => setCustomCaseId(e.target.value.toUpperCase())}
             disabled={isRunning}
             style={{
-              backgroundColor: 'rgba(0, 0, 0, 0.4)',
-              border: '1px solid var(--border-subtle)',
+              backgroundColor: '#FFFFFF',
+              border: '1px solid #CBD5E1',
               borderRadius: '6px',
               padding: '0.45rem 0.65rem',
-              color: 'var(--text-primary)',
+              color: '#0F172A',
               fontSize: '0.8rem',
-              width: '130px'
+              width: '140px',
+              fontWeight: 500,
+              fontFamily: 'var(--font-mono)',
             }}
           />
 
@@ -337,20 +365,60 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
       </div>
 
       {/* Main Grid: Live Agent Feed & Memory Precedents */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.6fr) minmax(320px, 1fr)', gap: '1.25rem', alignItems: 'start' }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(0, 1.6fr) minmax(320px, 1fr)',
+          gap: '1.25rem',
+          alignItems: 'start',
+        }}
+      >
         {/* Left Column: Real-Time SSE Step Stream & Final Narrative */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           {/* Tool Execution Logs Stream */}
-          <div className="rt-card">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.85rem' }}>
+          <div
+            className="rt-card"
+            style={{
+              padding: '1.25rem',
+              backgroundColor: '#FFFFFF',
+              border: '1px solid #E2E8F0',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: '0.85rem',
+              }}
+            >
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
-                <Terminal size={17} color="var(--accent-cyan)" />
-                <h3 style={{ fontSize: '0.925rem', fontWeight: 600 }}>Agent Execution Trace (Live SSE Feed)</h3>
+                <Terminal size={17} color="#7C3AED" />
+                <h3 style={{ fontSize: '0.925rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>
+                  Agent Execution Trace (Live SSE Feed)
+                </h3>
               </div>
-              <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>
+              <div style={{ fontSize: '0.725rem', color: '#64748B' }}>
                 {isRunning ? (
-                  <span style={{ color: 'var(--accent-cyan)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: 'var(--accent-cyan)', display: 'inline-block' }} />
+                  <span
+                    style={{
+                      color: '#7C3AED',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.35rem',
+                      fontWeight: 600,
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: '7px',
+                        height: '7px',
+                        borderRadius: '50%',
+                        backgroundColor: '#7C3AED',
+                        display: 'inline-block',
+                      }}
+                      className="pulse-indicator"
+                    />
                     Streaming tool calls...
                   </span>
                 ) : (
@@ -362,9 +430,9 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
             {/* Steps Container */}
             <div
               style={{
-                backgroundColor: 'rgba(5, 8, 14, 0.75)',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: '6px',
+                backgroundColor: '#F8FAFC',
+                border: '1px solid #E2E8F0',
+                borderRadius: '8px',
                 padding: '0.85rem',
                 maxHeight: '340px',
                 overflowY: 'auto',
@@ -375,13 +443,30 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
               }}
             >
               {steps.length === 0 && !isRunning && (
-                <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                <div
+                  style={{
+                    textAlign: 'center',
+                    padding: '2.5rem 1rem',
+                    color: '#64748B',
+                    fontSize: '0.825rem',
+                    fontFamily: 'var(--font-sans)',
+                  }}
+                >
                   Click "Run Investigation" to initiate the agent loop and stream real-time tool calls.
                 </div>
               )}
 
               {steps.length === 0 && isRunning && (
-                <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--accent-cyan)', fontSize: '0.8rem' }}>
+                <div
+                  style={{
+                    textAlign: 'center',
+                    padding: '2.5rem 1rem',
+                    color: '#7C3AED',
+                    fontSize: '0.825rem',
+                    fontFamily: 'var(--font-sans)',
+                    fontWeight: 500,
+                  }}
+                >
                   <RotateCcw size={16} className="spin" style={{ margin: '0 auto 0.5rem' }} />
                   Connecting to SSE stream & launching initial tool call...
                 </div>
@@ -390,17 +475,21 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
               {steps.map((st, idx) => {
                 const isExpanded = !!expandedSteps[idx];
                 const toolName = st.tool || 'unknown_tool';
-                const hasEvidence = st.evidence && (st.evidence.account_ids?.length > 0 || st.evidence.tx_ids?.length > 0);
+                const hasEvidence =
+                  st.evidence &&
+                  ((st.evidence.account_ids && st.evidence.account_ids.length > 0) ||
+                    (st.evidence.tx_ids && st.evidence.tx_ids.length > 0));
 
                 return (
                   <div
                     key={idx}
                     style={{
-                      border: '1px solid rgba(255, 255, 255, 0.06)',
-                      borderRadius: '5px',
-                      backgroundColor: 'rgba(255, 255, 255, 0.02)',
-                      padding: '0.6rem 0.75rem',
-                      fontSize: '0.775rem'
+                      border: '1px solid #E2E8F0',
+                      borderRadius: '6px',
+                      backgroundColor: '#FFFFFF',
+                      padding: '0.65rem 0.85rem',
+                      fontSize: '0.775rem',
+                      boxShadow: '0 1px 2px rgba(15, 23, 42, 0.02)',
                     }}
                   >
                     <div
@@ -410,44 +499,65 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
                         alignItems: 'center',
                         justifyContent: 'space-between',
                         cursor: 'pointer',
-                        gap: '0.5rem'
+                        gap: '0.5rem',
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
-                        {isExpanded ? <ChevronDown size={14} color="var(--text-muted)" /> : <ChevronRight size={14} color="var(--text-muted)" />}
-                        <span style={{ color: 'var(--accent-cyan)', fontWeight: 600 }}>
+                        {isExpanded ? (
+                          <ChevronDown size={14} color="#64748B" />
+                        ) : (
+                          <ChevronRight size={14} color="#64748B" />
+                        )}
+                        <span style={{ color: '#7C3AED', fontWeight: 700 }}>
                           [{st.step || st.index || idx + 1}]
                         </span>
-                        <span style={{ color: 'var(--accent-purple)', fontWeight: 600 }}>
-                          {toolName}()
-                        </span>
+                        <span style={{ color: '#0F172A', fontWeight: 700 }}>{toolName}()</span>
                       </div>
-                      <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>
+                      <span style={{ color: '#64748B', fontSize: '0.7rem' }}>
                         {hasEvidence ? 'Evidence attached' : 'Query result'}
                       </span>
                     </div>
 
                     {/* Summary text */}
-                    <div style={{ marginTop: '0.35rem', color: 'var(--text-primary)', fontFamily: 'var(--font-sans)', fontSize: '0.8rem' }}>
+                    <div
+                      style={{
+                        marginTop: '0.35rem',
+                        color: '#334155',
+                        fontFamily: 'var(--font-sans)',
+                        fontSize: '0.8rem',
+                        lineHeight: 1.5,
+                      }}
+                    >
                       {st.summary}
                     </div>
 
                     {/* Evidence Chips */}
                     {hasEvidence && (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginTop: '0.45rem' }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          flexWrap: 'wrap',
+                          gap: '0.35rem',
+                          marginTop: '0.45rem',
+                        }}
+                      >
                         {st.evidence.account_ids?.map((acc) => (
                           <button
                             key={acc}
                             onClick={() => onInspectAccount(acc)}
-                            className="rt-badge badge-personal"
-                            style={{ fontSize: '0.675rem', cursor: 'pointer' }}
+                            className="rt-badge rt-badge-gray"
+                            style={{ fontSize: '0.675rem', cursor: 'pointer', fontFamily: 'var(--font-mono)' }}
                             title="Inspect account in graph"
                           >
                             {acc}
                           </button>
                         ))}
                         {st.evidence.tx_ids?.map((tx) => (
-                          <span key={tx} className="rt-badge badge-merchant" style={{ fontSize: '0.675rem' }}>
+                          <span
+                            key={tx}
+                            className="rt-badge rt-badge-cyan"
+                            style={{ fontSize: '0.675rem', fontFamily: 'var(--font-mono)' }}
+                          >
                             {tx}
                           </span>
                         ))}
@@ -456,11 +566,27 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
 
                     {/* Collapsible raw arguments view */}
                     {isExpanded && st.args && (
-                      <div style={{ marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid rgba(255, 255, 255, 0.06)' }}>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '0.2rem' }}>
+                      <div
+                        style={{
+                          marginTop: '0.5rem',
+                          paddingTop: '0.5rem',
+                          borderTop: '1px solid #E2E8F0',
+                        }}
+                      >
+                        <div style={{ fontSize: '0.7rem', color: '#64748B', marginBottom: '0.2rem' }}>
                           Parameters passed:
                         </div>
-                        <pre style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', margin: 0, overflowX: 'auto' }}>
+                        <pre
+                          style={{
+                            fontSize: '0.7rem',
+                            color: '#0F172A',
+                            margin: 0,
+                            overflowX: 'auto',
+                            backgroundColor: '#F8FAFC',
+                            padding: '0.4rem',
+                            borderRadius: '4px',
+                          }}
+                        >
                           {JSON.stringify(st.args, null, 2)}
                         </pre>
                       </div>
@@ -472,8 +598,21 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
             </div>
 
             {streamError && (
-              <div style={{ marginTop: '0.75rem', padding: '0.6rem 0.85rem', backgroundColor: 'rgba(244, 63, 94, 0.15)', borderRadius: '5px', color: 'var(--accent-rose)', fontSize: '0.775rem' }}>
-                <AlertCircle size={14} style={{ display: 'inline', marginRight: '0.4rem', verticalAlign: 'text-bottom' }} />
+              <div
+                style={{
+                  marginTop: '0.75rem',
+                  padding: '0.6rem 0.85rem',
+                  backgroundColor: '#FEF2F2',
+                  border: '1px solid #FCA5A5',
+                  borderRadius: '6px',
+                  color: '#B91C1C',
+                  fontSize: '0.775rem',
+                }}
+              >
+                <AlertCircle
+                  size={14}
+                  style={{ display: 'inline', marginRight: '0.4rem', verticalAlign: 'text-bottom' }}
+                />
                 {streamError}
               </div>
             )}
@@ -484,18 +623,38 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
             <div
               className="rt-card"
               style={{
-                border: '1px solid rgba(168, 85, 247, 0.3)',
-                backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                padding: '1.25rem',
+                border: '1px solid #DDD6FE',
+                backgroundColor: '#FFFFFF',
+                boxShadow: '0 4px 16px rgba(124, 58, 237, 0.05)',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: '1rem',
+                  flexWrap: 'wrap',
+                  gap: '0.5rem',
+                }}
+              >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                  <div style={{ padding: '0.35rem', borderRadius: '6px', backgroundColor: 'rgba(168, 85, 247, 0.15)', color: 'var(--accent-purple)' }}>
+                  <div
+                    style={{
+                      padding: '0.4rem',
+                      borderRadius: '6px',
+                      backgroundColor: '#F5F3FF',
+                      color: '#7C3AED',
+                    }}
+                  >
                     <FileText size={18} />
                   </div>
                   <div>
-                    <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Investigation Assessment & Narrative</h3>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>
+                      Investigation Assessment & Narrative
+                    </h3>
+                    <div style={{ fontSize: '0.75rem', color: '#64748B' }}>
                       Anti-hallucination verified summary with cited graph evidence
                     </div>
                   </div>
@@ -505,19 +664,28 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
 
               {/* Assessment Narrative */}
               <div style={{ marginBottom: '1.25rem' }}>
-                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.45rem' }}>
+                <div
+                  style={{
+                    fontSize: '0.725rem',
+                    fontWeight: 700,
+                    color: '#64748B',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    marginBottom: '0.45rem',
+                  }}
+                >
                   Executive Narrative
                 </div>
                 <div
                   style={{
-                    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+                    backgroundColor: '#F8FAFC',
                     padding: '0.85rem 1rem',
-                    borderRadius: '6px',
+                    borderRadius: '8px',
                     fontSize: '0.85rem',
                     lineHeight: 1.6,
-                    color: 'var(--text-primary)',
-                    border: '1px solid var(--border-subtle)',
-                    whiteSpace: 'pre-line'
+                    color: '#0F172A',
+                    border: '1px solid #E2E8F0',
+                    whiteSpace: 'pre-line',
                   }}
                 >
                   {assessment.narrative || assessment.summary}
@@ -527,7 +695,16 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
               {/* Verified Findings with Evidence Chips */}
               {assessment.findings && assessment.findings.length > 0 && (
                 <div>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.5rem' }}>
+                  <div
+                    style={{
+                      fontSize: '0.725rem',
+                      fontWeight: 700,
+                      color: '#64748B',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      marginBottom: '0.5rem',
+                    }}
+                  >
                     Corroborated Findings ({assessment.findings.length})
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -536,24 +713,24 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
                         key={i}
                         style={{
                           padding: '0.65rem 0.85rem',
-                          backgroundColor: 'rgba(255, 255, 255, 0.02)',
-                          borderRadius: '5px',
-                          border: '1px solid var(--border-subtle)',
-                          fontSize: '0.8rem'
+                          backgroundColor: '#FFFFFF',
+                          borderRadius: '6px',
+                          border: '1px solid #E2E8F0',
+                          fontSize: '0.8rem',
                         }}
                       >
-                        <div style={{ color: 'var(--text-primary)', marginBottom: '0.35rem' }}>
+                        <div style={{ color: '#0F172A', fontWeight: 500, marginBottom: '0.35rem' }}>
                           • {f.text}
                         </div>
                         {f.evidence_ids && f.evidence_ids.length > 0 && (
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', alignItems: 'center' }}>
-                            <span style={{ fontSize: '0.675rem', color: 'var(--text-muted)' }}>Evidence:</span>
+                            <span style={{ fontSize: '0.675rem', color: '#64748B' }}>Evidence:</span>
                             {f.evidence_ids.map((id) => (
                               <button
                                 key={id}
                                 onClick={() => id.startsWith('ACC_') && onInspectAccount(id)}
-                                className={`rt-badge ${id.startsWith('ACC_') ? 'badge-personal' : 'badge-merchant'}`}
-                                style={{ fontSize: '0.675rem', cursor: id.startsWith('ACC_') ? 'pointer' : 'default' }}
+                                className={`rt-badge ${id.startsWith('ACC_') ? 'rt-badge-gray' : 'rt-badge-cyan'}`}
+                                style={{ fontSize: '0.675rem', cursor: id.startsWith('ACC_') ? 'pointer' : 'default', fontFamily: 'var(--font-mono)' }}
                               >
                                 {id}
                               </button>
