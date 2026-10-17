@@ -1,0 +1,11 @@
+# Backend dependencies are currently tested locally on Python 3.10; Railway's supported runtime is pinned in .python-version.
+FalkorDB==1.8.0
+fastapi==0.143.1
+pydantic==2.14.1
+uvicorn==0.54.0
+httpx==0.28.1
+python-dotenv>=1.0.0
+
+
+# Gemini LLM SDK
+google-genai>=2.0.0

@@ -1,0 +1,11 @@
+{
+  "accounts": [{"id":"S"},{"id":"I1"},{"id":"I2"},{"id":"I3"},{"id":"T"}],
+  "transactions": [
+    {"tx_id":"SG_SI1","src":"S","dst":"I1","amount":10000,"ts":1000},
+    {"tx_id":"SG_I1T","src":"I1","dst":"T","amount":9500,"ts":1100},
+    {"tx_id":"SG_SI2","src":"S","dst":"I2","amount":12000,"ts":1200},
+    {"tx_id":"SG_I2T","src":"I2","dst":"T","amount":11400,"ts":1300},
+    {"tx_id":"SG_SI3","src":"S","dst":"I3","amount":8000,"ts":1400},
+    {"tx_id":"SG_I3T","src":"I3","dst":"T","amount":7600,"ts":1500}
+  ]
+}

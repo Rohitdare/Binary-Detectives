@@ -1,0 +1,27 @@
+{
+  "description": "Positive test fixture for fan_out: 1 origin account rapidly disburses to 9 distinct receivers within 6 hours, including parallel transactions",
+  "accounts": [
+    {"id": "ORIG_01", "type": "personal", "community": 4},
+    {"id": "REC_01", "type": "personal", "community": 4},
+    {"id": "REC_02", "type": "personal", "community": 4},
+    {"id": "REC_03", "type": "personal", "community": 4},
+    {"id": "REC_04", "type": "personal", "community": 4},
+    {"id": "REC_05", "type": "personal", "community": 4},
+    {"id": "REC_06", "type": "personal", "community": 4},
+    {"id": "REC_07", "type": "personal", "community": 4},
+    {"id": "REC_08", "type": "personal", "community": 4},
+    {"id": "REC_09", "type": "personal", "community": 4}
+  ],
+  "transactions": [
+    {"tx_id": "TX_OUT_01A", "src": "ORIG_01", "dst": "REC_01", "amount": 47000.0, "ts": 10000, "step": 1, "tx_type": "NEFT"},
+    {"tx_id": "TX_OUT_01B", "src": "ORIG_01", "dst": "REC_01", "amount": 8000.0, "ts": 10300, "step": 1, "tx_type": "UPI"},
+    {"tx_id": "TX_OUT_02", "src": "ORIG_01", "dst": "REC_02", "amount": 46500.0, "ts": 11000, "step": 1, "tx_type": "IMPS"},
+    {"tx_id": "TX_OUT_03", "src": "ORIG_01", "dst": "REC_03", "amount": 48000.0, "ts": 12500, "step": 1, "tx_type": "NEFT"},
+    {"tx_id": "TX_OUT_04", "src": "ORIG_01", "dst": "REC_04", "amount": 45000.0, "ts": 14000, "step": 1, "tx_type": "UPI"},
+    {"tx_id": "TX_OUT_05", "src": "ORIG_01", "dst": "REC_05", "amount": 49000.0, "ts": 15500, "step": 1, "tx_type": "IMPS"},
+    {"tx_id": "TX_OUT_06", "src": "ORIG_01", "dst": "REC_06", "amount": 46000.0, "ts": 17000, "step": 1, "tx_type": "NEFT"},
+    {"tx_id": "TX_OUT_07", "src": "ORIG_01", "dst": "REC_07", "amount": 47500.0, "ts": 18500, "step": 1, "tx_type": "UPI"},
+    {"tx_id": "TX_OUT_08", "src": "ORIG_01", "dst": "REC_08", "amount": 48500.0, "ts": 20000, "step": 1, "tx_type": "IMPS"},
+    {"tx_id": "TX_OUT_09", "src": "ORIG_01", "dst": "REC_09", "amount": 46800.0, "ts": 21500, "step": 1, "tx_type": "NEFT"}
+  ]
+}
