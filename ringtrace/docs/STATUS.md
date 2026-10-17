@@ -8,6 +8,10 @@
 
 ## 0. Latest Update
 
+- [x] **Repository Root Hygiene: Removal of Reference & Agents Folders (2026-10-17):**
+  - **Directory Cleanup:** Permanently removed untracked and redundant directories `reference/` (legacy detectors file) and `.agents/` (local skill files) along with `skills-lock.json` from the repository root.
+  - **Dependency Verification:** Verified zero source code, build scripts, or runtime imports in `backend` or `frontend` depend on these directories.
+  - **Verification:** Ran backend test suite via `python run_tests.py`: all 214 tests passed in 27.3s (`OK`); ran frontend build via `npm run build`: built cleanly in 987ms with 0 errors. Working tree remains clean and fully verified.
 - [x] **Repository Structure Reorganization & Environment Configuration (2026-10-17):**
   - **Environment Configuration:** Added `.env` and `.env.example` templates for Google Gemini API key (`GEMINI_API_KEY`) and FalkorDB configuration. Integrated automatic loading via `python-dotenv` in `main.py` and `agent/llm.py`. Added `.env` to `.gitignore` to prevent secret leaks.
   - **Documentation Organization:** Separated core documentation from historical simulation/audit reports. Moved 7 generated logs (`AGENT_DECISIONS.md`, `BUILD_LOG.md`, `FUNCTION_MAP.md`, `QUERY_LOG.md`, `SIMULATOR_ANALYSIS.md`, `SIMULATOR_FIELD_MAPPING.md`, `SIMULATOR_PATTERN_COVERAGE.md`) into a clean [`ringtrace/docs/generated_reports/`](file:///d:/vortex/ringtrace/docs/generated_reports/) directory. Created a dedicated [`docs/README.md`](file:///d:/vortex/ringtrace/docs/README.md) hub index.

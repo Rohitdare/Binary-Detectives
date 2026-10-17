@@ -8,6 +8,7 @@ This document records code generated or modified by AI agents and the concrete v
 
 | Module / Artifact | Purpose | AI Role | Verification Method | Status |
 |---|---|---|---|---|
+| `reference/`, `.agents/`, `skills-lock.json` | Removal of redundant and untracked directories/files from the repository root to ensure a clean, uncluttered repository layout | Cleanup and hygiene | Confirmed removal via `Test-Path`; verified full test suite passes (214/214 tests in 27.3s via `run_tests.py`); verified frontend build (`npm run build` in 987ms, 0 errors). | **Verified** |
 | `run_tests.py`, `.env.example`, `ringtrace/backend/.env.example`, `ringtrace/docs/generated_reports/`, `README.md`, `docs/README.md`, `backend/tests/README.md` | Repository structure reorganization, unified root test runner, documentation categorization, and .env configuration for Gemini API key | Structural refactoring and documentation architecture | Verified `python run_tests.py` runs all 214 tests with 100% pass rate; verified frontend `npm run build` passes with 0 errors. | **Verified** |
 | `frontend/src/features/investigation/` (`InvestigationPanel.tsx`, `DecisionBar.tsx`, `DemoControls.tsx`), `frontend/src/components/cases/CaseDetailView.tsx` | Merge conflict resolution between Member A Stitch UI overhaul and Member B dynamic investigation capabilities | Conflict resolution and code integration | Clean build with `npm run build` (0 TS errors); verified live state flow and token styling. | **Verified** |
 | `backend/tests/test_e2e_workflow.py` | Restored `FALKORDB_MEMORY_GRAPH` environment variable isolation in `tearDownClass` | Fixed test isolation leak | Ran full backend suite; 214/214 tests passed in 17.5s. | **Verified** |
@@ -262,4 +263,11 @@ Audit notes: `/scan` owns fraud-detector dispatch; Member B's `run_algorithm` is
 | Tool | Files generated or modified | Purpose | Verification / review |
 |---|---|---|---|
 | Antigravity (Advanced Agentic Coding) | `backend/tests/test_payroll_scenario_e2e.py`, `docs/STATUS.md`, `docs/AI_USAGE.md`. | End-to-end validation of the existing `payroll_fan_out` scenario through the complete detection and case pipeline (`run_scan` -> detectors -> case builder -> scoring -> memory persistence -> API endpoints). Verified benign classification, empirical recurrence detection, deterministic case generation, score breakdown with payroll origin discount, 100% evidence traceability, repeat-scan idempotency, analyst status preservation, and comparison with a single-batch missing baseline look-alike. | `backend/tests/test_payroll_scenario_e2e.py`: 4 tests passed in 0.485s. `backend/tests/test_fan_detectors.py`: 12 tests passed in 0.197s. Full backend test suite (`python -m unittest discover tests`): 210 tests passed in 20.775s. Frontend build (`npm run build`): passed with 0 errors in 906ms. All tests executed on isolated disposable test graphs (`test_payroll_*`). Zero modifications made to detector thresholds or ground truth. |
+
+## Root Folder Hygiene & Cleanup — 2026-10-17
+
+| Tool | Files generated or modified | Purpose | Verification / review |
+|---|---|---|---|
+| Antigravity (Advanced Agentic Coding) | Removed `d:\vortex\reference\`, `d:\vortex\.agents\`, `d:\vortex\skills-lock.json`; updated `docs/STATUS.md`, `docs/AI_USAGE.md`. | Permanently removed untracked reference directory and agent skills directory from root of the app to keep directory structure clean, minimal, and easily navigable. | Verified removal with `Test-Path`; full backend test suite (`python run_tests.py`): 214/214 passed in 27.3s; frontend production build (`npm run build`): passed with 0 errors in 987ms. Zero regressions. |
+
 
