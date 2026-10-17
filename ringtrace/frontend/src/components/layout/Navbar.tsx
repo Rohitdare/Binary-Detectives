@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, RefreshCw, CheckCircle2, AlertCircle, Database, ShieldCheck } from 'lucide-react';
+import { Search, RefreshCw, CheckCircle2, AlertCircle, Database, ShieldCheck, LogOut } from 'lucide-react';
 import type { HealthStatus, SearchResultAccount } from '../../types';
 import { ringtraceApi } from '../../services/api';
+import { useAuth } from '../../features/auth/AuthContext';
 
 interface NavbarProps {
   health: HealthStatus | null;
@@ -10,6 +11,8 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ health, onRefreshHealth, onSelectAccount }) => {
+  const { profile, signOut } = useAuth();
+  const initials = `${profile?.name?.[0] ?? ''}${profile?.surname?.[0] ?? ''}`.toUpperCase() || 'U';
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResultAccount[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -234,6 +237,35 @@ export const Navbar: React.FC<NavbarProps> = ({ health, onRefreshHealth, onSelec
             onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.8'; }}
           >
             <RefreshCw size={11} />
+          </button>
+        </div>
+
+        {/* Signed-in user */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', paddingLeft: '1rem', borderLeft: '1px solid var(--border-subtle)' }}>
+          <div style={{
+            width: 32, height: 32, borderRadius: '50%',
+            background: 'var(--brand-forest)', color: '#fff',
+            display: 'grid', placeItems: 'center',
+            fontSize: '0.72rem', fontWeight: 700
+          }}>
+            {initials}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
+            <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+              {profile ? `${profile.name} ${profile.surname}`.trim() || profile.username : 'User'}
+            </span>
+            <span className="mono" style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>
+              {profile?.workId || profile?.username}
+            </span>
+          </div>
+          <button
+            id="navbar-signout"
+            onClick={() => { void signOut(); }}
+            title="Sign out"
+            className="rt-button rt-button-sm"
+            style={{ padding: '0.35rem 0.5rem' }}
+          >
+            <LogOut size={13} />
           </button>
         </div>
       </div>
