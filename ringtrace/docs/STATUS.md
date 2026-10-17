@@ -8,6 +8,11 @@
 
 ## 0. Latest Update
 
+- [x] **Merge origin/mayuri-d2 Resolution & Investigation UI Integration (2026-10-17):**
+  - Resolved merge conflicts cleanly across all 4 conflicting frontend files: `CaseDetailView.tsx`, `DecisionBar.tsx`, `DemoControls.tsx`, and `InvestigationPanel.tsx`.
+  - Harmonized Member A's Stitch design system (neutral white/slate cards, refined typography, consistent tokens) with Member B's dynamic capabilities (live cases selector, `MarkdownViewer`, similar-cases badge, dynamic tool call telemetry, and action status approval flow).
+  - Fixed environment variable isolation leak in [`test_e2e_workflow.py`](file:///d:/vortex/ringtrace/backend/tests/test_e2e_workflow.py) (`FALKORDB_MEMORY_GRAPH` restoration in `tearDownClass`), ensuring `test_memory_story.py` and downstream tests pass cleanly.
+  - Verified 100% clean production frontend build (`npm run build`, 0 errors) and all 214 backend unit/integration tests passing.
 - [x] **Evaluation Correctness & Ground-Truth Leakage Audit (2026-10-17):**
   - **Ground-Truth Isolation Verified:** Audited all 9 detector implementations, `queries.py`, and `scan_service.py`. Verified zero AST imports of `app.evaluator` or `alerts.csv` and confirmed query executions against `txn` graph never reference the isolated `labels` graph. Direct query verification via `LABEL_LEAKAGE_CHECK` on live `txn` graph confirmed 0 leaked label properties on nodes or edges.
   - **Metric Calculation Defects Corrected:**
