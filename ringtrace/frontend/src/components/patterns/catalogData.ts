@@ -4,6 +4,9 @@ import {
   GitBranch,
   Network,
   ArrowRight,
+  Grid,
+  Boxes,
+  Share2,
 } from 'lucide-react';
 import type { DetectorPattern } from '../../types';
 
@@ -65,10 +68,34 @@ export const DETECTOR_CATALOG: CatalogDetector[] = [
     icon: Network,
     isLive: true,
   },
+  {
+    id: 'bipartite',
+    name: 'Bipartite Networks',
+    tag: 'Layered Structuring',
+    explanation: 'Detects dense many-to-many bipartite transfer rectangles where distinct source accounts coordinate transfers across a shared group of targets.',
+    icon: Grid,
+    isLive: true,
+  },
+  {
+    id: 'dense_cluster',
+    name: 'Dense Clusters',
+    tag: 'Community Density',
+    explanation: 'Identifies compact local transaction neighborhoods exhibiting unusually high directed internal edge density and high transfer frequency.',
+    icon: Boxes,
+    isLive: true,
+  },
+  {
+    id: 'hub_account',
+    name: 'Hub Account Velocity',
+    tag: 'Outlier Centrality',
+    explanation: 'Flags high-degree centrality hub accounts with anomalous transaction velocity and balanced aggregate inflows and outflows.',
+    icon: Share2,
+    isLive: true,
+  },
 ];
 
 export const ROADMAP_DETECTORS = [
-  { name: 'Dense Clusters', tag: 'Community Density', note: 'Phase 3 planned typology' },
-  { name: 'Bipartite Networks', tag: 'Layered Structuring', note: 'Phase 3 planned typology' },
-  { name: 'Hub Account Velocity', tag: 'Outlier Centrality', note: 'Phase 3 planned typology' },
+  { name: 'Temporal Entropy', tag: 'Micro-Timing Analysis', note: 'Sub-second inter-arrival anomaly scoring' },
+  { name: 'Cross-Channel Mule Mesh', tag: 'Omnichannel Hopping', note: 'Heterogeneous payment channel correlation' },
+  { name: 'Flow-Ratio Deviation', tag: 'Volume Delta Sinks', note: 'Longitudinal asymmetric accumulation' },
 ];

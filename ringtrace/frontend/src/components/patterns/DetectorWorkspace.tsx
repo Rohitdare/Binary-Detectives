@@ -23,6 +23,14 @@ import { CandidateGraph } from './CandidateGraph';
 import { CandidateEvidencePanel } from './CandidateEvidencePanel';
 import { CandidateIdInfo } from './CandidateIdInfo';
 
+export interface DetectorExecutionOptions {
+  cycleHopRange?: '3-5' | '3' | '4' | '5';
+  cycleLength?: '3-5' | '3' | '4' | '5';
+  bipartitePreset?: 'standard' | 'broad' | 'strict';
+  clusterPreset?: 'standard' | 'dense' | 'extreme';
+  hubPreset?: 'standard' | 'broad' | 'extreme';
+}
+
 interface DetectorWorkspaceProps {
   pattern: DetectorPattern;
   candidates: WorkbenchCandidate[];
@@ -31,7 +39,10 @@ interface DetectorWorkspaceProps {
   error: string | null;
   truncationReason: string | null;
   onBackToCatalog: () => void;
-  onExecute: (pattern: DetectorPattern, cycleLength?: '3-5' | '3' | '4' | '5') => Promise<void>;
+  onExecute: (
+    pattern: DetectorPattern,
+    options?: '3-5' | '3' | '4' | '5' | DetectorExecutionOptions
+  ) => Promise<void>;
   onInspectAccount: (accountId: string) => void;
   // Cycle specific evaluation
   evaluation?: CycleEvaluationReport | null;
@@ -58,6 +69,9 @@ export const DetectorWorkspace: React.FC<DetectorWorkspaceProps> = ({
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
   const [selectedTx, setSelectedTx] = useState<DetectorTransaction | null>(null);
   const [cycleLength, setCycleLength] = useState<'3-5' | '3' | '4' | '5'>('3-5');
+  const [bipartitePreset, setBipartitePreset] = useState<'standard' | 'broad' | 'strict'>('standard');
+  const [clusterPreset, setClusterPreset] = useState<'standard' | 'dense' | 'extreme'>('standard');
+  const [hubPreset, setHubPreset] = useState<'standard' | 'broad' | 'extreme'>('standard');
 
   const selectedCandidate =
     (selectedCandidateId ? candidates.find((c) => c.id === selectedCandidateId) : null) ??
@@ -77,7 +91,12 @@ export const DetectorWorkspace: React.FC<DetectorWorkspaceProps> = ({
 
   const handleRun = () => {
     if (isRunning) return;
-    void onExecute(pattern, pattern === 'cycle' ? cycleLength : undefined);
+    void onExecute(pattern, {
+      cycleHopRange: cycleLength,
+      bipartitePreset,
+      clusterPreset,
+      hubPreset,
+    });
   };
 
   return (
@@ -188,6 +207,114 @@ export const DetectorWorkspace: React.FC<DetectorWorkspaceProps> = ({
                   <option value="3">3 hops</option>
                   <option value="4">4 hops</option>
                   <option value="5">5 hops</option>
+                </select>
+              </label>
+            )}
+
+            {pattern === 'bipartite' && (
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  fontSize: '0.75rem',
+                  color: 'var(--text-secondary)',
+                }}
+              >
+                <span>Matrix:</span>
+                <select
+                  value={bipartitePreset}
+                  onChange={(e) => {
+                    const nextVal = e.target.value as typeof bipartitePreset;
+                    setBipartitePreset(nextVal);
+                    if (pattern === 'bipartite' && !isRunning) {
+                      void onExecute('bipartite', { bipartitePreset: nextVal });
+                    }
+                  }}
+                  className="rt-input"
+                  style={{
+                    padding: '0.25rem 0.5rem',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                  }}
+                  disabled={isRunning}
+                  aria-label="Bipartite matrix size"
+                >
+                  <option value="standard">3x3 (Standard)</option>
+                  <option value="broad">2x2 (Broad Search)</option>
+                  <option value="strict">4x4 (Strict Large)</option>
+                </select>
+              </label>
+            )}
+
+            {pattern === 'dense_cluster' && (
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  fontSize: '0.75rem',
+                  color: 'var(--text-secondary)',
+                }}
+              >
+                <span>Density:</span>
+                <select
+                  value={clusterPreset}
+                  onChange={(e) => {
+                    const nextVal = e.target.value as typeof clusterPreset;
+                    setClusterPreset(nextVal);
+                    if (pattern === 'dense_cluster' && !isRunning) {
+                      void onExecute('dense_cluster', { clusterPreset: nextVal });
+                    }
+                  }}
+                  className="rt-input"
+                  style={{
+                    padding: '0.25rem 0.5rem',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                  }}
+                  disabled={isRunning}
+                  aria-label="Dense cluster density threshold"
+                >
+                  <option value="standard">≥10% (Balanced)</option>
+                  <option value="dense">≥20% (High Density)</option>
+                  <option value="extreme">≥30% (Tight Core)</option>
+                </select>
+              </label>
+            )}
+
+            {pattern === 'hub_account' && (
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  fontSize: '0.75rem',
+                  color: 'var(--text-secondary)',
+                }}
+              >
+                <span>Sensitivity:</span>
+                <select
+                  value={hubPreset}
+                  onChange={(e) => {
+                    const nextVal = e.target.value as typeof hubPreset;
+                    setHubPreset(nextVal);
+                    if (pattern === 'hub_account' && !isRunning) {
+                      void onExecute('hub_account', { hubPreset: nextVal });
+                    }
+                  }}
+                  className="rt-input"
+                  style={{
+                    padding: '0.25rem 0.5rem',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                  }}
+                  disabled={isRunning}
+                  aria-label="Hub account outlier sensitivity"
+                >
+                  <option value="standard">3.0σ (Outlier Hubs)</option>
+                  <option value="broad">2.5σ (Broad Search)</option>
+                  <option value="extreme">4.0σ (Extreme Centrality)</option>
                 </select>
               </label>
             )}

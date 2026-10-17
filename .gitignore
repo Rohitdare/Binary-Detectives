@@ -251,14 +251,30 @@ Thumbs.db
 Desktop.ini
 ehthumbs.db
 
+# TypeScript & Build Info
+*.tsbuildinfo
+**/*.tsbuildinfo
+
+# General Cache Directories
+.cache/
+**/.cache/
+
 # ------------------------------------------------------------------------------
 # Agent Tooling, Local Configurations & Scratch
 # ------------------------------------------------------------------------------
 .agents/
 skills-lock.json
 .system_generated/
+**/.system_generated/
+**/.tempmediaStorage/
+**/.click_feedback/
+**/click_feedback_*.png
 scratch/
 **/scratch/
 .gemini/
 .claude/
 .antigravity/
+temp/
+**/temp/
+tmp/
+**/tmp/

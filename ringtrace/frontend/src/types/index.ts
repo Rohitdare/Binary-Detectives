@@ -115,7 +115,10 @@ export type DetectorPattern =
   | 'fan_out'
   | 'relay_chain'
   | 'scatter_gather'
-  | 'gather_scatter';
+  | 'gather_scatter'
+  | 'bipartite'
+  | 'dense_cluster'
+  | 'hub_account';
 
 export interface DetectorTransaction {
   tx_id: string;
@@ -155,6 +158,7 @@ export interface DetectorRunResponse {
   suspicious_count: number;
   truncated: boolean;
   truncation_reason: string | null;
+  truncation_reasons?: string[];
   execution_time_ms: number;
   edges_scanned?: number;
   search_steps?: number;

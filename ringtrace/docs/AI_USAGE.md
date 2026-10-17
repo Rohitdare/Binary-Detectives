@@ -46,7 +46,7 @@ This document records code generated or modified by AI agents and the concrete v
 | `frontend/src/features/investigation/` | React frontend panels: `InvestigationPanel`, `MemoryPanel`, `DecisionBar`, `DemoControls` | Generated React components | Built with Vite + TypeScript (`npm run build` 0 errors); browser automation verified live on port 5173. | **Verified** |
 | `backend/app/stream/worker.py`, `backend/app/api/stream_routes.py` | Transaction stream replay worker, SSE feed, and one-click demo reset endpoint (`POST /demo/reset`) | Generated stream replay and reset logic | Tested stream start, pause, resume, stop, and demo reset against FalkorDB; 4/4 automated tests passed. Full suite: 67/67 passed. | **Verified** |
 | `backend/tests/test_stream_and_reset.py` | Test suite for stream replay lifecycle and demo reset environment | Generated test suite | 4/4 passed in 2.3s. Full suite: 67/67 passed. | **Verified** |
-
+| `frontend/src/components/patterns/` & `services/api.ts` | Frontend integration and optimization for Bipartite, Dense Cluster, and Hub Account detectors | Generated TypeScript client, state management, UI parameter presets, and Cytoscape layouts | Verified with `npm run build` (code 0), oxlint (0 errors), live browser UI validation, and 175 backend tests passing. | **Verified** |
 
 ---
 

@@ -26,20 +26,40 @@ export const CandidateGraph: React.FC<CandidateGraphProps> = ({
     if (!containerRef.current) return;
     cyRef.current?.destroy();
 
-    // Determine hub account for fan-in, fan-out, gather-scatter
-    const hubAccount =
-      candidate.pattern === 'fan_in' || candidate.pattern === 'fan_out'
-        ? candidate.accounts[0]
-        : null;
+    // Determine hub account for fan-in, fan-out, gather-scatter, and hub_account
+    let hubAccount: string | null = null;
+    if (candidate.pattern === 'hub_account') {
+      hubAccount = candidate.accounts[0];
+    } else if (candidate.pattern === 'fan_in' || candidate.pattern === 'fan_out') {
+      hubAccount = candidate.accounts[0];
+    } else if (candidate.pattern === 'gather_scatter') {
+      hubAccount = String(candidate.measurements.accumulator_id ?? candidate.accounts[0]);
+    }
 
-    const nodes: cytoscape.ElementDefinition[] = candidate.accounts.map((id, index) => ({
-      data: {
-        id,
-        label: id,
-        hub: id === hubAccount,
-        sequence: index,
-      },
-    }));
+    // For bipartite: classify accounts into source or target
+    const isBipartite = candidate.pattern === 'bipartite';
+    const sourceSet = new Set<string>();
+    const targetSet = new Set<string>();
+    if (isBipartite) {
+      for (const tx of candidate.transactions) {
+        sourceSet.add(tx.src);
+        targetSet.add(tx.dst);
+      }
+    }
+
+    const nodes: cytoscape.ElementDefinition[] = candidate.accounts.map((id, index) => {
+      const isSrc = isBipartite && sourceSet.has(id);
+      const isDst = isBipartite && targetSet.has(id);
+      return {
+        data: {
+          id,
+          label: id,
+          hub: id === hubAccount,
+          bipartiteRole: isSrc ? 'source' : isDst ? 'target' : 'none',
+          sequence: index,
+        },
+      };
+    });
 
     const edges: cytoscape.ElementDefinition[] = candidate.transactions.map((tx, index) => ({
       data: {
@@ -90,6 +110,24 @@ export const CandidateGraph: React.FC<CandidateGraphProps> = ({
           },
         },
         {
+          selector: 'node[bipartiteRole = "source"]',
+          style: {
+            'background-color': '#06B6D4',
+            'border-color': '#0891B2',
+            'border-width': 2,
+            color: '#A5F3FC',
+          },
+        },
+        {
+          selector: 'node[bipartiteRole = "target"]',
+          style: {
+            'background-color': '#A855F7',
+            'border-color': '#9333EA',
+            'border-width': 2,
+            color: '#F3E8FF',
+          },
+        },
+        {
           selector: 'node:selected',
           style: {
             'border-width': 3,
@@ -132,7 +170,12 @@ export const CandidateGraph: React.FC<CandidateGraphProps> = ({
         },
       ],
       layout: {
-        name: candidate.pattern === 'cycle' ? 'circle' : 'concentric',
+        name:
+          candidate.pattern === 'cycle'
+            ? 'circle'
+            : candidate.pattern === 'bipartite'
+            ? 'breadthfirst'
+            : 'concentric',
         padding: 32,
         animate: false,
       },

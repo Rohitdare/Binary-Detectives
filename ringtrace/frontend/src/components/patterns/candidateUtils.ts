@@ -59,6 +59,20 @@ export function getCandidateHumanTitle(candidate: WorkbenchCandidate): string {
       const outCount = m.target_count ?? '?';
       return `${inCount} In → [${accum}] → ${outCount} Out`;
     }
+    case 'bipartite': {
+      const sources = m.source_count ?? '?';
+      const targets = m.target_count ?? '?';
+      return `Bipartite: ${sources} Sources ⇄ ${targets} Targets`;
+    }
+    case 'dense_cluster': {
+      const count = m.account_count ?? candidate.accounts.length;
+      return `${count}-Account Dense Cluster`;
+    }
+    case 'hub_account': {
+      const hub = String(candidate.accounts[0] ?? m.hub_account_id ?? 'Hub');
+      const degree = m.distinct_counterparties ?? m.counterparty_count ?? candidate.transactions.length;
+      return `Hub ${hub} (${degree} Counterparties)`;
+    }
     default:
       return `${candidate.accounts.length} Accounts · ${candidate.transactions.length} Transfers`;
   }
@@ -82,10 +96,22 @@ export function getCandidateHumanSubtitle(candidate: WorkbenchCandidate): string
     parts.push(`${(Number(m.overall_retention_ratio) * 100).toFixed(1)}% retained`);
   } else if (m.amount_conservation_ratio !== undefined) {
     parts.push(`${(Number(m.amount_conservation_ratio) * 100).toFixed(1)}% conserved`);
+  } else if (m.density !== undefined) {
+    parts.push(`${(Number(m.density) * 100).toFixed(0)}% density`);
+  } else if (m.inflow_outflow_ratio !== undefined) {
+    parts.push(`${Number(m.inflow_outflow_ratio).toFixed(2)}x flow ratio`);
   }
 
   if (m.structuring_share !== undefined && Number(m.structuring_share) > 0) {
     parts.push(`${(Number(m.structuring_share) * 100).toFixed(0)}% structuring`);
+  }
+
+  if (m.log_degree_z_score !== undefined) {
+    parts.push(`${Number(m.log_degree_z_score).toFixed(1)}σ z-score`);
+  } else if (m.internal_transaction_count !== undefined) {
+    parts.push(`${m.internal_transaction_count} internal txs`);
+  } else if (m.observed_pairs !== undefined) {
+    parts.push(`${m.observed_pairs} shared pairs`);
   }
 
   return parts.length > 0 ? parts.join(' · ') : `${candidate.transactions.length} transfers`;
@@ -144,10 +170,27 @@ export function detectorHitToWorkbenchCandidate(hit: DetectorHit): WorkbenchCand
   if (typeof m.time_window_seconds === 'number') duration = m.time_window_seconds;
   else if (typeof m.duration_seconds === 'number') duration = m.duration_seconds;
 
+  // Ensure accounts array has all interacting accounts (essential for Cytoscape node rendering)
+  let accounts = Array.isArray(hit.account_ids) ? [...hit.account_ids] : [];
+  if (Array.isArray(m.counterparty_ids)) {
+    const cpSet = new Set(accounts);
+    for (const cp of m.counterparty_ids as string[]) {
+      cpSet.add(cp);
+    }
+    accounts = Array.from(cpSet);
+  } else if (Array.isArray(hit.transactions)) {
+    const txSet = new Set(accounts);
+    for (const tx of hit.transactions) {
+      if (tx.src) txSet.add(tx.src);
+      if (tx.dst) txSet.add(tx.dst);
+    }
+    accounts = Array.from(txSet);
+  }
+
   const candidate: WorkbenchCandidate = {
     id: hit.hit_id,
     pattern: hit.pattern,
-    accounts: hit.account_ids,
+    accounts,
     transactions: hit.transactions || [],
     measurements: hit.measurements || {},
     suspicious: Boolean(m.suspicious),

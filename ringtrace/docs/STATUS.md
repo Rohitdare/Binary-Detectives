@@ -8,6 +8,20 @@
 
 ## 1. Completed Capabilities
 
+- [x] **Member A: 9/9 Active Graph Detection Typologies Integrated into Frontend UI (2026-10-17):**
+  - Integrated the remaining 3 backend detectors (`bipartite`, `dense_cluster`, and `hub_account`) into the React frontend detection workbench and catalog.
+  - Updated `DetectorPattern` union in `frontend/src/types/index.ts` to include all 9 typologies: `cycle`, `fan_in`, `fan_out`, `relay_chain`, `scatter_gather`, `gather_scatter`, `bipartite`, `dense_cluster`, `hub_account`.
+  - Added dedicated API client methods in `frontend/src/services/api.ts` (`detectBipartite`, `detectDenseCluster`, `detectHubAccount`) connecting to backend `/api/v1/detectors/...`.
+  - Promoted `bipartite`, `dense_cluster`, and `hub_account` to active live engines in `frontend/src/components/patterns/catalogData.ts` with custom Lucide icons (`Grid`, `Boxes`, `Share2`).
+  - Added parameter optimization selectors to `DetectorWorkspace.tsx`:
+    - Bipartite Matrix dimension selector (`3x3 (Standard)`, `2x2 (Broad Search)`, `4x4 (Strict Large)`).
+    - Dense Cluster density threshold selector (`≥10% (Balanced)`, `≥20% (High Density)`, `≥30% (Tight Core)`).
+    - Hub Account outlier sensitivity selector (`3.0σ (Outlier Hubs)`, `2.5σ (Broad Search)`, `4.0σ (Extreme Centrality)`).
+  - Formatted human-readable titles, subtitles, percentages (density), and outlier metric displays (`σ`, flow ratio) in `candidateUtils.ts` and `CandidateEvidencePanel.tsx`.
+  - Upgraded Cytoscape canvas (`CandidateGraph.tsx`) with bipartite role color distinction (cyan sources, purple targets, breadthfirst layout) and concentric hub-and-spoke layout for hub accounts.
+  - Updated detector badges across `Sidebar.tsx`, `DetectorCatalog.tsx`, and `SummaryCards.tsx` to `9 Active Graph Engines` / `100% Typology Coverage`.
+  - Validated with clean frontend build (`npm run build`), 0 lint errors, and 175 passing backend tests.
+
 - [x] **Member B Step 6: Stream Replay and Demo Reset (2026-10-16):**
   - Built `backend/app/stream/worker.py` managing playback of 4,067 withheld transactions into FalkorDB `txn` graph in small configurable bursts (25, 50, 100 tx/s).
   - Exposes `GET /api/v1/stream/events` emitting real-time SSE stream events (`stream_status`, `tx_batch`, `case_created`, `case_updated`, `heartbeat`).
