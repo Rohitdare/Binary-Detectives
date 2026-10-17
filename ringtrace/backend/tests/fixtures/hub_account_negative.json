@@ -1,1 +1,0 @@
-{"accounts":[{"id":"A"},{"id":"B"},{"id":"C"}],"transactions":[{"tx_id":"N1","src":"A","dst":"B","amount":100,"ts":1},{"tx_id":"N2","src":"B","dst":"C","amount":100,"ts":2}]}

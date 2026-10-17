@@ -1,1 +1,0 @@
-{"accounts":[{"id":"A"},{"id":"B"},{"id":"C"},{"id":"D"},{"id":"E"}],"transactions":[{"tx_id":"L1","src":"A","dst":"B","amount":100,"ts":1},{"tx_id":"L2","src":"A","dst":"C","amount":100,"ts":2},{"tx_id":"L3","src":"A","dst":"D","amount":100,"ts":3},{"tx_id":"L4","src":"A","dst":"E","amount":100,"ts":4}]}
