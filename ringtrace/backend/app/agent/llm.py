@@ -19,6 +19,12 @@ except ImportError:
     genai = None
     types = None
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
 DEFAULT_TIMEOUT = float(os.getenv("GEMINI_TIMEOUT_SECONDS", "10.0"))
 

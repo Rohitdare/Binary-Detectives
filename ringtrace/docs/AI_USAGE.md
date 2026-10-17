@@ -8,6 +8,7 @@ This document records code generated or modified by AI agents and the concrete v
 
 | Module / Artifact | Purpose | AI Role | Verification Method | Status |
 |---|---|---|---|---|
+| `run_tests.py`, `.env.example`, `ringtrace/backend/.env.example`, `ringtrace/docs/generated_reports/`, `README.md`, `docs/README.md`, `backend/tests/README.md` | Repository structure reorganization, unified root test runner, documentation categorization, and .env configuration for Gemini API key | Structural refactoring and documentation architecture | Verified `python run_tests.py` runs all 214 tests with 100% pass rate; verified frontend `npm run build` passes with 0 errors. | **Verified** |
 | `frontend/src/features/investigation/` (`InvestigationPanel.tsx`, `DecisionBar.tsx`, `DemoControls.tsx`), `frontend/src/components/cases/CaseDetailView.tsx` | Merge conflict resolution between Member A Stitch UI overhaul and Member B dynamic investigation capabilities | Conflict resolution and code integration | Clean build with `npm run build` (0 TS errors); verified live state flow and token styling. | **Verified** |
 | `backend/tests/test_e2e_workflow.py` | Restored `FALKORDB_MEMORY_GRAPH` environment variable isolation in `tearDownClass` | Fixed test isolation leak | Ran full backend suite; 214/214 tests passed in 17.5s. | **Verified** |
 | `backend/app/db.py` | Centralized database connection and audit logger | Generated implementation | Connected to FalkorDB; executed Cypher commands; verified JSONL audit streaming in `logs/queries.jsonl`. | **Verified** |

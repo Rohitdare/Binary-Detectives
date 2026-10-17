@@ -7,6 +7,12 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
+try:
     from app.api.investigation_routes import router as investigation_router
     from app.api.stream_routes import router as stream_router
     from app.db import FalkorDBClient

@@ -8,6 +8,13 @@
 
 ## 0. Latest Update
 
+- [x] **Repository Structure Reorganization & Environment Configuration (2026-10-17):**
+  - **Environment Configuration:** Added `.env` and `.env.example` templates for Google Gemini API key (`GEMINI_API_KEY`) and FalkorDB configuration. Integrated automatic loading via `python-dotenv` in `main.py` and `agent/llm.py`. Added `.env` to `.gitignore` to prevent secret leaks.
+  - **Documentation Organization:** Separated core documentation from historical simulation/audit reports. Moved 7 generated logs (`AGENT_DECISIONS.md`, `BUILD_LOG.md`, `FUNCTION_MAP.md`, `QUERY_LOG.md`, `SIMULATOR_ANALYSIS.md`, `SIMULATOR_FIELD_MAPPING.md`, `SIMULATOR_PATTERN_COVERAGE.md`) into a clean [`ringtrace/docs/generated_reports/`](file:///d:/vortex/ringtrace/docs/generated_reports/) directory. Created a dedicated [`docs/README.md`](file:///d:/vortex/ringtrace/docs/README.md) hub index.
+  - **Unified Root Test Runner:** Implemented [`run_tests.py`](file:///d:/vortex/run_tests.py) at the repository root allowing 1-command execution of all 23 backend test suites (214 tests). Added comprehensive test inventory catalog in [`tests/README.md`](file:///d:/vortex/ringtrace/backend/tests/README.md).
+  - **Clutter Elimination:** Removed redundant duplicate files (`MEMBER_A_AGENT_PROMPT.md`, `ringtrace/AGENTS.md`, `ringtrace/AGENTS_MEMBER_A.md`).
+  - **Master README Overhaul:** Rewrote root [`README.md`](file:///d:/vortex/README.md) with modern system architecture ASCII diagram, directory map, quick start guide, test runner usage, and documentation index.
+  - **Verification:** Verified all 214 tests pass via `python run_tests.py` (21.5s, exit code 0); verified frontend build passes via `npm run build` (0 errors).
 - [x] **Merge origin/mayuri-d2 Resolution & Investigation UI Integration (2026-10-17):**
   - Resolved merge conflicts cleanly across all 4 conflicting frontend files: `CaseDetailView.tsx`, `DecisionBar.tsx`, `DemoControls.tsx`, and `InvestigationPanel.tsx`.
   - Harmonized Member A's Stitch design system (neutral white/slate cards, refined typography, consistent tokens) with Member B's dynamic capabilities (live cases selector, `MarkdownViewer`, similar-cases badge, dynamic tool call telemetry, and action status approval flow).
