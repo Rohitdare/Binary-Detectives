@@ -43,6 +43,7 @@ class TestEndToEndCaseWorkflow(unittest.TestCase):
         # Point app to test graphs
         cls.previous_graph = getattr(app.state, "graph_name", "txn")
         cls.previous_db = getattr(app.state, "db_client", None)
+        cls.previous_mem_env = os.environ.get("FALKORDB_MEMORY_GRAPH")
         app.state.graph_name = cls.txn_graph
         app.state.db_client = cls.db
         os.environ["FALKORDB_MEMORY_GRAPH"] = cls.memory_graph
@@ -53,6 +54,10 @@ class TestEndToEndCaseWorkflow(unittest.TestCase):
     def tearDownClass(cls):
         app.state.graph_name = cls.previous_graph
         app.state.db_client = cls.previous_db
+        if cls.previous_mem_env:
+            os.environ["FALKORDB_MEMORY_GRAPH"] = cls.previous_mem_env
+        else:
+            os.environ.pop("FALKORDB_MEMORY_GRAPH", None)
         cls.db.delete_graph(cls.txn_graph, caller="test:e2e_cleanup")
         cls.db.delete_graph(cls.memory_graph, caller="test:e2e_cleanup")
 

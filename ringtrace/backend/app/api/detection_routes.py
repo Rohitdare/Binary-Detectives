@@ -86,6 +86,15 @@ def _case_from_row(row: Any) -> Optional[dict]:
     raw = row[0].decode("utf-8") if isinstance(row[0], bytes) else row[0]
     case = json.loads(raw) if isinstance(raw, str) else dict(raw)
     case["status"] = str(row[1] or case.get("status", "open"))
+    if "account_count" not in case:
+        case["account_count"] = len(case.get("accounts", []) or case.get("account_ids", []))
+    if "tx_count" not in case:
+        case["tx_count"] = len(case.get("tx_ids", []))
+    if "total_amount" not in case:
+        case["total_amount"] = 0.0
+    if "severity" not in case:
+        score = case.get("score", 0)
+        case["severity"] = "high" if score >= 70 else "medium" if score >= 40 else "low"
     return case
 
 
@@ -268,13 +277,21 @@ def get_case(case_id: str, request: Request):
         if not case:
             return _error(404, "not_found", "Case not found")
         hit_rows = db.execute_query(_memory_graph(), GET_CASE_HITS, {"case_id": case_id}, caller="api:case_hits").result_set or []
-        hits = [json.loads(row[0]) if isinstance(row[0], str) else row[0] for row in hit_rows]
+        db_hits = [json.loads(row[0]) if isinstance(row[0], str) else row[0] for row in hit_rows if row and row[0] is not None]
+        case_hits = db_hits or case.get("hits", [])
+        case["hits"] = case_hits
+        if case_hits:
+            transactions = {tx.get("tx_id"): tx for hit in case_hits if isinstance(hit, dict) for tx in hit.get("transactions", []) if isinstance(tx, dict) and tx.get("tx_id")}
+            if transactions:
+                case["transactions"] = sorted(transactions.values(), key=lambda tx: (int(tx.get("ts", 0)), tx["tx_id"]))
         decision_rows = db.execute_query(_memory_graph(), GET_CASE_DECISIONS, {"case_id": case_id}, caller="api:case_decisions").result_set or []
-        case["hits"] = hits or case.get("hits", [])
-        if hits:
-            transactions = {tx.get("tx_id"): tx for hit in hits for tx in hit.get("transactions", []) if tx.get("tx_id")}
-            case["transactions"] = sorted(transactions.values(), key=lambda tx: (int(tx.get("ts", 0)), tx["tx_id"]))
         case["decisions"] = [{"decision_id": row[0], "decision": row[1], "note": row[2], "actor": row[3], "ts": row[4]} for row in decision_rows]
+        try:
+            from app.mcp_server.tools import find_similar_cases
+        except ImportError:
+            from backend.app.mcp_server.tools import find_similar_cases
+        sim_res = find_similar_cases(case_id, limit=5, db=db, memory_graph=_memory_graph())
+        case["similar_case_count"] = sim_res.get("similar_count", 0)
         return case
     except Exception as error:
         return _error(503, "case_unavailable", "Could not read case detail", {"reason": str(error)})

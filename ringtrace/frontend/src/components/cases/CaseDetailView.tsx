@@ -319,7 +319,6 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
               ))}
             </div>
           </div>
-
           {/* Right: Forensic Metrics Snapshot */}
           <div
             style={{
@@ -365,6 +364,30 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
                 </span>
               </div>
             </div>
+
+            {caseDetail.similar_case_count !== undefined && (
+              <div>
+                <span style={{ fontSize: '0.675rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>
+                  Similar Cases
+                </span>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem', marginTop: '0.1rem' }}>
+                  <span className="rt-badge rt-badge-emerald mono" style={{ fontSize: '0.75rem', fontWeight: 700 }}>
+                    {caseDetail.similar_case_count}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {caseDetail.updated_at && (
+              <div>
+                <span style={{ fontSize: '0.675rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>
+                  Updated
+                </span>
+                <div style={{ fontSize: '0.75rem', color: '#64748B', fontFamily: 'JetBrains Mono, monospace', marginTop: '0.1rem' }}>
+                  {caseDetail.updated_at.substring(0, 19).replace('T', ' ')}
+                </div>
+              </div>
+            )}
 
             {onLaunchAgentInvestigation && (
               <div>

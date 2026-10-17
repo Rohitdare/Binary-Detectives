@@ -26,70 +26,40 @@ export const DemoControls: React.FC<DemoControlsProps> = ({ onResetComplete = ()
   });
   const [batchSize, setBatchSize] = useState<number>(50);
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
-  const [resetFeedback, setResetFeedback] = useState<string | null>(null);
   const [recentBurst, setRecentBurst] = useState<string | null>(null);
+  const [resetFeedback, setResetFeedback] = useState<string | null>(null);
 
-  const eventSourceRef = useRef<EventSource | null>(null);
+  const pollIntervalRef = useRef<any>(null);
 
   const fetchStatus = async () => {
     try {
-      const s = await ringtraceApi.getStreamStatus();
-      setStreamStatus(s);
-    } catch {
-      // ignore on initial load
+      const status = await ringtraceApi.getStreamStatus();
+      setStreamStatus(status);
+      setBatchSize(status.batch_size || 50);
+    } catch (err) {
+      // Keep silent during polling failures
     }
   };
 
   useEffect(() => {
     fetchStatus();
-
-    // Connect to /api/v1/stream/events SSE stream
-    const es = new EventSource('/api/v1/stream/events');
-    eventSourceRef.current = es;
-
-    es.addEventListener('stream_status', (evt: MessageEvent) => {
-      try {
-        const data = JSON.parse(evt.data);
-        setStreamStatus((prev) => ({ ...prev, ...data }));
-      } catch (e) {
-        console.error('Failed to parse stream_status', e);
-      }
-    });
-
-    es.addEventListener('tx_batch', (evt: MessageEvent) => {
-      try {
-        const data = JSON.parse(evt.data);
-        setStreamStatus((prev) => ({
-          ...prev,
-          sent: data.sent,
-          total: data.total,
-          state: 'running',
-        }));
-        setRecentBurst(`Injected burst: ${data.count} transactions (Total: ${data.sent} / ${data.total})`);
-      } catch (e) {
-        console.error('Failed to parse tx_batch', e);
-      }
-    });
-
-    es.addEventListener('case_created', (evt: MessageEvent) => {
-      try {
-        const data = JSON.parse(evt.data);
-        setRecentBurst(`New Case Detected: ${data.case_id} (Score: ${data.score})`);
-      } catch (e) {
-        console.error('Failed to parse case_created', e);
-      }
-    });
-
+    pollIntervalRef.current = setInterval(fetchStatus, 3000);
     return () => {
-      es.close();
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     };
   }, []);
 
   const handleStart = async () => {
     setLoadingAction('start');
     try {
-      const s = await ringtraceApi.startStream(batchSize, 1.0);
-      setStreamStatus(s);
+      const res = await ringtraceApi.startStream(batchSize);
+      setStreamStatus((prev) => ({
+        ...prev,
+        state: 'running',
+        sent: res.sent,
+        total: res.total,
+      }));
+      setRecentBurst(`Started transaction stream replay at ${batchSize} tx/batch`);
     } catch (err: any) {
       console.error('Failed to start stream', err);
     } finally {
@@ -100,8 +70,8 @@ export const DemoControls: React.FC<DemoControlsProps> = ({ onResetComplete = ()
   const handlePause = async () => {
     setLoadingAction('pause');
     try {
-      const s = await ringtraceApi.pauseStream();
-      setStreamStatus(s);
+      await ringtraceApi.pauseStream();
+      setStreamStatus((prev) => ({ ...prev, state: 'paused' }));
     } catch (err: any) {
       console.error('Failed to pause stream', err);
     } finally {
@@ -112,8 +82,13 @@ export const DemoControls: React.FC<DemoControlsProps> = ({ onResetComplete = ()
   const handleResume = async () => {
     setLoadingAction('resume');
     try {
-      const s = await ringtraceApi.resumeStream();
-      setStreamStatus(s);
+      const res = await ringtraceApi.resumeStream();
+      setStreamStatus((prev) => ({
+        ...prev,
+        state: 'running',
+        sent: res.sent,
+        total: res.total,
+      }));
     } catch (err: any) {
       console.error('Failed to resume stream', err);
     } finally {
@@ -124,8 +99,8 @@ export const DemoControls: React.FC<DemoControlsProps> = ({ onResetComplete = ()
   const handleStop = async () => {
     setLoadingAction('stop');
     try {
-      const s = await ringtraceApi.stopStream();
-      setStreamStatus(s);
+      await ringtraceApi.stopStream();
+      setStreamStatus((prev) => ({ ...prev, state: 'idle' }));
     } catch (err: any) {
       console.error('Failed to stop stream', err);
     } finally {
@@ -137,22 +112,27 @@ export const DemoControls: React.FC<DemoControlsProps> = ({ onResetComplete = ()
     if (!window.confirm('Reset Demo Environment?\n\nThis will wipe the memory graph, delete all demo_ injected accounts, reset transaction stream replay to 0, and re-seed clean seed cases (CASE_0001, CASE_0002, CASE_0003).')) {
       return;
     }
-
     setLoadingAction('reset');
     setResetFeedback(null);
     try {
       const res = await ringtraceApi.resetDemo();
-      setResetFeedback(`Demo Environment Reset: Cleared memory graph, wiped ${res.removed_demo_accounts} demo accounts, reset replay stream, and restored ${res.cases_seeded} clean seed cases.`);
-      setStreamStatus((prev) => ({ ...prev, current_index: 0, sent: 0, state: 'idle' }));
+      setStreamStatus((prev) => ({
+        ...prev,
+        state: 'idle',
+        sent: 0,
+      }));
+      setResetFeedback(`Environment successfully reset! Memory cleared, deleted ${res.removed_demo_accounts} injected accounts (${res.removed_demo_edges} edges), and re-seeded ${res.cases_seeded} baseline cases.`);
       onResetComplete(res);
     } catch (err: any) {
-      setResetFeedback(`Demo Reset Failed: ${err?.message || 'Check backend logs.'}`);
+      setResetFeedback(`Demo reset failed: ${err?.message || 'Check backend logs.'}`);
     } finally {
       setLoadingAction(null);
     }
   };
 
-  const percent = streamStatus.total > 0 ? Math.round((streamStatus.sent / streamStatus.total) * 100) : 0;
+  const percent = streamStatus.total > 0
+    ? Math.min(100, Math.round((streamStatus.sent / streamStatus.total) * 100))
+    : 0;
 
   return (
     <div
@@ -254,37 +234,40 @@ export const DemoControls: React.FC<DemoControlsProps> = ({ onResetComplete = ()
               disabled={loadingAction !== null}
               className="rt-button rt-button-primary rt-button-sm"
               style={{ gap: '0.35rem' }}
-              title="Start Playback"
+              title={streamStatus.state === 'paused' ? 'Resume Stream Playback' : 'Start Stream Playback'}
             >
-              <Play size={13} />
+              {loadingAction === 'start' || loadingAction === 'resume' ? (
+                <Loader2 size={13} className="spin" />
+              ) : (
+                <Play size={13} />
+              )}
               <span>{streamStatus.state === 'paused' ? 'Resume' : 'Start Replay'}</span>
             </button>
           )}
 
           {streamStatus.state === 'running' && (
-            <button
-              onClick={handlePause}
-              disabled={loadingAction !== null}
-              className="rt-button rt-button-sm"
-              style={{ backgroundColor: '#FFFBEB', borderColor: '#FCD34D', color: '#B45309' }}
-              title="Pause Playback"
-            >
-              <Pause size={13} />
-              <span>Pause</span>
-            </button>
-          )}
-
-          {streamStatus.state === 'running' && (
-            <button
-              onClick={handleStop}
-              disabled={loadingAction !== null}
-              className="rt-button rt-button-sm"
-              style={{ backgroundColor: '#FEF2F2', borderColor: '#FCA5A5', color: '#B91C1C' }}
-              title="Stop Playback"
-            >
-              <Square size={13} />
-              <span>Stop</span>
-            </button>
+            <>
+              <button
+                onClick={handlePause}
+                disabled={loadingAction !== null}
+                className="rt-button rt-button-sm"
+                style={{ backgroundColor: '#FFFBEB', borderColor: '#FCD34D', color: '#B45309' }}
+                title="Pause Stream Playback"
+              >
+                {loadingAction === 'pause' ? <Loader2 size={13} className="spin" /> : <Pause size={13} />}
+                <span>Pause</span>
+              </button>
+              <button
+                onClick={handleStop}
+                disabled={loadingAction !== null}
+                className="rt-button rt-button-sm"
+                style={{ backgroundColor: '#FEF2F2', borderColor: '#FCA5A5', color: '#B91C1C' }}
+                title="Stop Stream Playback"
+              >
+                {loadingAction === 'stop' ? <Loader2 size={13} className="spin" /> : <Square size={13} />}
+                <span>Stop</span>
+              </button>
+            </>
           )}
 
           {/* One-Click Demo Reset Button */}
@@ -298,10 +281,10 @@ export const DemoControls: React.FC<DemoControlsProps> = ({ onResetComplete = ()
               color: '#B91C1C',
               fontWeight: 600,
             }}
-            title="Wipe memory, clean injected demo data, and restore clean seed cases"
+            title="Wipe demo state, reset memory graph and re-seed clean baseline"
           >
             {loadingAction === 'reset' ? <Loader2 size={13} className="spin" /> : <RotateCcw size={13} />}
-            <span>One-Click Demo Reset</span>
+            <span>Reset Demo</span>
           </button>
         </div>
       </div>
@@ -328,23 +311,30 @@ export const DemoControls: React.FC<DemoControlsProps> = ({ onResetComplete = ()
         />
       </div>
 
-      {/* Live Burst Info or Reset Feedback */}
-      {recentBurst && (
-        <div style={{ marginTop: '0.65rem', fontSize: '0.725rem', color: '#7C3AED', display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 500 }}>
-          <Activity size={13} />
-          <span>{recentBurst}</span>
-        </div>
-      )}
-
-      {resetFeedback && (
+      {/* Burst notification or reset feedback banner */}
+      {(recentBurst || resetFeedback) && (
         <div
           style={{
-            marginTop: '0.75rem',
+            marginTop: '0.85rem',
             padding: '0.55rem 0.85rem',
             borderRadius: '6px',
-            backgroundColor: resetFeedback.includes('failed') ? '#FEF2F2' : '#ECFDF5',
-            border: `1px solid ${resetFeedback.includes('failed') ? '#FCA5A5' : '#6EE7B7'}`,
-            color: resetFeedback.includes('failed') ? '#B91C1C' : '#047857',
+            backgroundColor: resetFeedback
+              ? resetFeedback.includes('failed')
+                ? '#FEF2F2'
+                : '#ECFDF5'
+              : '#EFF6FF',
+            border: `1px solid ${
+              resetFeedback
+                ? resetFeedback.includes('failed')
+                  ? '#FCA5A5'
+                  : '#6EE7B7'
+                : '#BFDBFE'
+            }`,
+            color: resetFeedback
+              ? resetFeedback.includes('failed')
+                ? '#B91C1C'
+                : '#047857'
+              : '#0284C7',
             fontSize: '0.75rem',
             display: 'flex',
             alignItems: 'center',
@@ -352,8 +342,22 @@ export const DemoControls: React.FC<DemoControlsProps> = ({ onResetComplete = ()
             fontWeight: 500,
           }}
         >
-          {resetFeedback.includes('failed') ? <AlertTriangle size={14} /> : <CheckCircle2 size={14} />}
-          <span>{resetFeedback}</span>
+          {resetFeedback ? (
+            resetFeedback.includes('failed') ? <AlertTriangle size={14} /> : <CheckCircle2 size={14} />
+          ) : (
+            <Activity size={14} />
+          )}
+          <span style={{ flex: 1 }}>{resetFeedback || recentBurst}</span>
+          <button
+            onClick={() => {
+              setRecentBurst(null);
+              setResetFeedback(null);
+            }}
+            style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '0.75rem', padding: '0 0.25rem' }}
+            title="Dismiss"
+          >
+            ✕
+          </button>
         </div>
       )}
     </div>

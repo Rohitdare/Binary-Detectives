@@ -211,12 +211,22 @@ def build_case(db: FalkorDBClient, txn_graph: str, spec: Dict[str, Any]) -> Dict
             "measurements": measurements,
             "explanation": _explain(pattern, measurements, txs),
         })
+    total_tx_ids = set()
+    total_amount = 0.0
+    for h in hits:
+        total_tx_ids.update(h.get("tx_ids", []))
+        total_amount += float(h.get("measurements", {}).get("total_amount", 0.0))
+
     breakdown = dict(spec["score_breakdown"])
     breakdown["total"] = sum(v for k, v in breakdown.items() if k != "total")
+    score_val = breakdown["total"]
+    severity_val = "high" if score_val >= 70 else "medium" if score_val >= 40 else "low"
+
     return {
         "case_id": spec["case_id"],
         "patterns": sorted(set(patterns)),
-        "score": breakdown["total"],
+        "score": score_val,
+        "severity": severity_val,
         "score_breakdown": breakdown,
         "status": "open",
         "signature": compute_signature(patterns, account_types),
@@ -224,6 +234,9 @@ def build_case(db: FalkorDBClient, txn_graph: str, spec: Dict[str, Any]) -> Dict
         "hits": hits,
         "accounts": [{"id": a, "type": account_types[a], "roles": sorted(account_roles.get(a, []))}
                      for a in sorted(account_types)],
+        "account_count": len(account_types),
+        "tx_count": len(total_tx_ids),
+        "total_amount": round(total_amount, 2),
     }
 
 
@@ -232,11 +245,13 @@ def write_case(db: FalkorDBClient, memory_graph: str, case: Dict[str, Any]) -> N
         "case_id": case["case_id"],
         "patterns": case["patterns"],
         "score": case["score"],
+        "severity": case["severity"],
         "score_breakdown": json.dumps(case["score_breakdown"]),
         "status": case["status"],
         "signature": case["signature"],
         "updated_at": case["updated_at"],
         "source": "seed",
+        "payload": json.dumps(case),
     }, caller="memory:seed_case")
     for h in case["hits"]:
         db.execute_query(memory_graph, SEED_UPSERT_HIT, {

@@ -631,6 +631,13 @@ def reject_proposed_action(action_id: str):
     )
 
     return {
+        "action": {
+            "action_id": aid,
+            "type": act_type,
+            "reason": reason,
+            "status": "rejected",
+            "resolved_at": now_ts,
+        },
         "action_id": aid,
         "type": act_type,
         "reason": reason,

@@ -66,6 +66,58 @@ class TestAgentComponents(unittest.TestCase):
         self.assertIn("TX_7777777", val.hallucinated_ids)
         self.assertIn("validation failed", val.error_message)
 
+    def test_03b_validator_rejects_invented_acc_and_tx_ids(self):
+        # Explicitly tests prompt requirement: ACC_99999 and TX_9999999 rejection
+        text = "Laundering detected: funds transferred to ACC_99999 under TX_9999999."
+        allowed_accs = {"ACC_00001", "ACC_00002"}
+        allowed_txs = {"TX_0000001"}
+
+        val = validate_narrative(
+            text=text,
+            allowed_accounts=allowed_accs,
+            allowed_transactions=allowed_txs,
+            current_case_id="CASE_0001",
+        )
+        self.assertFalse(val.is_valid)
+        self.assertIn("ACC_99999", val.hallucinated_ids)
+        self.assertIn("TX_9999999", val.hallucinated_ids)
+
+    def test_03c_validator_accepts_demo_accounts_and_tool_case_ids(self):
+        # Explicitly tests acceptance of demo_ accounts and tool-provided CASE_ IDs (both 4-digit and hex)
+        text = (
+            "Origin demo_investor_01 routed funds to demo_receiver_99 via TX_0012345. "
+            "Correlated with prior dismissed case CASE_0007 and topology match CASE_3803f60b5eee."
+        )
+        allowed_accs = {"demo_investor_01", "demo_receiver_99"}
+        allowed_txs = {"TX_0012345"}
+        allowed_cases = {"CASE_0007", "CASE_3803f60b5eee"}
+
+        val = validate_narrative(
+            text=text,
+            allowed_accounts=allowed_accs,
+            allowed_transactions=allowed_txs,
+            allowed_cases=allowed_cases,
+            current_case_id="CASE_0001",
+        )
+        self.assertTrue(val.is_valid)
+        self.assertEqual(len(val.hallucinated_ids), 0)
+        self.assertIn("demo_investor_01", val.referenced_accounts)
+        self.assertIn("CASE_0007", val.referenced_cases)
+        self.assertIn("CASE_3803f60b5eee", val.referenced_cases)
+
+    def test_03d_validator_rejects_unauthorized_case_id(self):
+        # Rejects an un-cited, invented historical case
+        text = "This matches previous precedent CASE_9999 which had identical structures."
+        val = validate_narrative(
+            text=text,
+            allowed_accounts={"ACC_00001"},
+            allowed_transactions={"TX_0000001"},
+            allowed_cases={"CASE_0002"},  # CASE_9999 is NOT in allowed cases
+            current_case_id="CASE_0001",
+        )
+        self.assertFalse(val.is_valid)
+        self.assertIn("CASE_9999", val.hallucinated_ids)
+
     # -----------------------------------------------------------------------
     # Fallback Engine Tests
     # -----------------------------------------------------------------------

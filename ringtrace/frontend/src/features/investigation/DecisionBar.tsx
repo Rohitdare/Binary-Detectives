@@ -1,50 +1,43 @@
 import React, { useState } from 'react';
-import {
-  AlertOctagon,
-  Eye,
-  CheckCircle2,
-  FileCheck2,
-  XCircle,
-  Loader2,
-  UserCheck,
-} from 'lucide-react';
+import { AlertOctagon, CheckCircle2, Eye, Loader2, UserCheck, FileCheck2, XCircle } from 'lucide-react';
 import { ringtraceApi } from '../../services/api';
-import type { DecisionRecord, ProposedAction } from '../../types';
 
 export interface DecisionBarProps {
-  caseId: string;
+  caseId: string | null;
   currentStatus?: string;
-  proposedAction?: ProposedAction | null;
-  onDecisionRecorded?: (record: DecisionRecord | null) => void;
+  proposedAction?: {
+    action_id: string;
+    type: string;
+    status: string;
+    details?: any;
+    reason?: string;
+  } | null;
+  onDecisionRecorded: (decision: any) => void;
 }
 
-/**
- * DecisionBar component gives the human analyst full authority to sign off,
- * escalate, monitor, or dismiss a case, or approve/reject agent-proposed actions.
- */
 export const DecisionBar: React.FC<DecisionBarProps> = ({
   caseId,
   currentStatus = 'open',
-  proposedAction = null,
-  onDecisionRecorded = () => {},
+  proposedAction,
+  onDecisionRecorded,
 }) => {
-  const [note, setNote] = useState('');
-  const [actor, setActor] = useState('Analyst_1');
-  const [loading, setLoading] = useState(false);
+  const [actor, setActor] = useState<string>('analyst_1');
+  const [note, setNote] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  const handleRecordDecision = async (decisionType: 'escalate' | 'monitor' | 'dismiss') => {
+  const handleRecordDecision = async (decision: 'escalate' | 'monitor' | 'dismiss') => {
     if (!caseId) return;
     setLoading(true);
     setFeedback(null);
     try {
-      const defaultNotes: Record<string, string> = {
-        escalate: 'Case escalated for Tier 2 compliance review.',
-        monitor: 'Account flagged for 30-day transaction velocity monitoring.',
-        dismiss: 'Benign pattern verified; false positive dismissal.',
-      };
-      const finalNote = note.trim() || defaultNotes[decisionType] || 'Analyst decision recorded.';
-      const res = await ringtraceApi.recordDecision(caseId, decisionType, finalNote, actor.trim() || 'Analyst_1');
+      const res = await ringtraceApi.recordDecision(
+        caseId,
+        decision,
+        note.trim() || `Analyst manual ${decision} action triggered from live cockpit.`,
+        actor || 'compliance_officer'
+      );
+
       setFeedback({
         type: 'success',
         message: `Decision recorded: ${res.decision.toUpperCase()} (${res.decision_id}). Case status transitioned to '${res.decision === 'escalate' ? 'escalated' : res.decision === 'monitor' ? 'monitoring' : 'dismissed'}'.`,

@@ -15,9 +15,9 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set
 
 # Regex patterns matching RingTrace identifiers
-RE_ACCOUNT_ID = re.compile(r"\b(ACC_\d{4,6}|demo_[a-zA-Z0-9_]+)\b")
-RE_TRANSACTION_ID = re.compile(r"\bTX_\d{6,8}\b")
-RE_CASE_ID = re.compile(r"\bCASE_\d{4}\b")
+RE_ACCOUNT_ID = re.compile(r"\b(ACC_\d+|demo_[a-zA-Z0-9_]+)\b")
+RE_TRANSACTION_ID = re.compile(r"\bTX_\d+\b")
+RE_CASE_ID = re.compile(r"\bCASE_[a-zA-Z0-9_]{4,16}\b")
 
 
 @dataclass
