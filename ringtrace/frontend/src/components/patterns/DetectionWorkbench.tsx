@@ -49,7 +49,26 @@ export const DetectionWorkbench: React.FC<DetectionWorkbenchProps> = ({
   const autoRunHandledRef = useRef<DetectorPattern | null>(null);
 
   const executeDetector = useCallback(
-    async (target: DetectorPattern, cycleHopRange: '3-5' | '3' | '4' | '5' = '3-5') => {
+    async (
+      target: DetectorPattern,
+      optionsOrCycleLength?:
+        | '3-5'
+        | '3'
+        | '4'
+        | '5'
+        | {
+            cycleHopRange?: '3-5' | '3' | '4' | '5';
+            cycleLength?: '3-5' | '3' | '4' | '5';
+            bipartitePreset?: 'standard' | 'broad' | 'strict';
+            clusterPreset?: 'standard' | 'dense' | 'extreme';
+            hubPreset?: 'standard' | 'broad' | 'extreme';
+          }
+    ) => {
+      const options =
+        typeof optionsOrCycleLength === 'string'
+          ? { cycleHopRange: optionsOrCycleLength }
+          : optionsOrCycleLength ?? {};
+
       setRunningPattern(target);
       setErrorsByPattern((prev) => ({ ...prev, [target]: undefined }));
       setTruncationReasons((prev) => ({ ...prev, [target]: undefined }));
@@ -58,16 +77,17 @@ export const DetectionWorkbench: React.FC<DetectionWorkbenchProps> = ({
       const startTime = performance.now();
 
       try {
-        let candidates: WorkbenchCandidate[];
+        let candidates: WorkbenchCandidate[] = [];
         let truncated = false;
         let truncationReason: string | null = null;
-        let executionTimeMs: number;
+        let executionTimeMs = 0;
         let edgesScanned: number | undefined;
         let searchSteps: number | undefined;
 
         if (target === 'cycle') {
+          const hopRange = options.cycleHopRange ?? options.cycleLength ?? '3-5';
           const [minLength, maxLength] =
-            cycleHopRange === '3-5' ? [3, 5] : [Number(cycleHopRange), Number(cycleHopRange)];
+            hopRange === '3-5' ? [3, 5] : [Number(hopRange), Number(hopRange)];
           const response = await ringtraceApi.detectCycles(minLength, maxLength, 50);
           candidates = response.cycles.map(cycleToWorkbenchCandidate);
           truncated = response.truncated;
@@ -79,32 +99,84 @@ export const DetectionWorkbench: React.FC<DetectionWorkbenchProps> = ({
           const response = await ringtraceApi.detectFanIn();
           candidates = (response.hits ?? []).map(detectorHitToWorkbenchCandidate);
           truncated = response.truncated;
-          truncationReason = response.truncation_reason;
+          truncationReason = response.truncation_reason ?? (response.truncation_reasons?.join(', ') ?? null);
           executionTimeMs = response.execution_time_ms;
+          edgesScanned = response.edges_scanned;
+          searchSteps = response.search_steps;
         } else if (target === 'fan_out') {
           const response = await ringtraceApi.detectFanOut();
           candidates = (response.hits ?? []).map(detectorHitToWorkbenchCandidate);
           truncated = response.truncated;
-          truncationReason = response.truncation_reason;
+          truncationReason = response.truncation_reason ?? (response.truncation_reasons?.join(', ') ?? null);
           executionTimeMs = response.execution_time_ms;
+          edgesScanned = response.edges_scanned;
+          searchSteps = response.search_steps;
         } else if (target === 'relay_chain') {
           const response = await ringtraceApi.detectRelayChain();
           candidates = (response.hits ?? []).map(detectorHitToWorkbenchCandidate);
           truncated = response.truncated;
-          truncationReason = response.truncation_reason;
+          truncationReason = response.truncation_reason ?? (response.truncation_reasons?.join(', ') ?? null);
           executionTimeMs = response.execution_time_ms;
+          edgesScanned = response.edges_scanned;
+          searchSteps = response.search_steps;
         } else if (target === 'scatter_gather') {
           const response = await ringtraceApi.detectScatterGather();
           candidates = (response.hits ?? []).map(detectorHitToWorkbenchCandidate);
           truncated = response.truncated;
-          truncationReason = response.truncation_reason;
+          truncationReason = response.truncation_reason ?? (response.truncation_reasons?.join(', ') ?? null);
           executionTimeMs = response.execution_time_ms;
-        } else {
+          edgesScanned = response.edges_scanned;
+          searchSteps = response.search_steps;
+        } else if (target === 'gather_scatter') {
           const response = await ringtraceApi.detectGatherScatter();
           candidates = (response.hits ?? []).map(detectorHitToWorkbenchCandidate);
           truncated = response.truncated;
-          truncationReason = response.truncation_reason;
+          truncationReason = response.truncation_reason ?? (response.truncation_reasons?.join(', ') ?? null);
           executionTimeMs = response.execution_time_ms;
+          edgesScanned = response.edges_scanned;
+          searchSteps = response.search_steps;
+        } else if (target === 'bipartite') {
+          const [minSources, minTargets] =
+            options.bipartitePreset === 'broad'
+              ? [2, 2]
+              : options.bipartitePreset === 'strict'
+              ? [4, 4]
+              : [3, 3];
+          const response = await ringtraceApi.detectBipartite(minSources, minTargets, 50);
+          candidates = (response.hits ?? []).map(detectorHitToWorkbenchCandidate);
+          truncated = response.truncated;
+          truncationReason = response.truncation_reason ?? (response.truncation_reasons?.join(', ') ?? null);
+          executionTimeMs = response.execution_time_ms;
+          edgesScanned = response.edges_scanned;
+          searchSteps = response.search_steps;
+        } else if (target === 'dense_cluster') {
+          const [minAccounts, minDensity] =
+            options.clusterPreset === 'dense'
+              ? [5, 0.20]
+              : options.clusterPreset === 'extreme'
+              ? [6, 0.30]
+              : [5, 0.10];
+          const response = await ringtraceApi.detectDenseCluster(minAccounts, minDensity, 50);
+          candidates = (response.hits ?? []).map(detectorHitToWorkbenchCandidate);
+          truncated = response.truncated;
+          truncationReason = response.truncation_reason ?? (response.truncation_reasons?.join(', ') ?? null);
+          executionTimeMs = response.execution_time_ms;
+          edgesScanned = response.edges_scanned;
+          searchSteps = response.search_steps;
+        } else if (target === 'hub_account') {
+          const [minCounterparties, minZScore] =
+            options.hubPreset === 'broad'
+              ? [8, 2.5]
+              : options.hubPreset === 'extreme'
+              ? [15, 4.0]
+              : [10, 3.0];
+          const response = await ringtraceApi.detectHubAccount(minCounterparties, minZScore, 50);
+          candidates = (response.hits ?? []).map(detectorHitToWorkbenchCandidate);
+          truncated = response.truncated;
+          truncationReason = response.truncation_reason ?? (response.truncation_reasons?.join(', ') ?? null);
+          executionTimeMs = response.execution_time_ms;
+          edgesScanned = response.edges_scanned;
+          searchSteps = response.search_steps;
         }
 
         const suspiciousCount = candidates.filter((c) => c.suspicious).length;

@@ -30,7 +30,7 @@ This document records code generated or modified by AI agents and the concrete v
 | `backend/tests/fixtures/` | Positive, negative, benign merchant, and recurring payroll JSON fixtures | Generated test fixtures | Loaded into isolated test graphs; verified proper triggering and rejection boundaries. | **Verified** |
 | `backend/tests/test_fan_detectors.py` | Automated test suite for fan-in and fan-out detectors | Generated test cases | Ran `unittest`; 9/9 tests passed in 0.18s with exit code 0. | **Verified** |
 | `backend/tests/test_api.py` | API endpoint integration tests including /api/detectors/fan-in & fan-out | Updated test suite | Ran `unittest`; 11/11 tests passed in 0.33s with exit code 0. | **Verified** |
-
+| `frontend/src/components/patterns/` & `services/api.ts` | Frontend integration and optimization for Bipartite, Dense Cluster, and Hub Account detectors | Generated TypeScript client, state management, UI parameter presets, and Cytoscape layouts | Verified with `npm run build` (code 0), oxlint (0 errors), live browser UI validation, and 175 backend tests passing. | **Verified** |
 
 ---
 

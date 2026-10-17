@@ -18,6 +18,6 @@ export interface DetectorMetadata {
   name: string;
   tag: string;
   explanation: string;
-  iconName: 'circle-dashed' | 'git-branch' | 'network' | 'arrow-right';
+  iconName: 'circle-dashed' | 'git-branch' | 'network' | 'arrow-right' | 'grid' | 'boxes' | 'share-2' | string;
   isLive: boolean;
 }

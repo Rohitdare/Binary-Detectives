@@ -10,10 +10,10 @@ interface SummaryCardsProps {
 }
 
 export const SummaryCards: React.FC<SummaryCardsProps> = ({ stats, loading, runCount, latestRun }) => {
-  // Radial gauge values inspired by Reference 1 dashboard
-  const activeDetectors = 3;
-  const totalTypologies = 8;
-  const coveragePercent = Math.round((activeDetectors / totalTypologies) * 100); // 38%
+  // Radial gauge values for active graph typology engines
+  const activeDetectors = 9;
+  const totalTypologies = 9;
+  const coveragePercent = Math.round((activeDetectors / totalTypologies) * 100); // 100%
   const radius = 32;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (coveragePercent / 100) * circumference;
@@ -270,10 +270,10 @@ export const SummaryCards: React.FC<SummaryCardsProps> = ({ stats, loading, runC
               </span>
             </div>
             <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-              3 of 8 Planted
+              9 of 9 Operational
             </div>
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
-              Cycle, Fan-in, Fan-out ready
+            <div style={{ fontSize: '0.7rem', color: 'var(--brand-forest)', marginTop: '0.15rem', fontWeight: 600 }}>
+              All 9 Graph Engines Live
             </div>
           </div>
         </div>

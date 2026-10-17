@@ -51,7 +51,7 @@ export const DetectorCatalog: React.FC<DetectorCatalogProps> = ({
               Detector Catalog
             </h2>
             <span className="rt-badge rt-badge-emerald" style={{ fontSize: '0.675rem' }}>
-              6 Active Graph Engines
+              9 Active Graph Engines
             </span>
           </div>
           <p
@@ -248,7 +248,7 @@ export const DetectorCatalog: React.FC<DetectorCatalogProps> = ({
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
             <Clock size={12} />
             <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>
-              Roadmap Graph Typologies (Phase 3):
+              Future Extension Typologies (Planned):
             </span>
           </div>
 

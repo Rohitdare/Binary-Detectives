@@ -111,6 +111,27 @@ export const ringtraceApi = {
     return handleResponse<DetectorRunResponse>(res);
   },
 
+  async detectBipartite(minSources = 3, minTargets = 3, limit = 50): Promise<DetectorRunResponse> {
+    const res = await fetch(
+      `${API_BASE}/v1/detectors/bipartite?min_sources=${minSources}&min_targets=${minTargets}&limit=${limit}`
+    );
+    return handleResponse<DetectorRunResponse>(res);
+  },
+
+  async detectDenseCluster(minAccounts = 5, minimumDensity = 0.1, limit = 50): Promise<DetectorRunResponse> {
+    const res = await fetch(
+      `${API_BASE}/v1/detectors/dense-cluster?min_accounts=${minAccounts}&minimum_density=${minimumDensity}&limit=${limit}`
+    );
+    return handleResponse<DetectorRunResponse>(res);
+  },
+
+  async detectHubAccount(minimumCounterparties = 10, minimumZScore = 3.0, limit = 50): Promise<DetectorRunResponse> {
+    const res = await fetch(
+      `${API_BASE}/v1/detectors/hub-account?minimum_counterparties=${minimumCounterparties}&minimum_z_score=${minimumZScore}&limit=${limit}`
+    );
+    return handleResponse<DetectorRunResponse>(res);
+  },
+
   async evaluateCycles(limit = 50): Promise<import('../types').CycleEvaluationReport> {
     const res = await fetch(`${API_BASE}/evaluate/cycles?limit=${limit}`);
     return handleResponse<import('../types').CycleEvaluationReport>(res);

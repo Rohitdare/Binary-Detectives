@@ -8,6 +8,20 @@
 
 ## 1. Completed Capabilities
 
+- [x] **Member A: 9/9 Active Graph Detection Typologies Integrated into Frontend UI (2026-10-17):**
+  - Integrated the remaining 3 backend detectors (`bipartite`, `dense_cluster`, and `hub_account`) into the React frontend detection workbench and catalog.
+  - Updated `DetectorPattern` union in `frontend/src/types/index.ts` to include all 9 typologies: `cycle`, `fan_in`, `fan_out`, `relay_chain`, `scatter_gather`, `gather_scatter`, `bipartite`, `dense_cluster`, `hub_account`.
+  - Added dedicated API client methods in `frontend/src/services/api.ts` (`detectBipartite`, `detectDenseCluster`, `detectHubAccount`) connecting to backend `/api/v1/detectors/...`.
+  - Promoted `bipartite`, `dense_cluster`, and `hub_account` to active live engines in `frontend/src/components/patterns/catalogData.ts` with custom Lucide icons (`Grid`, `Boxes`, `Share2`).
+  - Added parameter optimization selectors to `DetectorWorkspace.tsx`:
+    - Bipartite Matrix dimension selector (`3x3 (Standard)`, `2x2 (Broad Search)`, `4x4 (Strict Large)`).
+    - Dense Cluster density threshold selector (`≥10% (Balanced)`, `≥20% (High Density)`, `≥30% (Tight Core)`).
+    - Hub Account outlier sensitivity selector (`3.0σ (Outlier Hubs)`, `2.5σ (Broad Search)`, `4.0σ (Extreme Centrality)`).
+  - Formatted human-readable titles, subtitles, percentages (density), and outlier metric displays (`σ`, flow ratio) in `candidateUtils.ts` and `CandidateEvidencePanel.tsx`.
+  - Upgraded Cytoscape canvas (`CandidateGraph.tsx`) with bipartite role color distinction (cyan sources, purple targets, breadthfirst layout) and concentric hub-and-spoke layout for hub accounts.
+  - Updated detector badges across `Sidebar.tsx`, `DetectorCatalog.tsx`, and `SummaryCards.tsx` to `9 Active Graph Engines` / `100% Typology Coverage`.
+  - Validated with clean frontend build (`npm run build`), 0 lint errors, and 175 passing backend tests.
+
 - [x] **Directed Transaction Cycle Detector (Phase 3):**
   - Centralized Cypher queries (`CYCLE_3_QUERY`, `CYCLE_4_QUERY`, `CYCLE_5_QUERY` in `backend/app/queries.py`) with canonical node ordering (`a.id < b.id ...`) to guarantee rotational deduplication at the database query level.
   - Core detector engine in `backend/app/detectors/cycle.py` (`detect_cycles(min_length=3, max_length=5, limit=50)`) calculating cycle length, duration, time-ordering verification, amount conservation ratio, and factual explanations.

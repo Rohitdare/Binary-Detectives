@@ -103,8 +103,10 @@ export const CandidateEvidencePanel: React.FC<CandidateEvidencePanelProps> = ({
             {measureEntries.map(([key, val]) => {
               let displayVal = String(val);
               if (typeof val === 'number') {
-                if (key.includes('ratio') || key === 'retention' || key.includes('share')) {
+                if (key.includes('density') || key.includes('ratio') || key === 'retention' || key.includes('share')) {
                   displayVal = `${(val * 100).toFixed(1)}%`;
+                } else if (key.includes('z_score')) {
+                  displayVal = `${val.toFixed(2)}σ`;
                 } else if (key.includes('amount') || key.includes('flow')) {
                   displayVal = currency.format(val);
                 } else if (key.includes('duration') || key.includes('window') || key.includes('seconds')) {

@@ -26,7 +26,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { id: 'overview', label: 'Transaction Graph', icon: Activity },
-  { id: 'patterns', label: 'Detectors', icon: Network, badge: '6 Active', badgeType: 'mint' },
+  { id: 'patterns', label: 'Detectors', icon: Network, badge: '9 Active', badgeType: 'mint' },
   { id: 'explorer', label: 'Transaction Explorer', icon: Compass },
   { id: 'investigations', label: 'Cases & Triage', icon: FileSearch, badge: 'Active', badgeType: 'mint' },
   { id: 'evidence', label: 'Evidence & Audit', icon: Layers, badge: 'Sandbox', badgeType: 'muted' },
