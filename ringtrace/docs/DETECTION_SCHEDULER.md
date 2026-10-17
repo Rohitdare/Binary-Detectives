@@ -51,7 +51,7 @@ flowchart TD
 1. **`SchedulerConfig` (`backend/app/scheduler/config.py`):**
    Environment-driven configuration validator with strict typing and negative/zero boundary checks.
 2. **`DetectionScheduler` (`backend/app/scheduler/service.py`):**
-   Pure Python `asyncio` periodic task runner. Wakes up reliably, dispatches executions into threadpool workers (`asyncio.to_thread`), and cancels cleanly upon shutdown without blocking the event loop.
+   Pure Python `asyncio` periodic task runner. Wakes up reliably, dispatches executions into threadpool workers (`asyncio.to_thread`), can pause/resume future scheduled passes, and shuts down without blocking the event loop.
 3. **`ScanCoordinator` (`backend/app/scan_service.py`):**
    Unified execution pipeline shared between scheduled iterations and manual API `/scan` requests. Enforces atomic mutual exclusion and records execution diagnostics.
 4. **`FastAPI Lifespan` (`backend/app/main.py`):**
@@ -159,6 +159,7 @@ Returns scheduler diagnostics, active status, and latest run record:
 {
   "enabled": true,
   "running": true,
+  "paused": false,
   "interval_seconds": 300,
   "scan_on_startup": false,
   "next_run_at": "2026-10-17T15:25:00Z",
@@ -178,6 +179,13 @@ Returns scheduler diagnostics, active status, and latest run record:
   }
 }
 ```
+
+### Pause and resume automatic scans
+
+- `POST /api/v1/scheduler/pause` pauses future scheduled scans. A scan already in progress is allowed to finish.
+- `POST /api/v1/scheduler/resume` resumes the scheduler. Its next automatic scan is scheduled after one full interval.
+- Both endpoints return the same status object as the status endpoint. Manual `POST /api/v1/scan` remains available while scheduled scans are paused.
+- If the scheduler is not running, either control endpoint returns HTTP 409.
 
 ### 2. `GET /api/v1/scans/latest`
 Returns the most recent scan record. Does not trigger a new scan.

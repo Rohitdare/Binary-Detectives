@@ -235,3 +235,28 @@ Seed-43 exact labeled outcomes were: cycle 6/10 TP and 0/12 benign FP; fan-in 8/
 | Codex (GPT-6) | Created `docs/DETECTOR_GUIDE.md`; updated `docs/STATUS.md` and `docs/AI_USAGE.md`; added `backend/tests/fixtures/cycle_positive.json`, `backend/tests/fixtures/cycle_negative.json`, and fixture tests in `backend/tests/test_cycle_algorithm_unit.py`. No detector implementation or Member B source was modified. | Audited actual nine-detector inventory, rules, evidence, registration, case integration, evaluation, API models, and contract discrepancies; documented current behavior and remaining questions. | `backend/.venv/Scripts/python.exe -m unittest discover -s tests -v`: 177 passed in 20.662 seconds after cycle fixture additions. Seed-43 evaluation ran on disposable graphs (3,000 accounts, 39,924 transactions, 116 alerts); both graphs were deleted. Thresholds were not tuned. |
 
 Audit notes: `/scan` owns fraud-detector dispatch; Member B's `run_algorithm` is a separate general graph-analysis tool. No detector implementation code was changed because remaining issues require agreed behavior/contract decisions or separate development-split analysis. Cycle fixture coverage was added and verified. Fan-out, dense-cluster and bipartite limitations, missing `/contract` artifacts, Unix timestamp behavior, and inline Cypher in Member B's file are recorded in the detector guide.
+
+## SPYNEX Browser Tab Branding — 2026-10-17
+
+| Tool | Files generated or modified | Purpose | Verification / review |
+|---|---|---|---|
+| Codex (GPT-6) | Updated `frontend/index.html`; added the user-provided `frontend/public/spynex-tab-logo.png`; recorded the update in `docs/STATUS.md` and `docs/AI_USAGE.md`. | Set the browser tab title to `SPYNEX` and used the attached SPYNEX logo as its icon. | Frontend production build (`npm run build`): passed (TypeScript and Vite; 1,951 modules). Vite reported the existing >500 kB JavaScript chunk warning. |
+
+## Simple Scheduler Pause Control — 2026-10-17
+
+| Tool | Files generated or modified | Purpose | Verification / review |
+|---|---|---|---|
+| Codex (GPT-6) | Updated scheduler service, detection API routes and response model, frontend scheduler API/type/popover, scheduler tests, `docs/DETECTION_SCHEDULER.md`, `docs/STATUS.md`, and this log. | Added a simple pause/resume control for automatic detection scans. | Backend test suite: 18 dedicated scheduler tests passed; all 195 tests passed. Frontend build passed. |
+
+## Evaluation Correctness & Ground-Truth Leakage Audit — 2026-10-17
+
+| Tool | Files generated or modified | Purpose | Verification / review |
+|---|---|---|---|
+| Antigravity (Advanced Agentic Coding) | `backend/app/evaluator.py`, `backend/app/api/detection_routes.py`, `backend/app/api/models.py`, `backend/app/main.py`, `frontend/src/types/index.ts`, `frontend/src/services/api.ts`, `frontend/src/components/common/PlaceholderView.tsx`, `backend/tests/test_ground_truth_leakage.py`, `docs/STATUS.md`, `docs/AI_USAGE.md`. | Complete audit of ground-truth isolation boundaries, metric calculation correctness, evaluation completeness, and frontend evaluation wiring. Corrected manufactured 0.0 metrics on missing ground truth, added `evaluate_all_detectors()`, added automated AST & runtime leakage tests, and replaced hardcoded audit cards with live benchmark API integration. | Focused leakage tests (`test_ground_truth_leakage.py`): 9 passed in 0.27s. Complete backend test suite (`python -m unittest discover tests`): 206 passed in 26.88s. Frontend production build (`npm run build`): passed in 1.44s with 0 errors. Live `LABEL_LEAKAGE_CHECK` on FalkorDB `txn`: 0 leaked properties. |
+
+## Payroll Fan-Out Scenario End-to-End Validation — 2026-10-17
+
+| Tool | Files generated or modified | Purpose | Verification / review |
+|---|---|---|---|
+| Antigravity (Advanced Agentic Coding) | `backend/tests/test_payroll_scenario_e2e.py`, `docs/STATUS.md`, `docs/AI_USAGE.md`. | End-to-end validation of the existing `payroll_fan_out` scenario through the complete detection and case pipeline (`run_scan` -> detectors -> case builder -> scoring -> memory persistence -> API endpoints). Verified benign classification, empirical recurrence detection, deterministic case generation, score breakdown with payroll origin discount, 100% evidence traceability, repeat-scan idempotency, analyst status preservation, and comparison with a single-batch missing baseline look-alike. | `backend/tests/test_payroll_scenario_e2e.py`: 4 tests passed in 0.485s. `backend/tests/test_fan_detectors.py`: 12 tests passed in 0.197s. Full backend test suite (`python -m unittest discover tests`): 210 tests passed in 20.775s. Frontend build (`npm run build`): passed with 0 errors in 906ms. All tests executed on isolated disposable test graphs (`test_payroll_*`). Zero modifications made to detector thresholds or ground truth. |
+

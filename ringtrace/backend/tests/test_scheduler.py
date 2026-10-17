@@ -6,7 +6,7 @@ import threading
 import time
 import unittest
 import uuid
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
 BACKEND_DIR = os.path.dirname(TESTS_DIR)
@@ -162,6 +162,23 @@ class TestSchedulerLifecycleAndConcurrency(unittest.IsolatedAsyncioTestCase):
         await self.scheduler.start()
         self.assertIs(self.scheduler._task, first_task)
         await self.scheduler.stop()
+
+    async def test_pause_suppresses_scheduled_scans_until_resumed(self):
+        self.scheduler.config = SchedulerConfig(enabled=True, interval_seconds=1)
+        with patch.object(self.scheduler, "_execute_scheduled_pass", new_callable=AsyncMock) as scan:
+            await self.scheduler.start()
+            self.scheduler.pause()
+            self.assertTrue(self.scheduler.is_paused)
+            self.assertIsNone(self.scheduler.next_run_at)
+
+            await asyncio.sleep(1.1)
+            scan.assert_not_awaited()
+
+            self.scheduler.resume()
+            self.assertFalse(self.scheduler.is_paused)
+            await asyncio.sleep(1.1)
+            scan.assert_awaited_once()
+            await self.scheduler.stop()
 
     def test_concurrent_scans_prevent_overlap_and_record_skipped(self):
         """A new scan triggered while another is active is marked as skipped and does not overlap."""
@@ -386,6 +403,36 @@ class TestObservabilityEndpoints(unittest.TestCase):
         self.assertIn("interval_seconds", data)
         self.assertIn("is_scan_active", data)
         self.assertIn("run_count", data)
+        self.assertIn("paused", data)
+
+    def test_scheduler_pause_and_resume_endpoints(self):
+        class FakeScheduler:
+            is_running = True
+            paused = False
+
+            def pause(self):
+                self.paused = True
+
+            def resume(self):
+                self.paused = False
+
+            def get_status(self):
+                return {
+                    "enabled": True,
+                    "running": True,
+                    "paused": self.paused,
+                    "interval_seconds": 300,
+                }
+
+        scheduler = FakeScheduler()
+        with patch("app.api.detection_routes.get_scheduler", return_value=scheduler):
+            paused = self.client.post("/api/v1/scheduler/pause")
+            self.assertEqual(paused.status_code, 200)
+            self.assertTrue(paused.json()["paused"])
+
+            resumed = self.client.post("/api/v1/scheduler/resume")
+            self.assertEqual(resumed.status_code, 200)
+            self.assertFalse(resumed.json()["paused"])
 
     def test_scans_latest_and_history_endpoints(self):
         """GET /api/v1/scans/latest and /api/v1/scans return historical run records."""

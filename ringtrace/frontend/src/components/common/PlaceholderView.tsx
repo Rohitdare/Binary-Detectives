@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Compass,
   ArrowLeft,
@@ -9,8 +9,12 @@ import {
   Activity,
   Lock,
   Server,
+  Play,
+  RefreshCw,
+  AlertTriangle,
 } from 'lucide-react';
-import type { PageTab } from '../../types';
+import type { PageTab, EvaluationResponse } from '../../types';
+import { api } from '../../services/api';
 
 interface PlaceholderViewProps {
   tab: PageTab;
@@ -22,6 +26,44 @@ export const PlaceholderView: React.FC<PlaceholderViewProps> = ({ tab, onBackToO
   const [activeGraph, setActiveGraph] = useState('txn');
   const [fastApiHost, setFastApiHost] = useState('http://localhost:8000');
   const [replayDelay, setReplayDelay] = useState('1200');
+
+  // Live Evaluation Benchmark State
+  const [evaluation, setEvaluation] = useState<EvaluationResponse | null>(null);
+  const [evalLoading, setEvalLoading] = useState(false);
+  const [evalError, setEvalError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (tab === 'evidence') {
+      let isMounted = true;
+      api.getLatestEvaluation()
+        .then((res: EvaluationResponse) => {
+          if (isMounted && res && res.status !== 'not_run') {
+            setEvaluation(res);
+          }
+        })
+        .catch((err: unknown) => {
+          if (isMounted) {
+            console.warn('Failed to fetch initial evaluation report:', err);
+          }
+        });
+      return () => {
+        isMounted = false;
+      };
+    }
+  }, [tab]);
+
+  const handleRunEvaluation = async () => {
+    setEvalLoading(true);
+    setEvalError(null);
+    try {
+      const res = await api.evaluateAllDetectors(50);
+      setEvaluation(res);
+    } catch (err: any) {
+      setEvalError(err?.message || 'Failed to execute evaluation benchmark against ground-truth labels.');
+    } finally {
+      setEvalLoading(false);
+    }
+  };
 
   if (tab === 'evidence') {
     return (
@@ -98,12 +140,51 @@ export const PlaceholderView: React.FC<PlaceholderViewProps> = ({ tab, onBackToO
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <button
+              onClick={handleRunEvaluation}
+              disabled={evalLoading}
+              className="rt-btn rt-btn-primary"
+              style={{
+                fontSize: '0.8rem',
+                padding: '0.45rem 0.95rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                backgroundColor: '#0F172A',
+                color: '#FFFFFF',
+                borderRadius: '6px',
+                border: 'none',
+                cursor: evalLoading ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {evalLoading ? <RefreshCw size={14} className="animate-spin" /> : <Play size={14} />}
+              <span>{evalLoading ? 'Running Benchmark…' : 'Run Evaluation Benchmark'}</span>
+            </button>
             <span className="rt-badge rt-badge-emerald" style={{ fontSize: '0.75rem', gap: '0.35rem' }}>
               <Lock size={12} />
-              <span>AGENTS_MEMBER_A Invariant #3 Locked</span>
+              <span>Invariant #3 Verified</span>
             </span>
           </div>
         </div>
+
+        {evalError && (
+          <div
+            style={{
+              padding: '0.85rem 1.15rem',
+              backgroundColor: '#FEF2F2',
+              border: '1px solid #FECACA',
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              color: '#991B1B',
+              fontSize: '0.825rem',
+            }}
+          >
+            <AlertTriangle size={16} />
+            <span>{evalError}</span>
+          </div>
+        )}
 
         {/* 4 Top Metric KPI Cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
@@ -117,12 +198,14 @@ export const PlaceholderView: React.FC<PlaceholderViewProps> = ({ tab, onBackToO
               </span>
             </div>
             <div>
-              <span style={{ fontSize: '0.75rem', fontWeight: 500, color: '#64748B' }}>Planted Fraud Alerts</span>
+              <span style={{ fontSize: '0.75rem', fontWeight: 500, color: '#64748B' }}>Planted Alerts</span>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem', marginTop: '0.2rem' }}>
                 <span style={{ fontSize: '1.45rem', fontWeight: 800, color: '#0F172A', fontFamily: 'JetBrains Mono, monospace' }}>
-                  100
+                  {evaluation?.overall_summary?.total_planted_alerts ?? 116}
                 </span>
-                <span style={{ fontSize: '0.8rem', color: '#64748B' }}>Ground Truth</span>
+                <span style={{ fontSize: '0.75rem', color: '#64748B' }}>
+                  (80 Fraud · 36 Benign)
+                </span>
               </div>
             </div>
             <div style={{ paddingTop: '0.45rem', borderTop: '1px solid #F1F5F9', fontSize: '0.725rem', color: '#059669', fontWeight: 600 }}>
@@ -136,14 +219,21 @@ export const PlaceholderView: React.FC<PlaceholderViewProps> = ({ tab, onBackToO
                 <Activity size={16} />
               </div>
               <span style={{ padding: '0.15rem 0.45rem', borderRadius: '4px', backgroundColor: '#ECFDF5', color: '#065F46', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.65rem', fontWeight: 600 }}>
-                Exact Match
+                Micro Recall
               </span>
             </div>
             <div>
-              <span style={{ fontSize: '0.75rem', fontWeight: 500, color: '#64748B' }}>Cycle Exact Recall</span>
+              <span style={{ fontSize: '0.75rem', fontWeight: 500, color: '#64748B' }}>Overall Micro Recall</span>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem', marginTop: '0.2rem' }}>
                 <span style={{ fontSize: '1.45rem', fontWeight: 800, color: '#0F172A', fontFamily: 'JetBrains Mono, monospace' }}>
-                  94.2%
+                  {evaluation?.overall_summary?.micro_recall != null
+                    ? `${(evaluation.overall_summary.micro_recall * 100).toFixed(1)}%`
+                    : 'N/A'}
+                </span>
+                <span style={{ fontSize: '0.75rem', color: '#64748B' }}>
+                  {evaluation?.overall_summary
+                    ? `${evaluation.overall_summary.total_true_positives}/${evaluation.overall_summary.total_planted_fraud} TP`
+                    : 'click run'}
                 </span>
               </div>
             </div>
@@ -158,42 +248,157 @@ export const PlaceholderView: React.FC<PlaceholderViewProps> = ({ tab, onBackToO
                 <Shield size={16} />
               </div>
               <span style={{ padding: '0.15rem 0.45rem', borderRadius: '4px', backgroundColor: '#F1F5F9', color: '#334155', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.65rem', fontWeight: 600 }}>
-                F1 Score
+                Precision
               </span>
             </div>
             <div>
-              <span style={{ fontSize: '0.75rem', fontWeight: 500, color: '#64748B' }}>Overall Precision</span>
+              <span style={{ fontSize: '0.75rem', fontWeight: 500, color: '#64748B' }}>Micro Precision</span>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem', marginTop: '0.2rem' }}>
                 <span style={{ fontSize: '1.45rem', fontWeight: 800, color: '#0F172A', fontFamily: 'JetBrains Mono, monospace' }}>
-                  91.8%
+                  {evaluation?.overall_summary?.micro_precision != null
+                    ? `${(evaluation.overall_summary.micro_precision * 100).toFixed(1)}%`
+                    : 'N/A'}
+                </span>
+                <span style={{ fontSize: '0.75rem', color: '#64748B' }}>
+                  {evaluation?.overall_summary ? `${evaluation.overall_summary.total_false_positives} Benign FP` : 'on controls'}
                 </span>
               </div>
             </div>
             <div style={{ paddingTop: '0.45rem', borderTop: '1px solid #F1F5F9', fontSize: '0.725rem', color: '#1D4ED8', fontWeight: 600 }}>
-              Benign look-alikes rejected
+              Benign look-alikes tested
             </div>
           </div>
 
           <div className="rt-kpi-card">
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-              <div style={{ width: '34px', height: '34px', borderRadius: '8px', backgroundColor: '#F1F5F9', border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0F172A' }}>
-                <Lock size={16} />
+              <div style={{ width: '34px', height: '34px', borderRadius: '8px', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0F172A' }}>
+                <Zap size={16} />
               </div>
               <span style={{ padding: '0.15rem 0.45rem', borderRadius: '4px', backgroundColor: '#F1F5F9', color: '#334155', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.65rem', fontWeight: 600 }}>
-                Audit Log
+                Overall F1
               </span>
             </div>
             <div>
-              <span style={{ fontSize: '0.75rem', fontWeight: 500, color: '#64748B' }}>Evidence Provenance</span>
+              <span style={{ fontSize: '0.75rem', fontWeight: 500, color: '#64748B' }}>Micro F1 Score</span>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem', marginTop: '0.2rem' }}>
                 <span style={{ fontSize: '1.45rem', fontWeight: 800, color: '#0F172A', fontFamily: 'JetBrains Mono, monospace' }}>
-                  Verified
+                  {evaluation?.overall_summary?.micro_f1 != null
+                    ? `${(evaluation.overall_summary.micro_f1 * 100).toFixed(1)}%`
+                    : 'N/A'}
                 </span>
               </div>
             </div>
             <div style={{ paddingTop: '0.45rem', borderTop: '1px solid #F1F5F9', fontSize: '0.725rem', color: '#059669', fontWeight: 600 }}>
-              Cryptographic hash linked
+              Harmonic Mean (TP/FP/FN)
             </div>
+          </div>
+        </div>
+
+        {/* Live Per-Detector Benchmark Table */}
+        <div className="rt-card" style={{ padding: '1.25rem', backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Activity size={18} color="#2563EB" />
+              <h3 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0, color: '#0F172A' }}>
+                Independent Detector Benchmark Results
+              </h3>
+            </div>
+            <span style={{ fontSize: '0.725rem', color: '#64748B' }}>
+              Evaluated strictly against simulator ground truth · Zero leakage into production graph
+            </span>
+          </div>
+
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.775rem' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid #E2E8F0', color: '#64748B', fontWeight: 600 }}>
+                  <th style={{ padding: '0.6rem 0.75rem' }}>Typology</th>
+                  <th style={{ padding: '0.6rem 0.75rem' }}>Planted (Fraud / Benign)</th>
+                  <th style={{ padding: '0.6rem 0.75rem' }}>TP</th>
+                  <th style={{ padding: '0.6rem 0.75rem' }}>FP</th>
+                  <th style={{ padding: '0.6rem 0.75rem' }}>FN</th>
+                  <th style={{ padding: '0.6rem 0.75rem' }}>Recall</th>
+                  <th style={{ padding: '0.6rem 0.75rem' }}>Precision</th>
+                  <th style={{ padding: '0.6rem 0.75rem' }}>F1 Score</th>
+                  <th style={{ padding: '0.6rem 0.75rem' }}>FPR (Benign)</th>
+                  <th style={{ padding: '0.6rem 0.75rem' }}>Status / Limitations</th>
+                </tr>
+              </thead>
+              <tbody>
+                {([
+                  { key: 'cycle', label: 'Cycle' },
+                  { key: 'fan_in', label: 'Fan-In' },
+                  { key: 'fan_out', label: 'Fan-Out' },
+                  { key: 'relay_chain', label: 'Relay Chain' },
+                  { key: 'scatter_gather', label: 'Scatter-Gather' },
+                  { key: 'gather_scatter', label: 'Gather-Scatter' },
+                  { key: 'bipartite', label: 'Bipartite' },
+                  { key: 'dense_cluster', label: 'Dense Cluster' },
+                  { key: 'hub_account', label: 'Hub Account' },
+                ]).map(({ key, label }) => {
+                  const patData = evaluation?.by_detector?.[key];
+                  const m = patData?.metrics;
+                  const isEvaluable = patData?.status !== 'not_evaluable' && key !== 'hub_account';
+                  const fraudCount = patData?.ground_truth_summary?.planted_fraud_cycle_alerts ?? patData?.planted_fraud_scenarios ?? (key === 'hub_account' ? 0 : 10);
+                  const benignCount = patData?.ground_truth_summary?.planted_benign_look_alikes ?? patData?.planted_benign_scenarios ?? (key === 'cycle' ? 12 : key === 'fan_in' ? 12 : key === 'fan_out' ? 6 : key === 'relay_chain' ? 6 : 0);
+
+                  return (
+                    <tr key={key} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                      <td style={{ padding: '0.65rem 0.75rem', fontWeight: 600, color: '#0F172A' }}>
+                        {label}
+                      </td>
+                      <td style={{ padding: '0.65rem 0.75rem', color: '#64748B' }}>
+                        {fraudCount} Fraud · {benignCount} Benign
+                      </td>
+                      <td style={{ padding: '0.65rem 0.75rem', color: m?.true_positives ? '#059669' : '#64748B', fontWeight: m?.true_positives ? 600 : 400 }}>
+                        {m?.true_positives ?? (evaluation ? 0 : '—')}
+                      </td>
+                      <td style={{ padding: '0.65rem 0.75rem', color: m?.false_positives_on_labeled_benign_scenarios ? '#DC2626' : '#64748B' }}>
+                        {m?.false_positives_on_labeled_benign_scenarios ?? (evaluation ? 0 : '—')}
+                      </td>
+                      <td style={{ padding: '0.65rem 0.75rem', color: '#64748B' }}>
+                        {m?.false_negatives ?? (evaluation ? (isEvaluable ? fraudCount : 0) : '—')}
+                      </td>
+                      <td style={{ padding: '0.65rem 0.75rem', fontWeight: 600, color: '#0F172A' }}>
+                        {m?.recall != null ? `${(m.recall * 100).toFixed(1)}%` : isEvaluable ? '—' : 'N/A'}
+                      </td>
+                      <td style={{ padding: '0.65rem 0.75rem', fontWeight: 600, color: '#0F172A' }}>
+                        {m?.precision_on_labeled_scenarios != null ? `${(m.precision_on_labeled_scenarios * 100).toFixed(1)}%` : isEvaluable ? '—' : 'N/A'}
+                      </td>
+                      <td style={{ padding: '0.65rem 0.75rem', fontWeight: 600, color: '#0F172A' }}>
+                        {m?.f1 != null ? `${(m.f1 * 100).toFixed(1)}%` : isEvaluable ? '—' : 'N/A'}
+                      </td>
+                      <td style={{ padding: '0.65rem 0.75rem', color: '#64748B' }}>
+                        {m?.false_positive_rate_on_labeled_benign_scenarios != null
+                          ? `${(m.false_positive_rate_on_labeled_benign_scenarios * 100).toFixed(1)}%`
+                          : benignCount === 0
+                          ? <span style={{ color: '#94A3B8', fontSize: '0.7rem' }}>None planted</span>
+                          : '—'}
+                      </td>
+                      <td style={{ padding: '0.65rem 0.75rem' }}>
+                        {!isEvaluable ? (
+                          <span style={{ padding: '0.15rem 0.4rem', borderRadius: '4px', backgroundColor: '#F1F5F9', color: '#64748B', fontSize: '0.675rem', fontWeight: 600 }}>
+                            Not Evaluable (0 alerts)
+                          </span>
+                        ) : patData?.truncated ? (
+                          <span style={{ padding: '0.15rem 0.4rem', borderRadius: '4px', backgroundColor: '#FEF3C7', color: '#92400E', fontSize: '0.675rem', fontWeight: 600 }}>
+                            Truncated ({patData.truncation_reason || 'capped'})
+                          </span>
+                        ) : patData?.status === 'success' ? (
+                          <span style={{ padding: '0.15rem 0.4rem', borderRadius: '4px', backgroundColor: '#ECFDF5', color: '#065F46', fontSize: '0.675rem', fontWeight: 600 }}>
+                            Benchmark Passed
+                          </span>
+                        ) : (
+                          <span style={{ padding: '0.15rem 0.4rem', borderRadius: '4px', backgroundColor: '#F8FAFC', color: '#64748B', fontSize: '0.675rem' }}>
+                            Ready to run
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
 

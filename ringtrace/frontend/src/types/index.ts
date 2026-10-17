@@ -237,6 +237,67 @@ export interface CycleEvaluationReport {
   };
 }
 
+export interface DetectorEvaluationMetrics {
+  true_positives: number;
+  false_positives_on_labeled_benign_scenarios: number;
+  false_negatives: number;
+  true_negatives_on_labeled_benign_scenarios: number;
+  precision_on_labeled_scenarios: number | null;
+  recall: number | null;
+  f1: number | null;
+  false_positive_rate_on_labeled_benign_scenarios: number | null;
+  false_negative_rate?: number | null;
+}
+
+export interface PatternEvaluationSummary {
+  status: 'success' | 'partial' | 'not_evaluable' | string;
+  planted_fraud_scenarios?: number;
+  planted_benign_scenarios?: number;
+  candidate_count?: number;
+  suspicious_count?: number;
+  structural_exact_matches?: number;
+  truncated?: boolean;
+  truncation_reason?: string | null;
+  truncation_reasons?: string[];
+  execution_time_ms?: number;
+  metrics: DetectorEvaluationMetrics;
+  limitations?: string[];
+  ground_truth_summary?: {
+    planted_fraud_cycle_alerts: number;
+    planted_benign_look_alikes: number;
+  };
+}
+
+export interface OverallEvaluationSummary {
+  total_planted_alerts: number;
+  total_planted_fraud: number;
+  total_planted_benign: number;
+  total_true_positives: number;
+  total_false_positives: number;
+  total_false_negatives: number;
+  total_true_negatives: number;
+  micro_precision: number;
+  micro_recall: number;
+  micro_f1: number;
+  macro_precision: number | null;
+  macro_recall: number | null;
+  macro_f1: number | null;
+  evaluable_patterns_count: number;
+  unevaluable_patterns_count: number;
+  patterns_with_benign_controls: number;
+  patterns_without_benign_controls: number;
+}
+
+export interface EvaluationResponse {
+  status: string;
+  run_at?: string | null;
+  timestamp?: string | null;
+  overall_summary?: OverallEvaluationSummary | null;
+  by_detector?: Record<string, PatternEvaluationSummary>;
+  reports?: Record<string, any>;
+  limitations?: string[];
+}
+
 export interface CaseScoreBreakdown {
   severity: number;
   amount: number;
@@ -417,6 +478,7 @@ export interface ScanStatus {
 export interface SchedulerStatus {
   enabled: boolean;
   running: boolean;
+  paused: boolean;
   interval_seconds: number;
   scan_on_startup: boolean;
   next_run_at: string | null;

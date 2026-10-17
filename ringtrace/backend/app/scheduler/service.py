@@ -39,8 +39,11 @@ class DetectionScheduler:
         self.config = config or SchedulerConfig.from_env()
 
         self._running: bool = False
+        self._paused: bool = False
         self._task: Optional[asyncio.Task] = None
         self._stop_event = asyncio.Event()
+        self._resume_event = asyncio.Event()
+        self._resume_event.set()
         self._next_run_time: Optional[datetime] = None
         self._last_run_time: Optional[datetime] = None
         self._run_count: int = 0
@@ -50,6 +53,10 @@ class DetectionScheduler:
     @property
     def is_running(self) -> bool:
         return self._running and self._task is not None and not self._task.done()
+
+    @property
+    def is_paused(self) -> bool:
+        return self._paused
 
     @property
     def next_run_at(self) -> Optional[str]:
@@ -74,6 +81,8 @@ class DetectionScheduler:
             return
 
         self._running = True
+        self._paused = False
+        self._resume_event.set()
         self._stop_event.clear()
         set_shutting_down(False)
 
@@ -100,6 +109,7 @@ class DetectionScheduler:
         logger.info("Stopping fraud detection scheduler (grace_period=%.1fs)...", grace_period_seconds)
         self._running = False
         self._stop_event.set()
+        self._resume_event.set()
         set_shutting_down(True)
 
         if self._task and not self._task.done():
@@ -130,6 +140,11 @@ class DetectionScheduler:
 
             # 2. Main periodic loop
             while self._running and not self._stop_event.is_set():
+                if self._paused:
+                    self._next_run_time = None
+                    await self._resume_event.wait()
+                    continue
+
                 now = datetime.now(timezone.utc)
                 self._next_run_time = now + timedelta(seconds=self.config.interval_seconds)
 
@@ -142,6 +157,8 @@ class DetectionScheduler:
                     # Timer expired, time to trigger a scan
                     if not self._running or self._stop_event.is_set():
                         break
+                    if self._paused:
+                        continue
                     await self._execute_scheduled_pass()
 
         except asyncio.CancelledError:
@@ -215,6 +232,7 @@ class DetectionScheduler:
         return {
             "enabled": self.config.enabled,
             "running": self.is_running,
+            "paused": self.is_paused,
             "interval_seconds": self.config.interval_seconds,
             "scan_on_startup": self.config.scan_on_startup,
             "next_run_at": self.next_run_at,
@@ -226,6 +244,19 @@ class DetectionScheduler:
             "active_scan_id": get_active_scan_id(),
             "latest_scan": latest,
         }
+
+    def pause(self) -> None:
+        """Pause future scheduled scans without interrupting an active scan."""
+        self._paused = True
+        self._resume_event.clear()
+        self._next_run_time = None
+        logger.info("Periodic fraud detection scheduler paused")
+
+    def resume(self) -> None:
+        """Resume periodic scans; the next scan starts after one full interval."""
+        self._paused = False
+        self._resume_event.set()
+        logger.info("Periodic fraud detection scheduler resumed")
 
 
 # Global singleton instance managed by FastAPI lifespan

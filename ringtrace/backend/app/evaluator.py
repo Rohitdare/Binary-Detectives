@@ -21,6 +21,7 @@ import json
 import os
 import sys
 import time
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set
 
 BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -62,9 +63,9 @@ DEFAULT_DATA_DIR = os.path.join(
 def load_ground_truth(
     data_dir: str = DEFAULT_DATA_DIR,
     client: Optional[FalkorDBClient] = None,
-    pattern: str = "cycle",
+    pattern: Optional[str] = "cycle",
 ) -> List[Dict[str, Any]]:
-    """Load one pattern's ground truth from CSVs or the labels graph."""
+    """Load ground truth for a pattern (or all patterns if pattern is None)."""
     alerts_file = os.path.join(data_dir, "alerts.csv")
     accounts_file = os.path.join(data_dir, "alert_accounts.csv")
     txs_file = os.path.join(data_dir, "alert_transactions.csv")
@@ -72,7 +73,7 @@ def load_ground_truth(
     if os.path.exists(alerts_file) and os.path.exists(accounts_file) and os.path.exists(txs_file):
         with open(alerts_file, newline="", encoding="utf-8") as f:
             all_alerts = list(csv.DictReader(f))
-        pattern_alerts = [a for a in all_alerts if a["pattern"] == pattern]
+        pattern_alerts = [a for a in all_alerts if a["pattern"] == pattern] if pattern else all_alerts
 
         members: Dict[str, Set[str]] = {}
         with open(accounts_file, newline="", encoding="utf-8") as f:
@@ -102,12 +103,19 @@ def load_ground_truth(
 
     # Ground truth is intentionally isolated in this evaluation-only module.
     c = client or FalkorDBClient()
-    gt_res = c.execute_query(
-        "labels",
-        GET_LABEL_ALERTS_BY_PATTERN,
-        {"pattern": pattern},
-        caller="evaluator:load_ground_truth_from_graph",
-    )
+    if pattern:
+        gt_res = c.execute_query(
+            "labels",
+            GET_LABEL_ALERTS_BY_PATTERN,
+            {"pattern": pattern},
+            caller="evaluator:load_ground_truth_from_graph",
+        )
+    else:
+        gt_res = c.execute_query(
+            "labels",
+            "MATCH (a:Alert) RETURN a.alert_id, a.pattern, a.kind, a.is_fraud, a.tx_ids, a.accounts ORDER BY a.alert_id",
+            caller="evaluator:load_all_ground_truth_from_graph",
+        )
     ground_truth = []
     if gt_res and gt_res.result_set:
         for r in gt_res.result_set:
@@ -273,16 +281,20 @@ def evaluate_cycle_detector(
         1 for candidate in candidates
         if candidate.get("suspicious", False) and candidate["cycle_id"] not in matched_candidate_ids
     )
+    has_fraud = len(fraud_gt) > 0
+    has_benign = len(benign_gt) > 0
+    is_evaluable = has_fraud or has_benign
+
     n_tp = sum(1 for match in exact_matches if match["suspicious"])
     n_fp = sum(benign_false_positives.values())
-    n_fn = max(0, len(fraud_gt) - n_tp)
-    n_tn = max(0, len(benign_gt) - n_fp)
-    precision = round(n_tp / (n_tp + n_fp), 4) if n_tp + n_fp else 0.0
-    recall = round(n_tp / (n_tp + n_fn), 4) if n_tp + n_fn else 0.0
-    f1 = round(2 * precision * recall / (precision + recall), 4) if precision + recall else 0.0
-    false_positive_rate = round(n_fp / (n_fp + n_tn), 4) if n_fp + n_tn else 0.0
-    false_negative_rate = round(n_fn / (n_fn + n_tp), 4) if n_fn + n_tp else 0.0
-    exact_structural_recall = round(len(exact_matches) / max(1, len(fraud_gt)), 4)
+    n_fn = max(0, len(fraud_gt) - n_tp) if has_fraud else 0
+    n_tn = max(0, len(benign_gt) - n_fp) if has_benign else 0
+    precision = round(n_tp / (n_tp + n_fp), 4) if n_tp + n_fp else (None if not is_evaluable else 0.0)
+    recall = round(n_tp / (n_tp + n_fn), 4) if has_fraud else None
+    f1 = round(2 * precision * recall / (precision + recall), 4) if (precision is not None and recall is not None and precision + recall) else (None if not is_evaluable else 0.0)
+    false_positive_rate = round(n_fp / (n_fp + n_tn), 4) if (n_fp + n_tn) else None
+    false_negative_rate = round(n_fn / (n_fn + n_tp), 4) if (n_fn + n_tp) else None
+    exact_structural_recall = round(len(exact_matches) / len(fraud_gt), 4) if has_fraud else None
     n_planted = len(fraud_gt)
     n_returned = len(candidates)
     n_exact = len(exact_matches)
@@ -430,15 +442,19 @@ def evaluate_fan_detectors(
                     if len(account_ids & benign_alert["accounts"]) / max(1, len(benign_alert["accounts"])) >= 0.6:
                         benign_overlap_pairs.add((hit_id, benign_alert["alert_id"]))
 
+        has_fraud = len(fraud) > 0
+        has_benign = len(benign) > 0
+        is_evaluable = has_fraud or has_benign
+
         tp = len(matched_suspicious_fraud)
         fp = sum(benign_false_positives.values())
-        fn = max(0, len(fraud) - tp)
-        tn = max(0, len(benign) - fp)
-        precision = round(tp / (tp + fp), 4) if tp + fp else 0.0
-        recall = round(tp / (tp + fn), 4) if tp + fn else 0.0
-        f1 = round(2 * precision * recall / (precision + recall), 4) if precision + recall else 0.0
-        false_positive_rate = round(fp / (fp + tn), 4) if fp + tn else 0.0
-        false_negative_rate = round(fn / (fn + tp), 4) if fn + tp else 0.0
+        fn = max(0, len(fraud) - tp) if has_fraud else 0
+        tn = max(0, len(benign) - fp) if has_benign else 0
+        precision = round(tp / (tp + fp), 4) if tp + fp else (None if not is_evaluable else 0.0)
+        recall = round(tp / (tp + fn), 4) if has_fraud else None
+        f1 = round(2 * precision * recall / (precision + recall), 4) if (precision is not None and recall is not None and precision + recall) else (None if not is_evaluable else 0.0)
+        false_positive_rate = round(fp / (fp + tn), 4) if (fp + tn) else None
+        false_negative_rate = round(fn / (fn + tp), 4) if (fn + tp) else None
         unknown_suspicious = sum(
             1 for _, hit_id, _, _, suspicious in evidence if suspicious and hit_id not in matched_candidates
         )
@@ -446,8 +462,17 @@ def evaluate_fan_detectors(
         for _, alert_id in benign_overlap_pairs:
             kind = next(alert["kind"] for alert in benign if alert["alert_id"] == alert_id)
             benign_overlap_diagnostics[kind] = benign_overlap_diagnostics.get(kind, 0) + 1
+
+        pattern_limitations: List[str] = []
+        if not is_evaluable:
+            pattern_limitations.append("No planted ground-truth alerts exist for this pattern in the current dataset.")
+        elif not has_benign:
+            pattern_limitations.append("No benign look-alike scenarios are planted for this pattern; false positive rate cannot be calculated.")
+        if result.truncated:
+            pattern_limitations.append(f"Detector results were truncated ({result.truncation_reason or 'limit reached'}); some planted instances may have been omitted.")
+
         reports[pattern] = {
-            "status": "partial" if result.truncated else "success",
+            "status": "not_evaluable" if not is_evaluable else "partial" if result.truncated else "success",
             "planted_fraud_scenarios": len(fraud),
             "planted_benign_scenarios": len(benign),
             "candidate_count": len(candidates),
@@ -471,6 +496,7 @@ def evaluate_fan_detectors(
                 "false_positive_rate_on_labeled_benign_scenarios": false_positive_rate,
                 "false_negative_rate": false_negative_rate,
             },
+            "limitations": pattern_limitations,
         }
 
     return {
@@ -564,18 +590,32 @@ def evaluate_additional_graph_detectors(
                     kind = benign_match["kind"]
                     false_positives_by_kind[kind] = false_positives_by_kind.get(kind, 0) + 1
 
+        has_fraud = len(fraud) > 0
+        has_benign = len(benign) > 0
+        is_evaluable = has_fraud or has_benign
+
         # A planted fraud is a TP only if its one-to-one matched candidate was suspicious.
         tp = sum(candidate["suspicious"] for candidate in matched_fraud_candidates.values())
         fp = sum(false_positives_by_kind.values())
-        fn = len(fraud) - tp
-        tn = max(0, len(benign) - fp)
-        precision = round(tp / (tp + fp), 4) if tp + fp else 0.0
-        recall = round(tp / (tp + fn), 4) if tp + fn else 0.0
-        f1 = round(2 * precision * recall / (precision + recall), 4) if precision + recall else 0.0
-        fpr = round(fp / (fp + tn), 4) if fp + tn else None
+        fn = max(0, len(fraud) - tp) if has_fraud else 0
+        tn = max(0, len(benign) - fp) if has_benign else 0
+        precision = round(tp / (tp + fp), 4) if tp + fp else (None if not is_evaluable else 0.0)
+        recall = round(tp / (tp + fn), 4) if has_fraud else None
+        f1 = round(2 * precision * recall / (precision + recall), 4) if (precision is not None and recall is not None and precision + recall) else (None if not is_evaluable else 0.0)
+        fpr = round(fp / (fp + tn), 4) if (fp + tn) else None
+        fnr = round(fn / (fn + tp), 4) if (fn + tp) else None
         unknown_suspicious = sum(1 for item in evidence if item["suspicious"] and item["hit_id"] not in matched_hits)
+
+        pattern_limitations: List[str] = []
+        if not is_evaluable:
+            pattern_limitations.append("No planted ground-truth alerts exist for this pattern in the current dataset.")
+        elif not has_benign:
+            pattern_limitations.append("No benign look-alike scenarios are planted for this pattern; false positive rate cannot be calculated.")
+        if result.truncated:
+            pattern_limitations.append(f"Detector results were truncated ({result.truncation_reasons or 'limit reached'}); some planted instances may have been omitted.")
+
         reports[pattern] = {
-            "status": "not_evaluable" if not ground_truth else "partial" if result.truncated else "success",
+            "status": "not_evaluable" if not is_evaluable else "partial" if result.truncated else "success",
             "planted_fraud_scenarios": len(fraud),
             "planted_benign_scenarios": len(benign),
             "candidate_count": len(evidence),
@@ -597,7 +637,9 @@ def evaluate_additional_graph_detectors(
                 "recall": recall,
                 "f1": f1,
                 "false_positive_rate_on_labeled_benign_scenarios": fpr,
+                "false_negative_rate": fnr,
             },
+            "limitations": pattern_limitations,
         }
 
     overlaps = []
@@ -630,6 +672,122 @@ def evaluate_additional_graph_detectors(
             "Unknown background candidates are excluded from precision because the graph is not fully labeled.",
             "Metrics are specific to synthetic planted scenarios and do not establish real-world accuracy.",
             "The dataset has no separate validation and final holdout split.",
+        ],
+    }
+
+
+def evaluate_all_detectors(
+    data_dir: str = DEFAULT_DATA_DIR,
+    sample_limit: int = 50,
+    graph_name: str = "txn",
+    db: Optional[FalkorDBClient] = None,
+    edge_snapshot: Optional[Any] = None,
+) -> Dict[str, Any]:
+    """Execute complete independent evaluation across all 9 detector typologies.
+
+    Returns structured per-pattern metrics and a macro/micro aggregated summary.
+    Distinguishes evaluable patterns from unevaluable ones (where ground truth is absent).
+    """
+    client = db or FalkorDBClient()
+    edge_snapshot = edge_snapshot or read_pattern_edges(client, graph_name, 250_000)
+
+    cycles_report = evaluate_cycle_detector(
+        data_dir=data_dir, sample_limit=sample_limit, graph_name=graph_name, db=client, edge_snapshot=edge_snapshot
+    )
+    fans_report = evaluate_fan_detectors(
+        data_dir=data_dir, sample_limit=sample_limit, graph_name=graph_name, db=client, edge_snapshot=edge_snapshot
+    )
+    graph_patterns_report = evaluate_additional_graph_detectors(
+        data_dir=data_dir, sample_limit=sample_limit, graph_name=graph_name, db=client, edge_snapshot=edge_snapshot
+    )
+
+    by_pattern: Dict[str, Dict[str, Any]] = {}
+    by_pattern["cycle"] = cycles_report
+    by_pattern["fan_in"] = fans_report["patterns"]["fan_in"]
+    by_pattern["fan_out"] = fans_report["patterns"]["fan_out"]
+    for pat, rep in graph_patterns_report["patterns"].items():
+        by_pattern[pat] = rep
+
+    total_tp = 0
+    total_fp = 0
+    total_fn = 0
+    total_tn = 0
+    total_planted_fraud = 0
+    total_planted_benign = 0
+
+    precisions: List[float] = []
+    recalls: List[float] = []
+    f1s: List[float] = []
+    evaluable_count = 0
+    unevaluable_count = 0
+
+    for pat, rep in by_pattern.items():
+        metrics = rep.get("metrics", {})
+        fraud_count = rep.get("ground_truth_summary", {}).get("planted_fraud_cycle_alerts") or rep.get("planted_fraud_scenarios", 0)
+        benign_count = rep.get("ground_truth_summary", {}).get("planted_benign_look_alikes") or rep.get("planted_benign_scenarios", 0)
+        total_planted_fraud += fraud_count
+        total_planted_benign += benign_count
+
+        if rep.get("status") == "not_evaluable":
+            unevaluable_count += 1
+            continue
+
+        evaluable_count += 1
+        total_tp += metrics.get("true_positives", 0)
+        total_fp += metrics.get("false_positives_on_labeled_benign_scenarios", 0)
+        total_fn += metrics.get("false_negatives", 0)
+        total_tn += metrics.get("true_negatives_on_labeled_benign_scenarios", 0)
+
+        if metrics.get("precision_on_labeled_scenarios") is not None:
+            precisions.append(metrics["precision_on_labeled_scenarios"])
+        if metrics.get("recall") is not None:
+            recalls.append(metrics["recall"])
+        if metrics.get("f1") is not None:
+            f1s.append(metrics["f1"])
+
+    micro_precision = round(total_tp / (total_tp + total_fp), 4) if (total_tp + total_fp) else 0.0
+    micro_recall = round(total_tp / (total_tp + total_fn), 4) if (total_tp + total_fn) else 0.0
+    micro_f1 = round(2 * micro_precision * micro_recall / (micro_precision + micro_recall), 4) if (micro_precision + micro_recall) else 0.0
+
+    macro_precision = round(sum(precisions) / len(precisions), 4) if precisions else None
+    macro_recall = round(sum(recalls) / len(recalls), 4) if recalls else None
+    macro_f1 = round(sum(f1s) / len(f1s), 4) if f1s else None
+
+    is_partial = any(rep.get("status") == "partial" for rep in by_pattern.values())
+
+    return {
+        "status": "partial" if is_partial else "complete",
+        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "overall_summary": {
+            "total_planted_alerts": total_planted_fraud + total_planted_benign,
+            "total_planted_fraud": total_planted_fraud,
+            "total_planted_benign": total_planted_benign,
+            "total_true_positives": total_tp,
+            "total_false_positives": total_fp,
+            "total_false_negatives": total_fn,
+            "total_true_negatives": total_tn,
+            "micro_precision": micro_precision,
+            "micro_recall": micro_recall,
+            "micro_f1": micro_f1,
+            "macro_precision": macro_precision,
+            "macro_recall": macro_recall,
+            "macro_f1": macro_f1,
+            "evaluable_patterns_count": evaluable_count,
+            "unevaluable_patterns_count": unevaluable_count,
+            "patterns_with_benign_controls": 4,
+            "patterns_without_benign_controls": 4,
+        },
+        "by_detector": by_pattern,
+        "reports": {
+            "cycles": cycles_report,
+            "fans": fans_report,
+            "graph_patterns": graph_patterns_report,
+        },
+        "limitations": [
+            "Metrics cover exact matches to explicitly labelled planted scenarios only; unmatched background detections have unknown labels.",
+            "Synthetic scenario evaluations are based on simulator seed 42/43 and do not represent deployment precision.",
+            "Four patterns (scatter_gather, gather_scatter, bipartite, dense_cluster) have 0 planted benign controls, so their FPR is undefined.",
+            "hub_account has no planted scenarios in the dataset and is marked not_evaluable.",
         ],
     }
 

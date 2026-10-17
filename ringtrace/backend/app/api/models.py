@@ -87,6 +87,7 @@ class ScanStatus(BaseModel):
 class SchedulerStatusResponse(BaseModel):
     enabled: bool
     running: bool
+    paused: bool = False
     interval_seconds: int
     scan_on_startup: bool = False
     next_run_at: Optional[str] = None
@@ -119,6 +120,9 @@ class GraphData(BaseModel):
 class EvaluationResponse(BaseModel):
     run_at: Optional[str] = None
     reports: Dict[str, Any] = Field(default_factory=dict)
+    overall_summary: Optional[Dict[str, Any]] = None
+    by_detector: Optional[Dict[str, Any]] = None
+    limitations: List[str] = Field(default_factory=list)
     status: str = "not_run"
     model_config = ConfigDict(extra="allow")
 

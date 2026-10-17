@@ -180,6 +180,7 @@ def scheduler_status():
     return {
         "enabled": cfg.enabled,
         "running": False,
+        "paused": False,
         "interval_seconds": cfg.interval_seconds,
         "scan_on_startup": cfg.scan_on_startup,
         "next_run_at": None,
@@ -191,6 +192,26 @@ def scheduler_status():
         "active_scan_id": get_active_scan_id(),
         "latest_scan": get_latest_scan_job(),
     }
+
+
+@router.post("/api/scheduler/pause", response_model=SchedulerStatusResponse)
+@router.post("/api/v1/scheduler/pause", response_model=SchedulerStatusResponse)
+def pause_scheduler():
+    scheduler = get_scheduler()
+    if not scheduler or not scheduler.is_running:
+        return _error(409, "scheduler_not_running", "The periodic scheduler is not running")
+    scheduler.pause()
+    return scheduler.get_status()
+
+
+@router.post("/api/scheduler/resume", response_model=SchedulerStatusResponse)
+@router.post("/api/v1/scheduler/resume", response_model=SchedulerStatusResponse)
+def resume_scheduler():
+    scheduler = get_scheduler()
+    if not scheduler or not scheduler.is_running:
+        return _error(409, "scheduler_not_running", "The periodic scheduler is not running")
+    scheduler.resume()
+    return scheduler.get_status()
 
 
 @router.get("/api/scans/latest", response_model=ScanStatus)
@@ -411,15 +432,22 @@ def inject_scenario(body: ScenarioRequest, request: Request, background_tasks: B
 def _run_evaluation(job_id: str, request_db: FalkorDBClient, graph: str):
     global _latest_evaluation
     try:
-        from app.evaluator import evaluate_additional_graph_detectors, evaluate_cycle_detector, evaluate_fan_detectors
-        from app.detectors.graph_pattern_utils import read_pattern_edges
+        try:
+            from app.evaluator import evaluate_all_detectors
+            from app.detectors.graph_pattern_utils import read_pattern_edges
+        except ImportError:
+            from backend.app.evaluator import evaluate_all_detectors
+            from backend.app.detectors.graph_pattern_utils import read_pattern_edges
         edge_snapshot = read_pattern_edges(request_db, graph, 250_000)
-        reports = {
-            "cycles": evaluate_cycle_detector(graph_name=graph, db=request_db, edge_snapshot=edge_snapshot),
-            "fans": evaluate_fan_detectors(graph_name=graph, db=request_db, edge_snapshot=edge_snapshot),
-            "graph_patterns": evaluate_additional_graph_detectors(graph_name=graph, db=request_db, edge_snapshot=edge_snapshot),
+        full_eval = evaluate_all_detectors(graph_name=graph, db=request_db, edge_snapshot=edge_snapshot)
+        _latest_evaluation = {
+            "status": full_eval["status"],
+            "run_at": full_eval["timestamp"],
+            "overall_summary": full_eval["overall_summary"],
+            "by_detector": full_eval["by_detector"],
+            "reports": full_eval["reports"],
+            "limitations": full_eval["limitations"],
         }
-        _latest_evaluation = {"status": "complete", "run_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"), "reports": reports}
         _evaluation_jobs[job_id] = {"status": "complete", **_latest_evaluation}
     except Exception as error:
         _evaluation_jobs[job_id] = {"status": "failed", "error": str(error)}

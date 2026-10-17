@@ -514,6 +514,7 @@ def get_gather_scatter_candidates(
 
 
 @app.api_route("/api/evaluate/cycles", methods=["GET", "POST"])
+@app.api_route("/api/v1/evaluate/cycles", methods=["GET", "POST"])
 def evaluate_cycles(limit: int = Query(default=50, ge=1, le=200)):
     """Evaluate the cycle detector against ground-truth labels on demand.
 
@@ -527,6 +528,17 @@ def evaluate_cycles(limit: int = Query(default=50, ge=1, le=200)):
         return report
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to evaluate cycle detector: {e}")
+
+
+@app.api_route("/api/evaluate/all", methods=["GET", "POST"])
+@app.api_route("/api/v1/evaluate/all", methods=["GET", "POST"])
+def evaluate_all(limit: int = Query(default=50, ge=1, le=200)):
+    """Evaluate all 9 detectors against ground-truth labels on demand."""
+    try:
+        from app.evaluator import evaluate_all_detectors
+        return evaluate_all_detectors(sample_limit=limit, graph_name=GRAPH_NAME, db=db_client)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to evaluate all detectors: {e}")
 
 
 @app.api_route("/api/evaluate/fans", methods=["GET", "POST"])

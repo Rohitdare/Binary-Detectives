@@ -143,6 +143,26 @@ export const ringtraceApi = {
     return handleResponse<any>(res);
   },
 
+  async getLatestEvaluation(): Promise<import('../types').EvaluationResponse> {
+    const res = await fetch(`${API_BASE}/v1/evaluation`);
+    return handleResponse<import('../types').EvaluationResponse>(res);
+  },
+
+  async runEvaluationBenchmark(): Promise<{ evaluation_id: string; status: string }> {
+    const res = await fetch(`${API_BASE}/v1/evaluation/run`, { method: 'POST' });
+    return handleResponse<{ evaluation_id: string; status: string }>(res);
+  },
+
+  async getEvaluationStatus(evaluationId: string): Promise<import('../types').EvaluationResponse & { evaluation_id: string }> {
+    const res = await fetch(`${API_BASE}/v1/evaluation/${evaluationId}`);
+    return handleResponse<import('../types').EvaluationResponse & { evaluation_id: string }>(res);
+  },
+
+  async evaluateAllDetectors(limit = 50): Promise<import('../types').EvaluationResponse> {
+    const res = await fetch(`${API_BASE}/v1/evaluate/all?limit=${limit}`);
+    return handleResponse<import('../types').EvaluationResponse>(res);
+  },
+
   async getCases(params: {
     status?: string;
     pattern?: string;
@@ -188,6 +208,16 @@ export const ringtraceApi = {
 
   async getSchedulerStatus(): Promise<SchedulerStatus> {
     const res = await fetch(`${API_BASE}/v1/scheduler/status`);
+    return handleResponse<SchedulerStatus>(res);
+  },
+
+  async pauseScheduler(): Promise<SchedulerStatus> {
+    const res = await fetch(`${API_BASE}/v1/scheduler/pause`, { method: 'POST' });
+    return handleResponse<SchedulerStatus>(res);
+  },
+
+  async resumeScheduler(): Promise<SchedulerStatus> {
+    const res = await fetch(`${API_BASE}/v1/scheduler/resume`, { method: 'POST' });
     return handleResponse<SchedulerStatus>(res);
   },
 
@@ -293,4 +323,6 @@ export const ringtraceApi = {
     return handleResponse<import('../types').DemoResetResponse>(res);
   },
 };
+
+export const api = ringtraceApi;
 

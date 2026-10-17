@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { Clock, Play, RotateCcw, CheckCircle2, AlertCircle, X, Zap } from 'lucide-react';
+import { Clock, Play, Pause, RotateCcw, CheckCircle2, AlertCircle, X, Zap } from 'lucide-react';
 import { ringtraceApi } from '../../services/api';
 import type { SchedulerStatus } from '../../types';
 
@@ -43,6 +43,7 @@ export const SchedulerButton: React.FC<SchedulerButtonProps> = ({ onScanComplete
   const [isOpen, setIsOpen] = useState(false);
   const [scheduler, setScheduler] = useState<SchedulerStatus | null>(null);
   const [isScanning, setIsScanning] = useState(false);
+  const [isUpdatingSchedule, setIsUpdatingSchedule] = useState(false);
   const [scanMessage, setScanMessage] = useState<string | null>(null);
   const [nextCountdown, setNextCountdown] = useState<string>('...');
   const isMountedRef = useRef(true);
@@ -154,7 +155,23 @@ export const SchedulerButton: React.FC<SchedulerButtonProps> = ({ onScanComplete
     }
   };
 
+  const handleToggleScheduler = async () => {
+    if (!scheduler || isUpdatingSchedule) return;
+    setIsUpdatingSchedule(true);
+    try {
+      const status = scheduler.paused
+        ? await ringtraceApi.resumeScheduler()
+        : await ringtraceApi.pauseScheduler();
+      setScheduler(status);
+    } catch (err: any) {
+      setScanMessage(err?.message || 'Could not update the scheduler');
+    } finally {
+      setIsUpdatingSchedule(false);
+    }
+  };
+
   const isRunning = scheduler?.running ?? false;
+  const isPaused = scheduler?.paused ?? false;
   const lastScan = scheduler?.latest_scan;
   const lastRunIso = scheduler?.last_run_at || lastScan?.finished_at || null;
   const hitsFound = lastScan?.hit_count ?? lastScan?.hits_found ?? 0;
@@ -184,10 +201,10 @@ export const SchedulerButton: React.FC<SchedulerButtonProps> = ({ onScanComplete
             width: '6px',
             height: '6px',
             borderRadius: '50%',
-            backgroundColor: isRunning ? '#10B981' : '#94A3B8',
-            boxShadow: isRunning ? '0 0 5px rgba(16, 185, 129, 0.7)' : 'none',
+            backgroundColor: isRunning && !isPaused ? '#10B981' : '#94A3B8',
+            boxShadow: isRunning && !isPaused ? '0 0 5px rgba(16, 185, 129, 0.7)' : 'none',
           }}
-          className={isRunning ? 'pulse-indicator' : ''}
+          className={isRunning && !isPaused ? 'pulse-indicator' : ''}
         />
         <Clock size={13} color="#475569" />
         <span style={{ fontWeight: 600 }}>Scheduler</span>
@@ -274,7 +291,7 @@ export const SchedulerButton: React.FC<SchedulerButtonProps> = ({ onScanComplete
                     backgroundColor: isRunning ? '#10B981' : '#94A3B8',
                   }}
                 />
-                Active (every {intervalMins}m)
+                {isPaused ? 'Paused' : `Active (every ${intervalMins}m)`}
               </span>
             </div>
 
@@ -289,7 +306,7 @@ export const SchedulerButton: React.FC<SchedulerButtonProps> = ({ onScanComplete
                   fontSize: '0.75rem',
                 }}
               >
-                {nextCountdown}
+                  {isPaused ? 'Paused' : nextCountdown}
               </span>
             </div>
 
@@ -353,6 +370,25 @@ export const SchedulerButton: React.FC<SchedulerButtonProps> = ({ onScanComplete
 
             {/* Manual Run Action Button */}
             <div style={{ marginTop: '0.45rem', paddingTop: '0.65rem', borderTop: '1px solid #F1F5F9' }}>
+              <button
+                onClick={() => void handleToggleScheduler()}
+                disabled={!isRunning || isUpdatingSchedule}
+                className="rt-button"
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.45rem',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  padding: '0.45rem 0.75rem',
+                  marginBottom: '0.45rem',
+                }}
+              >
+                {isPaused ? <Play size={12} fill="currentColor" /> : <Pause size={12} />}
+                <span>{isPaused ? 'Resume Automatic Scans' : 'Pause Automatic Scans'}</span>
+              </button>
               <button
                 onClick={handleManualRun}
                 disabled={isScanning || scheduler?.is_scan_active}

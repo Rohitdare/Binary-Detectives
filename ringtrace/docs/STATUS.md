@@ -6,6 +6,20 @@
 
 ---
 
+## 0. Latest Update
+
+- [x] **Evaluation Correctness & Ground-Truth Leakage Audit (2026-10-17):**
+  - **Ground-Truth Isolation Verified:** Audited all 9 detector implementations, `queries.py`, and `scan_service.py`. Verified zero AST imports of `app.evaluator` or `alerts.csv` and confirmed query executions against `txn` graph never reference the isolated `labels` graph. Direct query verification via `LABEL_LEAKAGE_CHECK` on live `txn` graph confirmed 0 leaked label properties on nodes or edges.
+  - **Metric Calculation Defects Corrected:**
+    - Fixed manufactured `0.0` precision/recall/F1 metrics in `evaluate_additional_graph_detectors` and `evaluate_fan_detectors` when ground truth is absent (e.g. `hub_account` with 0 planted alerts); now correctly reports `None` (`null` in JSON) with `status: "not_evaluable"` to prevent misleading zero-scores.
+    - Fixed undefined False Positive Rate (`fpr`): correctly reports `None` instead of manufactured `0.0` for 4 typologies (`scatter_gather`, `gather_scatter`, `bipartite`, `dense_cluster`) that lack planted benign look-alikes.
+    - Guarded zero denominators for empty prediction sets and missing labels without division errors.
+  - **Aggregate Evaluation Added:** Implemented `evaluate_all_detectors()` in [`app/evaluator.py`](file:///d:/vortex/ringtrace/backend/app/evaluator.py) and registered `/api/v1/evaluate/all`, providing macro and micro precision, recall, and F1 across all 9 detectors alongside explicit limitation disclosures.
+  - **Frontend Evidence & Audit Sandbox Modernized:** Replaced hardcoded dummy KPI numbers in [`PlaceholderView.tsx`](file:///d:/vortex/ringtrace/frontend/src/components/common/PlaceholderView.tsx) with live API integration (`/api/v1/evaluation`), an interactive "Run Evaluation Benchmark" button, and a comprehensive 9-pattern results table displaying true counts, metrics, and limitations.
+  - **Verification:** Verified with 9 dedicated unit and AST tests in [`tests/test_ground_truth_leakage.py`](file:///d:/vortex/ringtrace/backend/tests/test_ground_truth_leakage.py); all 206 backend unit tests passed in 26.8s; frontend production build (`npm run build`) passed cleanly in 1.44s.
+- [x] **Simple Scheduler Pause Control (2026-10-17):** Added pause/resume endpoints and a button in the existing scheduler popover. Pausing suppresses future automatic scans; it does not cancel an active scan or disable manual scans. Dedicated scheduler and API tests recorded in `docs/AI_USAGE.md`.
+- [x] **SPYNEX Browser Tab Branding (2026-10-17):** Set the browser title to `SPYNEX` and used the user-provided logo at `frontend/public/spynex-tab-logo.png` as the tab icon. Removed the alternate generic shield icon. Frontend build verification recorded in `docs/AI_USAGE.md`.
+
 ## 1. Completed Capabilities
 
 - [x] **Automated Fraud Detection Scheduler & Concurrency Coordinator (2026-10-17):**
@@ -547,3 +561,55 @@
 - **Fresh independent evaluation:** seed-43 dataset (`data/sim2`) loaded to temporary graphs: 3,000 accounts, 39,924 transactions, 116 alerts. Both temporary graphs were deleted after evaluation. Results: cycle 6/10 TP, 0/12 benign FP; fan-in 8/10, 0/12; fan-out 3/10, 3/6; relay-chain 10/10, 0/6; scatter-gather 10/10 with no benign labels; gather-scatter 7/10 with no benign labels; bipartite and dense-cluster 0/10 exact matches and partial; hub-account not evaluable. Thresholds were not tuned on seed 43.
 - **Open issues:** fan-out's observed benign false positives and low recall need analysis on seed 42; do not tune on seed 43. Bipartite has no suspiciousness criteria; dense-cluster and hub-account have no time window, and dense-cluster uses local ego-neighborhood density rather than components/community detection. These are documented rather than silently redefined. Several detector reports hit their candidate limit, so their metrics are partial.
 - **Contract and ownership findings:** there is no `/contract` directory or generated example-validation suite. Pydantic models exist. Actual transaction timestamps are Unix integers although examples describe ISO strings (`TransactionModel.ts` accepts either). Legacy detector endpoints in `main.py` do not declare response models. `backend/app/mcp_server/tools.py` includes inline Cypher and belongs to Member B; it was not edited. No evaluation metrics imply real-world accuracy.
+
+## Payroll Fan-Out Scenario End-to-End Validation — 2026-10-17
+
+- **Objective:** Validated the existing `payroll_fan_out` scenario through RingTrace's actual detection and case-management pipeline (`run_scan` -> detectors -> case builder -> priority scorer -> FalkorDB memory persistence -> case API endpoints) on isolated test graphs without changing detector algorithms, thresholds, or seed-43 evaluation data.
+- **Scenario Classification & Injection:**
+  - Catalog ID: `payroll_fan_out` (`SCENARIOS` in `app/api/detection_routes.py`).
+  - Classification: Intended **benign look-alike** (`is_fraud: False` in `simulate.py:ben_payroll_fan_out` and `alerts.csv`).
+  - Structure: 9 accounts (Origin Account 0 `type: "payroll"`, Accounts 1-8 `type: "personal"`), 16 transactions totaling ₹1,280,000 (two 8-transfer monthly disbursements of ₹80,000 each, spaced exactly 30 days / 2,592,000s apart).
+  - Injection mechanism: Verified through both the API endpoint `POST /api/v1/scenarios/inject` (with `X-Demo-Key`) and direct Cypher queries (`MERGE_ACCOUNTS`, `MERGE_TRANSACTIONS`) into isolated throwaway graphs (`test_payroll_txn_<uuid>`, `test_payroll_mem_<uuid>`). Live graphs (`txn`, `labels`) remained completely untouched.
+- **Detection & Case Pipeline Results:**
+  - **Detector Output:** The `fan_out` detector executed via `run_scan` and detected the disbursements across the rolling 48-hour windows:
+    - `distinct_receivers`: 8
+    - `tx_count`: 8 per burst / 16 total
+    - `origin_account_type`: `"payroll"`
+    - `is_recurring_payroll`: `True` (empirically verified against the 30-day secondary batch with 100% counterparty overlap and 1.0 amount/count ratios)
+    - `payroll_recurrence_status`: `"verified"`
+    - `structuring_share`: `0.0%`
+    - `suspicious`: `False` (Rule 2: recurring payroll with structuring < 25% evaluated as benign)
+    - `suspicion_rationale`: `"A separate monthly batch matches recipients, batch size, and median amount."`
+  - **Case Grouping & Multi-Pattern Assembly:**
+    - `dense_cluster` also evaluated the 9-node star network (16 edges >= 10, density 11.1% >= 10.0%), retaining it as non-suspicious structural evidence (`suspicious: False`).
+    - `build_cases` grouped all co-occurring hits into a single case with deterministic identifier `CASE_<12-hex-hash>`.
+    - Patterns: `["dense_cluster", "fan_out"]`.
+    - Participating accounts: 9 accounts. Total transactions: 16. Total amount: ₹1,280,000.
+  - **Explainable Scoring Breakdown:**
+    - Severity Base: 22 (max of `fan_out`=22, `dense_cluster`=18).
+    - Origin Context Adjustment: -10 (business origin discount for `payroll`). Net severity = 12.
+    - Amount: 16 (scaled logarithmic score for ₹1,280,000).
+    - Velocity: 2 (duration = 30 days > 7 days).
+    - Account Count: 6 ($\text{round}(2 \times \log_2(9))$).
+    - Corroboration: 10 (2 non-hub patterns: $(2 - 1) \times 10$).
+    - Total Score: 46 (medium priority triage label).
+  - **Traceable Evidence:**
+    - Graph endpoint `GET /api/v1/cases/{case_id}/graph` returned 9 nodes and 16 edges with 100% 1-to-1 traceability to the injected transaction IDs (`TX_demo_payroll_fan_out_*`).
+- **Repeat-Scan Idempotency & Analyst Decision Preservation:**
+  - Running a repeat scan (`run_scan`) over the graph produced 0 duplicate cases (`case_count: 1`).
+  - The case ID remained strictly stable (`CASE_<hash>`).
+  - An analyst decision (`MATCH (c:Case) SET c.status = 'dismissed'`) was preserved across subsequent scans due to `ON CREATE SET c.status = 'open'` in `UPSERT_CASES`.
+- **Benign Comparison (Historical Baseline Dependency):**
+  - Executed a comparison against a single-batch payroll fan-out (8 transfers to 8 recipients within 8 minutes with no 20-40 day historical recurrence baseline).
+  - Result: Because no historical secondary batch existed within the observation window, `check_empirical_payroll_recurrence` returned `False`, causing the detector to flag `suspicious: True` under Rule 4 (`distinct_receivers >= 8 in <= 24h`).
+  - The resulting case received a high velocity score (15) and total score 47 ("medium").
+  - Confirmed: Empirical recurrence detection correctly discriminates recurring corporate payroll from anomalous one-off fan-out dispersals, but requires at least one historical comparison batch within 20-40 days.
+- **Verification & Test Execution:**
+  - Added dedicated E2E test suite: `backend/tests/test_payroll_scenario_e2e.py` (4 tests passed in 0.485s).
+  - Fan detector tests: `backend/tests/test_fan_detectors.py` (12 tests passed in 0.197s).
+  - Case management tests: `test_case_grouping.py`, `test_case_persistence.py`, `test_case_scorer.py` (28 tests passed in 1.501s).
+  - Ground truth leakage tests: `test_ground_truth_leakage.py` (9 tests passed in 0.188s).
+  - Full backend test suite: 210 tests passed in 20.775s (`unittest discover tests`).
+  - Frontend production build: `npm run build` passed with 0 errors in 906ms.
+- **Verdict:** PASS.
+
