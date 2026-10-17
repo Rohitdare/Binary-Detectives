@@ -1,0 +1,563 @@
+/* ==============================================================================
+   RingTrace Design System — Financial Intelligence & Graph Forensics
+   Stitch Project: 477170120480282653 (SPYNEX Graph Intelligence v2.4)
+   Precision Light Analytic Shell with Dark High-Contrast Forensic Graph Canvas
+   ============================================================================== */
+
+:root {
+  /* Application Shell Surfaces (Stitch Restrained Purple Fintech Palette) */
+  --bg-app: #F7F8FC;
+  --surface-primary: #FFFFFF;
+  --surface-secondary: #F3F0FF;
+  --surface-muted: #E7EAF1;
+  --surface-hover: #F8FAFC;
+  --surface-active: #EDE9FE;
+
+  /* Sidebar Design Tokens */
+  --sidebar-bg: #FFFFFF;
+  --sidebar-surface: #FFFFFF;
+  --sidebar-hover: #F8FAFC;
+  --sidebar-active-bg: #F3F0FF;
+  --sidebar-active-text: #6D4AFF;
+  --sidebar-active-border: #E5DDFB;
+  --sidebar-border: #E7EAF1;
+  --sidebar-text: #182033;
+  --sidebar-text-muted: #667085;
+  --sidebar-accent: #6D4AFF;
+
+  /* Typography Colors */
+  --text-primary: #182033;
+  --text-secondary: #667085;
+  --text-muted: #98A2B3;
+  --text-faint: #CBD5E1;
+
+  /* Borders & Dividers */
+  --border-subtle: #E7EAF1;
+  --border-medium: #D0D5DD;
+  --border-focus: #6D4AFF;
+  --border-accent: #E5DDFB;
+
+  /* Brand Accents (Restrained Purple Palette) */
+  --brand-purple: #6D4AFF;
+  --brand-purple-dark: #4F35B5;
+  --brand-purple-subtle: #F3F0FF;
+  --brand-purple-border: #E5DDFB;
+  --brand-navy: #6D4AFF;
+  --brand-navy-hover: #4F35B5;
+  --brand-violet: #6D4AFF;
+  --brand-violet-hover: #4F35B5;
+  --brand-violet-subtle: #F3F0FF;
+  --brand-violet-border: #E5DDFB;
+  --brand-cyan: #3779D8;
+  --brand-cyan-subtle: #EFF6FF;
+
+  /* Legacy brand aliases for backward compatibility */
+  --brand-forest: #182033;
+  --brand-forest-hover: #0F172A;
+  --brand-teal: #3779D8;
+  --brand-mint: #15966A;
+  --brand-mint-subtle: #ECFDF5;
+
+  /* Semantic Status Semantics (Financial Risk & AML Taxonomy) */
+  --accent-green: #15966A;
+  --accent-green-subtle: #ECFDF5;
+  --accent-green-border: #A7F3D0;
+  --accent-green-dot: #15966A;
+
+  --accent-amber: #D99016;
+  --accent-amber-subtle: #FFFBEB;
+  --accent-amber-border: #FDE68A;
+  --accent-amber-dot: #D99016;
+
+  --accent-red: #D64550;
+  --accent-red-subtle: #FEF2F2;
+  --accent-red-border: #FECACA;
+  --accent-red-dot: #D64550;
+
+  --accent-blue: #3779D8;
+  --accent-blue-subtle: #EFF6FF;
+  --accent-blue-border: #BFDBFE;
+  --accent-blue-dot: #3779D8;
+
+  --accent-slate: #667085;
+  --accent-slate-subtle: #F8FAFC;
+
+  /* Graph Environment (Dark High-Contrast Forensic Canvas) */
+  --graph-bg: #080C10;
+  --graph-border: #1E293B;
+  --graph-node-center: #38BDF8;
+  --graph-node-merchant: #0284C7;
+  --graph-node-payroll: #10B981;
+  --graph-node-personal: #64748B;
+  --graph-node-suspicious: #F59E0B;
+  --graph-node-origin: #F59E0B;
+  --graph-node-sink: #10B981;
+  --graph-node-hub: #06B6D4;
+  --graph-edge: rgba(148, 163, 184, 0.45);
+  --graph-edge-highlight: #38BDF8;
+  --graph-text: #F1F5F9;
+
+  /* Shadows (Stitch Elevation Spec) */
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(124, 58, 237, 0.02);
+  --shadow-hover: 0 4px 16px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(15, 23, 42, 0.04);
+  --shadow-popover: 0 12px 32px -4px rgba(15, 23, 42, 0.12), 0 4px 12px rgba(124, 58, 237, 0.04);
+
+  /* Fonts — Urbanist geometric display paired with Plus Jakarta Sans */
+  --font-display: "Urbanist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-sans: "Urbanist", "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-body: "Plus Jakarta Sans", "Urbanist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-serif: "Urbanist", serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+/* Base Reset */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  width: 100%;
+}
+
+body {
+  background-color: var(--bg-app);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.5;
+  font-size: 0.875rem;
+  overflow: hidden;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11", "tnum";
+}
+
+/* Typography Hierarchy — Crisp Urbanist Headers */
+h1, h2, h3, h4, h5 {
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.25;
+}
+
+h1 { font-size: 1.6rem; letter-spacing: -0.03em; font-weight: 800; }
+h2 { font-size: 1.3rem; letter-spacing: -0.025em; font-weight: 750; }
+h3 { font-size: 1.05rem; letter-spacing: -0.02em; font-weight: 700; }
+h4 { font-size: 0.9rem; letter-spacing: -0.015em; font-weight: 650; }
+
+p {
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-feature-settings: "tnum" 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-medium);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Main Application Layout */
+.app-container {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  background-color: var(--bg-app);
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  background-color: var(--bg-app);
+}
+
+.page-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.75rem 2.25rem 3rem 2.25rem;
+}
+
+/* Cards & Surface Containers */
+.rt-card {
+  background-color: var(--surface-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  box-shadow: var(--shadow-card);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.rt-card-subtle {
+  background-color: var(--surface-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+}
+
+.rt-card-hover:hover {
+  border-color: var(--border-medium);
+  box-shadow: var(--shadow-hover);
+}
+
+/* Badges & Status Pills */
+.rt-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
+  font-size: 0.725rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+}
+
+/* Red: STRICTLY Escalation, Critical Risk, Rejections */
+.rt-badge-rose, .badge-error {
+  background-color: #FEF2F2;
+  color: #DC2626;
+  border: 1px solid #FECACA;
+}
+
+/* Amber: STRICTLY Monitoring, Medium Risk, In-Progress */
+.rt-badge-amber, .badge-warning {
+  background-color: #FFFBEB;
+  color: #D97706;
+  border: 1px solid #FDE68A;
+}
+
+/* Green: STRICTLY Dismissed, Low Risk, Approved, Healthy */
+.rt-badge-emerald, .badge-healthy, .badge-success {
+  background-color: #ECFDF5;
+  color: #059669;
+  border: 1px solid #A7F3D0;
+}
+
+/* Clean Neutrals for all IDs, entities, tools, and technical tags */
+.rt-badge-gray, .badge-personal, .rt-badge-cyan, .badge-merchant, .rt-badge-violet, .rt-badge-purple, .rt-badge-forest {
+  background-color: #F1F5F9;
+  color: #334155;
+  border: 1px solid #CBD5E1;
+}
+
+/* Form Inputs & Sleek Search Fields */
+.rt-input {
+  background-color: #FFFFFF;
+  border: 1px solid #CBD5E1;
+  border-radius: 8px;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.8125rem;
+  color: #0F172A;
+  outline: none;
+  font-family: var(--font-sans);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+}
+
+.rt-input::placeholder {
+  color: #94A3B8;
+  font-size: 0.8125rem;
+  font-weight: 400;
+}
+
+.rt-input:hover:not(:disabled) {
+  border-color: #94A3B8;
+}
+
+.rt-input:focus {
+  border-color: var(--brand-purple);
+  box-shadow: 0 0 0 3px rgba(109, 74, 255, 0.12);
+  background-color: #FFFFFF;
+}
+
+.rt-input:disabled {
+  background-color: #F8FAFC;
+  color: #94A3B8;
+  cursor: not-allowed;
+}
+
+/* Premium Search Box Wrapper */
+.rt-search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.rt-search-box svg {
+  position: absolute;
+  left: 0.75rem;
+  color: #94A3B8;
+  pointer-events: none;
+  transition: color 0.15s ease;
+}
+
+.rt-search-box:focus-within svg {
+  color: var(--brand-purple);
+}
+
+.rt-search-box .rt-input,
+.rt-search-box input {
+  padding-left: 2.25rem !important;
+  width: 100%;
+}
+
+/* Buttons */
+.rt-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.95rem;
+  border-radius: 8px;
+  font-size: 0.825rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid var(--border-medium);
+  background-color: var(--surface-primary);
+  color: var(--text-primary);
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.rt-button:hover:not(:disabled) {
+  background-color: var(--surface-hover);
+  border-color: var(--text-muted);
+}
+
+.rt-button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.rt-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.rt-button-primary {
+  background-color: var(--brand-navy);
+  border-color: var(--brand-navy);
+  color: #FFFFFF;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.1);
+}
+
+.rt-button-primary:hover:not(:disabled) {
+  background-color: var(--brand-navy-hover);
+  border-color: var(--brand-navy-hover);
+  color: #FFFFFF;
+}
+
+.rt-button-violet {
+  background-color: var(--brand-violet);
+  border-color: var(--brand-violet);
+  color: #FFFFFF;
+  box-shadow: 0 1px 2px rgba(124, 58, 237, 0.2);
+}
+
+.rt-button-violet:hover:not(:disabled) {
+  background-color: var(--brand-violet-hover);
+  border-color: var(--brand-violet-hover);
+}
+
+.rt-button-teal {
+  background-color: var(--brand-cyan);
+  border-color: var(--brand-cyan);
+  color: #FFFFFF;
+}
+
+.rt-button-teal:hover:not(:disabled) {
+  background-color: #0369A1;
+}
+
+.rt-button-sm {
+  padding: 0.35rem 0.7rem;
+  font-size: 0.775rem;
+}
+
+.rt-button-icon {
+  padding: 0.45rem;
+  border-radius: 8px;
+}
+
+.account-link {
+  background: transparent;
+  border: none;
+  padding: 0.1rem 0.3rem;
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  transition: all 0.12s ease;
+}
+
+.account-link:hover {
+  background-color: var(--brand-purple-subtle);
+  color: var(--brand-purple);
+}
+
+/* Tables */
+.rt-table-container {
+  overflow-x: auto;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  background-color: var(--surface-primary);
+}
+
+.rt-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  text-align: left;
+  font-size: 0.825rem;
+}
+
+.rt-table th {
+  background-color: #F8FAFC;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.725rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid var(--border-subtle);
+  white-space: nowrap;
+}
+
+.rt-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  background-color: var(--surface-primary);
+  transition: background-color 0.12s ease;
+}
+
+.rt-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.rt-table tbody tr:hover td {
+  background-color: #FAF5FF;
+}
+
+.rt-table td strong {
+  color: var(--text-primary);
+}
+
+/* Forensic Graph Canvas */
+.rt-graph-container {
+  background-color: var(--graph-bg);
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid #1E293B;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+.rt-graph-toolbar {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background-color: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(8px);
+  padding: 0.3rem 0.45rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.rt-graph-btn {
+  background: transparent;
+  border: none;
+  color: #94A3B8;
+  padding: 0.35rem;
+  border-radius: 5px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.12s ease;
+}
+
+.rt-graph-btn:hover {
+  color: #F8FAFC;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Key Metrics Summary Cards (Stitch Spec) */
+.metric-kpi-card {
+  padding: 1.15rem 1.25rem;
+  border-radius: 12px;
+  background-color: #FFFFFF;
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: all 0.15s ease;
+}
+
+.metric-kpi-card:hover {
+  border-color: var(--border-medium);
+  box-shadow: var(--shadow-card);
+}
+
+/* Animations */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes pulseGlow {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.pulse-indicator {
+  animation: pulseGlow 2s ease-in-out infinite;
+}
+
+/* Responsive Grid Helpers */
+.grid-overview {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 1.25rem;
+}
+
+@media (max-width: 1024px) {
+  .page-body {
+    padding: 1.25rem 1.25rem 2.5rem 1.25rem;
+  }
+}

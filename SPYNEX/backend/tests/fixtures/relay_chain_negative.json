@@ -1,0 +1,8 @@
+{
+  "accounts": [{"id":"R0"},{"id":"R1"},{"id":"R2"},{"id":"R3"}],
+  "transactions": [
+    {"tx_id":"N_AB","src":"R0","dst":"R1","amount":10000,"ts":1000},
+    {"tx_id":"N_BC","src":"R1","dst":"R2","amount":6000,"ts":2000},
+    {"tx_id":"N_CD","src":"R2","dst":"R3","amount":5700,"ts":30000}
+  ]
+}

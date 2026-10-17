@@ -1,0 +1,34 @@
+{
+  "description": "Negative test fixture for fan_out: disbursements outside the 48-hour window and insufficient distinct receivers",
+  "accounts": [
+    {"id": "NEG_ORIG_WINDOW", "type": "personal", "community": 5},
+    {"id": "WREC_01", "type": "personal", "community": 5},
+    {"id": "WREC_02", "type": "personal", "community": 5},
+    {"id": "WREC_03", "type": "personal", "community": 5},
+    {"id": "WREC_04", "type": "personal", "community": 5},
+    {"id": "WREC_05", "type": "personal", "community": 5},
+    {"id": "WREC_06", "type": "personal", "community": 5},
+    {"id": "WREC_07", "type": "personal", "community": 5},
+    {"id": "WREC_08", "type": "personal", "community": 5},
+    {"id": "NEG_ORIG_FEW", "type": "personal", "community": 5},
+    {"id": "FREC_01", "type": "personal", "community": 5},
+    {"id": "FREC_02", "type": "personal", "community": 5},
+    {"id": "FREC_03", "type": "personal", "community": 5}
+  ],
+  "transactions": [
+    {"tx_id": "TX_NEG_OW01", "src": "NEG_ORIG_WINDOW", "dst": "WREC_01", "amount": 40000.0, "ts": 100000, "step": 1, "tx_type": "UPI"},
+    {"tx_id": "TX_NEG_OW02", "src": "NEG_ORIG_WINDOW", "dst": "WREC_02", "amount": 40000.0, "ts": 360000, "step": 3, "tx_type": "UPI"},
+    {"tx_id": "TX_NEG_OW03", "src": "NEG_ORIG_WINDOW", "dst": "WREC_03", "amount": 40000.0, "ts": 620000, "step": 5, "tx_type": "UPI"},
+    {"tx_id": "TX_NEG_OW04", "src": "NEG_ORIG_WINDOW", "dst": "WREC_04", "amount": 40000.0, "ts": 880000, "step": 7, "tx_type": "UPI"},
+    {"tx_id": "TX_NEG_OW05", "src": "NEG_ORIG_WINDOW", "dst": "WREC_05", "amount": 40000.0, "ts": 1140000, "step": 9, "tx_type": "UPI"},
+    {"tx_id": "TX_NEG_OW06", "src": "NEG_ORIG_WINDOW", "dst": "WREC_06", "amount": 40000.0, "ts": 1400000, "step": 11, "tx_type": "UPI"},
+    {"tx_id": "TX_NEG_OW07", "src": "NEG_ORIG_WINDOW", "dst": "WREC_07", "amount": 40000.0, "ts": 1660000, "step": 13, "tx_type": "UPI"},
+    {"tx_id": "TX_NEG_OW08", "src": "NEG_ORIG_WINDOW", "dst": "WREC_08", "amount": 40000.0, "ts": 1920000, "step": 15, "tx_type": "UPI"},
+    {"tx_id": "TX_NEG_OF01", "src": "NEG_ORIG_FEW", "dst": "FREC_01", "amount": 5000.0, "ts": 50000, "step": 1, "tx_type": "UPI"},
+    {"tx_id": "TX_NEG_OF02", "src": "NEG_ORIG_FEW", "dst": "FREC_01", "amount": 5000.0, "ts": 50200, "step": 1, "tx_type": "UPI"},
+    {"tx_id": "TX_NEG_OF03", "src": "NEG_ORIG_FEW", "dst": "FREC_02", "amount": 5000.0, "ts": 50400, "step": 1, "tx_type": "UPI"},
+    {"tx_id": "TX_NEG_OF04", "src": "NEG_ORIG_FEW", "dst": "FREC_02", "amount": 5000.0, "ts": 50600, "step": 1, "tx_type": "UPI"},
+    {"tx_id": "TX_NEG_OF05", "src": "NEG_ORIG_FEW", "dst": "FREC_03", "amount": 5000.0, "ts": 50800, "step": 1, "tx_type": "UPI"},
+    {"tx_id": "TX_NEG_OF06", "src": "NEG_ORIG_FEW", "dst": "FREC_03", "amount": 5000.0, "ts": 51000, "step": 1, "tx_type": "UPI"}
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "description": "Benign merchant fan_in fixture: 10 retail customers paying a merchant within 24h, zero structuring",
+  "accounts": [
+    {"id": "MCH_01", "type": "merchant", "community": 3},
+    {"id": "CUST_01", "type": "personal", "community": 3},
+    {"id": "CUST_02", "type": "personal", "community": 3},
+    {"id": "CUST_03", "type": "personal", "community": 3},
+    {"id": "CUST_04", "type": "personal", "community": 3},
+    {"id": "CUST_05", "type": "personal", "community": 3},
+    {"id": "CUST_06", "type": "personal", "community": 3},
+    {"id": "CUST_07", "type": "personal", "community": 3},
+    {"id": "CUST_08", "type": "personal", "community": 3},
+    {"id": "CUST_09", "type": "personal", "community": 3},
+    {"id": "CUST_10", "type": "personal", "community": 3}
+  ],
+  "transactions": [
+    {"tx_id": "TX_MCH_01", "src": "CUST_01", "dst": "MCH_01", "amount": 450.0, "ts": 10000, "step": 1, "tx_type": "UPI"},
+    {"tx_id": "TX_MCH_02", "src": "CUST_02", "dst": "MCH_01", "amount": 1250.0, "ts": 12000, "step": 1, "tx_type": "UPI"},
+    {"tx_id": "TX_MCH_03", "src": "CUST_03", "dst": "MCH_01", "amount": 320.0, "ts": 14000, "step": 1, "tx_type": "UPI"},
+    {"tx_id": "TX_MCH_04", "src": "CUST_04", "dst": "MCH_01", "amount": 890.0, "ts": 18000, "step": 1, "tx_type": "UPI"},
+    {"tx_id": "TX_MCH_05", "src": "CUST_05", "dst": "MCH_01", "amount": 2100.0, "ts": 22000, "step": 1, "tx_type": "UPI"},
+    {"tx_id": "TX_MCH_06", "src": "CUST_06", "dst": "MCH_01", "amount": 150.0, "ts": 25000, "step": 1, "tx_type": "UPI"},
+    {"tx_id": "TX_MCH_07", "src": "CUST_07", "dst": "MCH_01", "amount": 670.0, "ts": 30000, "step": 1, "tx_type": "UPI"},
+    {"tx_id": "TX_MCH_08", "src": "CUST_08", "dst": "MCH_01", "amount": 1800.0, "ts": 40000, "step": 1, "tx_type": "UPI"},
+    {"tx_id": "TX_MCH_09", "src": "CUST_09", "dst": "MCH_01", "amount": 540.0, "ts": 50000, "step": 1, "tx_type": "UPI"},
+    {"tx_id": "TX_MCH_10", "src": "CUST_10", "dst": "MCH_01", "amount": 990.0, "ts": 60000, "step": 1, "tx_type": "UPI"}
+  ]
+}
