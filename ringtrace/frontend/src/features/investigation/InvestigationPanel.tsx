@@ -18,7 +18,9 @@ import { ringtraceApi } from '../../services/api';
 import { DecisionBar } from './DecisionBar';
 import { MemoryPanel } from './MemoryPanel';
 import { DemoControls } from './DemoControls';
+import { MarkdownViewer } from './MarkdownViewer';
 import type {
+  CaseRecord,
   DecisionRecord,
   InvestigationAssessment,
   InvestigationStep,
@@ -30,11 +32,7 @@ export interface InvestigationPanelProps {
   onInspectAccount?: (accountId: string) => void;
 }
 
-const PRESET_CASES = [
-  { id: 'CASE_0001', label: 'CASE_0001 (Circular Layering Ring • Score 82)' },
-  { id: 'CASE_0002', label: 'CASE_0002 (Benign Payroll Month 1 • Score 25)' },
-  { id: 'CASE_0003', label: 'CASE_0003 (Benign Payroll Month 2 • Score 28)' },
-];
+export type InvestigationMode = 'pending' | 'running' | 'llm' | 'fallback';
 
 /**
  * InvestigationPanel is the primary Member B autonomous agent cockpit.
@@ -50,12 +48,16 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
   const [customCaseId, setCustomCaseId] = useState('');
   const [investigationId, setInvestigationId] = useState<string | null>(null);
 
+  // Live cases from backend
+  const [cases, setCases] = useState<CaseRecord[]>([]);
+  const [loadingCases, setLoadingCases] = useState(true);
+
   // Stream state
   const [isRunning, setIsRunning] = useState(false);
   const [steps, setSteps] = useState<InvestigationStep[]>([]);
   const [assessment, setAssessment] = useState<InvestigationAssessment | null>(null);
   const [proposedAction, setProposedAction] = useState<ProposedAction | null>(null);
-  const [mode, setMode] = useState<'llm' | 'fallback'>('llm');
+  const [mode, setMode] = useState<InvestigationMode>('pending');
   const [streamError, setStreamError] = useState<string | null>(null);
   const [caseStatus, setCaseStatus] = useState('open');
   const [expandedSteps, setExpandedSteps] = useState<Record<number, boolean>>({});
@@ -65,6 +67,38 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
   const stepsEndRef = useRef<HTMLDivElement | null>(null);
 
   const activeCaseId = customCaseId.trim() || selectedCaseId;
+
+  // Fetch live cases on mount and on refresh
+  useEffect(() => {
+    let isMounted = true;
+    setLoadingCases(true);
+    ringtraceApi
+      .getCases({ limit: 100 })
+      .then((res) => {
+        if (isMounted) {
+          const items = res.items || [];
+          setCases(items);
+          if (items.length > 0) {
+            // Keep current selection if valid, or default to initialCaseId or first case
+            const exists = items.some((c) => c.case_id === selectedCaseId);
+            if (!exists) {
+              const hasInitial = items.some((c) => c.case_id === initialCaseId);
+              setSelectedCaseId(hasInitial ? initialCaseId : items[0].case_id);
+            }
+          }
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to fetch live cases from GET /api/v1/cases', err);
+      })
+      .finally(() => {
+        if (isMounted) setLoadingCases(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [refreshTrigger, initialCaseId]);
 
   // Cleanup EventSource on unmount
   useEffect(() => {
@@ -100,7 +134,7 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
     setAssessment(null);
     setProposedAction(null);
     setStreamError(null);
-    setMode('llm');
+    setMode('running');
 
     try {
       // 1. Trigger agent loop via POST /api/v1/cases/{id}/investigations
@@ -117,6 +151,7 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
         try {
           const stepData = JSON.parse(event.data);
           setSteps((prev) => [...prev, stepData]);
+          setMode('running');
         } catch (e) {
           console.error('Failed to parse SSE step data', e);
         }
@@ -125,13 +160,20 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
       es.addEventListener('done', (event: MessageEvent) => {
         try {
           const doneData = JSON.parse(event.data);
-          if (doneData.mode) setMode(doneData.mode);
+          if (doneData.mode === 'fallback') {
+            setMode('fallback');
+          } else if (doneData.mode === 'llm') {
+            setMode('llm');
+          } else {
+            setMode('fallback');
+          }
           if (doneData.assessment) setAssessment(doneData.assessment);
           if (doneData.proposed_action) setProposedAction(doneData.proposed_action);
           setIsRunning(false);
           es.close();
         } catch (e) {
           console.error('Failed to parse SSE done data', e);
+          setMode('fallback');
           setIsRunning(false);
           es.close();
         }
@@ -146,17 +188,20 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
         } catch {
           // General network disconnection or closed stream
         }
+        setMode('fallback');
         setIsRunning(false);
         es.close();
       });
 
       es.onerror = () => {
         // Fallback or stream completion check
+        setMode((prev) => (prev === 'running' ? 'fallback' : prev));
         setIsRunning(false);
         es.close();
       };
     } catch (err: any) {
       setStreamError(err?.message || 'Failed to start autonomous investigation.');
+      setMode('fallback');
       setIsRunning(false);
     }
   };
@@ -181,7 +226,7 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
     const l = (level || '').toLowerCase();
     if (l === 'high') {
       return (
-        <span className="rt-badge badge-danger" style={{ fontSize: '0.75rem', fontWeight: 600 }}>
+        <span className="rt-badge rt-badge-rose" style={{ fontSize: '0.75rem', fontWeight: 600 }}>
           <BadgeAlert size={12} />
           HIGH RISK
         </span>
@@ -189,18 +234,80 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
     }
     if (l === 'medium') {
       return (
-        <span className="rt-badge badge-warning" style={{ fontSize: '0.75rem', fontWeight: 600 }}>
+        <span className="rt-badge rt-badge-amber" style={{ fontSize: '0.75rem', fontWeight: 600 }}>
           <ShieldAlert size={12} />
           MEDIUM RISK
         </span>
       );
     }
     return (
-      <span className="rt-badge badge-success" style={{ fontSize: '0.75rem', fontWeight: 600 }}>
+      <span className="rt-badge rt-badge-emerald" style={{ fontSize: '0.75rem', fontWeight: 600 }}>
         <Bot size={12} />
         LOW RISK
       </span>
     );
+  };
+
+  const renderModeBadge = () => {
+    switch (mode) {
+      case 'llm':
+        return (
+          <span
+            className="rt-badge rt-badge-emerald"
+            style={{
+              fontSize: '0.7rem',
+              fontWeight: 700,
+              letterSpacing: '0.04em',
+            }}
+          >
+            <Sparkles size={11} />
+            MODE: LLM
+          </span>
+        );
+      case 'fallback':
+        return (
+          <span
+            className="rt-badge rt-badge-amber"
+            style={{
+              fontSize: '0.7rem',
+              fontWeight: 700,
+              letterSpacing: '0.04em',
+            }}
+          >
+            <Cpu size={11} />
+            MODE: FALLBACK
+          </span>
+        );
+      case 'running':
+        return (
+          <span
+            className="rt-badge rt-badge-cyan"
+            style={{
+              fontSize: '0.7rem',
+              fontWeight: 600,
+              letterSpacing: '0.04em',
+            }}
+          >
+            <RotateCcw size={11} className="spin" />
+            MODE: RUNNING
+          </span>
+        );
+      case 'pending':
+      default:
+        return (
+          <span
+            className="rt-badge rt-badge-gray"
+            style={{
+              fontSize: '0.7rem',
+              fontWeight: 600,
+              letterSpacing: '0.04em',
+            }}
+          >
+            <Bot size={11} />
+            MODE: READY
+          </span>
+        );
+    }
   };
 
   return (
@@ -212,20 +319,22 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
           setAssessment(null);
           setProposedAction(null);
           setCaseStatus('open');
+          setMode('pending');
           setRefreshTrigger((prev) => prev + 1);
         }}
       />
 
-      {/* Control Header & Case Picker */}
+      {/* Control Header & Live Case Picker */}
       <div
         className="rt-card"
         style={{
+          padding: '1rem 1.25rem',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           flexWrap: 'wrap',
           gap: '1rem',
-          borderLeft: '4px solid var(--accent-cyan)'
+          borderLeft: '4px solid var(--brand-mint)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
@@ -234,38 +343,27 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
               width: '40px',
               height: '40px',
               borderRadius: '8px',
-              backgroundColor: 'rgba(56, 189, 248, 0.15)',
+              backgroundColor: 'var(--brand-mint-subtle)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: 'var(--accent-cyan)',
+              color: 'var(--brand-forest)',
             }}
           >
             <FileSearch size={22} />
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-              <h2 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Autonomous Investigation Agent</h2>
-              {/* Mode Badge per User Requirement */}
-              <span
-                className="rt-badge"
-                style={{
-                  fontSize: '0.7rem',
-                  fontWeight: 700,
-                  backgroundColor: mode === 'llm' ? 'rgba(168, 85, 247, 0.18)' : 'rgba(245, 158, 11, 0.18)',
-                  borderColor: mode === 'llm' ? 'rgba(168, 85, 247, 0.4)' : 'rgba(245, 158, 11, 0.4)',
-                  color: mode === 'llm' ? 'var(--accent-purple)' : 'var(--accent-amber)',
-                  letterSpacing: '0.04em'
-                }}
-              >
-                {mode === 'llm' ? <Sparkles size={11} /> : <Cpu size={11} />}
-                MODE: {mode.toUpperCase()}
-              </span>
+              <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                Autonomous Investigation Agent
+              </h2>
+              {/* Dynamic Header Badge per Requirements */}
+              {renderModeBadge()}
             </div>
             <div style={{ fontSize: '0.775rem', color: 'var(--text-secondary)' }}>
               8-Tool Restricted Graph Engine with Real-Time SSE Stream & Anti-Hallucination Guardrails
               {investigationId && (
-                <span style={{ marginLeft: '0.5rem', color: 'var(--accent-cyan)' }}>
+                <span style={{ marginLeft: '0.5rem', color: 'var(--accent-blue)' }}>
                   • Active Run: <span className="mono">{investigationId}</span>
                 </span>
               )}
@@ -273,7 +371,7 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
           </div>
         </div>
 
-        {/* Case Selector and Trigger Button */}
+        {/* Dynamic Case Selector and Trigger Button */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
           <select
             value={selectedCaseId}
@@ -281,23 +379,31 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
               setSelectedCaseId(e.target.value);
               setCustomCaseId('');
             }}
-            disabled={isRunning}
+            disabled={isRunning || loadingCases}
             style={{
-              backgroundColor: 'rgba(0, 0, 0, 0.4)',
-              border: '1px solid var(--border-subtle)',
+              backgroundColor: 'var(--surface-primary)',
+              border: '1px solid var(--border-medium)',
               borderRadius: '6px',
               padding: '0.45rem 0.75rem',
               color: 'var(--text-primary)',
               fontSize: '0.8rem',
+              maxWidth: '340px',
             }}
           >
-            {PRESET_CASES.map((c) => (
-              <option key={c.id} value={c.id} style={{ background: '#0f172a' }}>
-                {c.label}
-              </option>
-            ))}
+            {loadingCases ? (
+              <option value="">Loading live cases...</option>
+            ) : cases.length === 0 ? (
+              <option value="">No cases detected (enter Custom ID)</option>
+            ) : (
+              cases.map((c) => (
+                <option key={c.case_id} value={c.case_id}>
+                  {c.case_id} — Score: {c.score} ({c.patterns.join(', ')})
+                </option>
+              ))
+            )}
           </select>
 
+          {/* Custom Case ID Manual Entry Fallback */}
           <input
             type="text"
             placeholder="Custom Case ID"
@@ -305,13 +411,13 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
             onChange={(e) => setCustomCaseId(e.target.value.toUpperCase())}
             disabled={isRunning}
             style={{
-              backgroundColor: 'rgba(0, 0, 0, 0.4)',
-              border: '1px solid var(--border-subtle)',
+              backgroundColor: 'var(--surface-primary)',
+              border: '1px solid var(--border-medium)',
               borderRadius: '6px',
               padding: '0.45rem 0.65rem',
               color: 'var(--text-primary)',
               fontSize: '0.8rem',
-              width: '130px'
+              width: '140px',
             }}
           />
 
@@ -341,16 +447,16 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
         {/* Left Column: Real-Time SSE Step Stream & Final Narrative */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           {/* Tool Execution Logs Stream */}
-          <div className="rt-card">
+          <div className="rt-card" style={{ padding: '1.25rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.85rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
-                <Terminal size={17} color="var(--accent-cyan)" />
+                <Terminal size={17} color="var(--brand-teal)" />
                 <h3 style={{ fontSize: '0.925rem', fontWeight: 600 }}>Agent Execution Trace (Live SSE Feed)</h3>
               </div>
               <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>
                 {isRunning ? (
-                  <span style={{ color: 'var(--accent-cyan)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: 'var(--accent-cyan)', display: 'inline-block' }} />
+                  <span style={{ color: 'var(--brand-teal)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: 'var(--brand-mint)', display: 'inline-block' }} />
                     Streaming tool calls...
                   </span>
                 ) : (
@@ -362,9 +468,9 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
             {/* Steps Container */}
             <div
               style={{
-                backgroundColor: 'rgba(5, 8, 14, 0.75)',
+                backgroundColor: 'var(--surface-muted)',
                 border: '1px solid var(--border-subtle)',
-                borderRadius: '6px',
+                borderRadius: '8px',
                 padding: '0.85rem',
                 maxHeight: '340px',
                 overflowY: 'auto',
@@ -381,7 +487,7 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
               )}
 
               {steps.length === 0 && isRunning && (
-                <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--accent-cyan)', fontSize: '0.8rem' }}>
+                <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--brand-teal)', fontSize: '0.8rem' }}>
                   <RotateCcw size={16} className="spin" style={{ margin: '0 auto 0.5rem' }} />
                   Connecting to SSE stream & launching initial tool call...
                 </div>
@@ -390,17 +496,17 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
               {steps.map((st, idx) => {
                 const isExpanded = !!expandedSteps[idx];
                 const toolName = st.tool || 'unknown_tool';
-                const hasEvidence = st.evidence && (st.evidence.account_ids?.length > 0 || st.evidence.tx_ids?.length > 0);
+                const hasEvidence = st.evidence && ((st.evidence.account_ids && st.evidence.account_ids.length > 0) || (st.evidence.tx_ids && st.evidence.tx_ids.length > 0));
 
                 return (
                   <div
                     key={idx}
                     style={{
-                      border: '1px solid rgba(255, 255, 255, 0.06)',
-                      borderRadius: '5px',
-                      backgroundColor: 'rgba(255, 255, 255, 0.02)',
-                      padding: '0.6rem 0.75rem',
-                      fontSize: '0.775rem'
+                      border: '1px solid var(--border-subtle)',
+                      borderRadius: '6px',
+                      backgroundColor: 'var(--surface-primary)',
+                      padding: '0.65rem 0.85rem',
+                      fontSize: '0.775rem',
                     }}
                   >
                     <div
@@ -410,15 +516,15 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
                         alignItems: 'center',
                         justifyContent: 'space-between',
                         cursor: 'pointer',
-                        gap: '0.5rem'
+                        gap: '0.5rem',
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
                         {isExpanded ? <ChevronDown size={14} color="var(--text-muted)" /> : <ChevronRight size={14} color="var(--text-muted)" />}
-                        <span style={{ color: 'var(--accent-cyan)', fontWeight: 600 }}>
+                        <span style={{ color: 'var(--brand-teal)', fontWeight: 600 }}>
                           [{st.step || st.index || idx + 1}]
                         </span>
-                        <span style={{ color: 'var(--accent-purple)', fontWeight: 600 }}>
+                        <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
                           {toolName}()
                         </span>
                       </div>
@@ -428,26 +534,26 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
                     </div>
 
                     {/* Summary text */}
-                    <div style={{ marginTop: '0.35rem', color: 'var(--text-primary)', fontFamily: 'var(--font-sans)', fontSize: '0.8rem' }}>
+                    <div style={{ marginTop: '0.35rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-sans)', fontSize: '0.8rem', lineHeight: 1.5 }}>
                       {st.summary}
                     </div>
 
                     {/* Evidence Chips */}
                     {hasEvidence && (
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginTop: '0.45rem' }}>
-                        {st.evidence.account_ids?.map((acc) => (
+                        {st.evidence?.account_ids?.map((acc) => (
                           <button
                             key={acc}
                             onClick={() => onInspectAccount(acc)}
-                            className="rt-badge badge-personal"
+                            className="rt-badge badge-personal mono"
                             style={{ fontSize: '0.675rem', cursor: 'pointer' }}
                             title="Inspect account in graph"
                           >
                             {acc}
                           </button>
                         ))}
-                        {st.evidence.tx_ids?.map((tx) => (
-                          <span key={tx} className="rt-badge badge-merchant" style={{ fontSize: '0.675rem' }}>
+                        {st.evidence?.tx_ids?.map((tx) => (
+                          <span key={tx} className="rt-badge badge-merchant mono" style={{ fontSize: '0.675rem' }}>
                             {tx}
                           </span>
                         ))}
@@ -456,11 +562,11 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
 
                     {/* Collapsible raw arguments view */}
                     {isExpanded && st.args && (
-                      <div style={{ marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                      <div style={{ marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid var(--border-subtle)' }}>
                         <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '0.2rem' }}>
                           Parameters passed:
                         </div>
-                        <pre style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', margin: 0, overflowX: 'auto' }}>
+                        <pre style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', margin: 0, overflowX: 'auto', backgroundColor: 'var(--surface-secondary)', padding: '0.4rem', borderRadius: '4px' }}>
                           {JSON.stringify(st.args, null, 2)}
                         </pre>
                       </div>
@@ -472,29 +578,31 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
             </div>
 
             {streamError && (
-              <div style={{ marginTop: '0.75rem', padding: '0.6rem 0.85rem', backgroundColor: 'rgba(244, 63, 94, 0.15)', borderRadius: '5px', color: 'var(--accent-rose)', fontSize: '0.775rem' }}>
+              <div style={{ marginTop: '0.75rem', padding: '0.6rem 0.85rem', backgroundColor: 'var(--accent-red-subtle)', borderRadius: '6px', color: 'var(--accent-red)', fontSize: '0.775rem', border: '1px solid var(--accent-red-border)' }}>
                 <AlertCircle size={14} style={{ display: 'inline', marginRight: '0.4rem', verticalAlign: 'text-bottom' }} />
                 {streamError}
               </div>
             )}
           </div>
 
-          {/* Final Narrative & Findings Card (When Done) */}
+          {/* Final Narrative & Findings Card (When Assessment is Available) */}
           {assessment && (
             <div
               className="rt-card"
               style={{
-                border: '1px solid rgba(168, 85, 247, 0.3)',
-                backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                padding: '1.25rem',
+                border: '1px solid var(--border-subtle)',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                  <div style={{ padding: '0.35rem', borderRadius: '6px', backgroundColor: 'rgba(168, 85, 247, 0.15)', color: 'var(--accent-purple)' }}>
+                  <div style={{ padding: '0.35rem', borderRadius: '6px', backgroundColor: 'var(--brand-mint-subtle)', color: 'var(--brand-forest)' }}>
                     <FileText size={18} />
                   </div>
                   <div>
-                    <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Investigation Assessment & Narrative</h3>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      Investigation Assessment & Narrative
+                    </h3>
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                       Anti-hallucination verified summary with cited graph evidence
                     </div>
@@ -503,31 +611,30 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
                 {renderRiskBadge(assessment.risk_level)}
               </div>
 
-              {/* Assessment Narrative */}
+              {/* Formatted Executive Narrative using MarkdownViewer */}
               <div style={{ marginBottom: '1.25rem' }}>
-                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.45rem' }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.45rem' }}>
                   Executive Narrative
                 </div>
                 <div
                   style={{
-                    backgroundColor: 'rgba(0, 0, 0, 0.25)',
-                    padding: '0.85rem 1rem',
-                    borderRadius: '6px',
-                    fontSize: '0.85rem',
-                    lineHeight: 1.6,
-                    color: 'var(--text-primary)',
+                    backgroundColor: 'var(--surface-secondary)',
+                    padding: '1rem 1.25rem',
+                    borderRadius: '8px',
                     border: '1px solid var(--border-subtle)',
-                    whiteSpace: 'pre-line'
                   }}
                 >
-                  {assessment.narrative || assessment.summary}
+                  <MarkdownViewer
+                    content={assessment.narrative || assessment.summary || ''}
+                    onInspectAccount={onInspectAccount}
+                  />
                 </div>
               </div>
 
               {/* Verified Findings with Evidence Chips */}
               {assessment.findings && assessment.findings.length > 0 && (
                 <div>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.5rem' }}>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.5rem' }}>
                     Corroborated Findings ({assessment.findings.length})
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -536,10 +643,10 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
                         key={i}
                         style={{
                           padding: '0.65rem 0.85rem',
-                          backgroundColor: 'rgba(255, 255, 255, 0.02)',
-                          borderRadius: '5px',
+                          backgroundColor: 'var(--surface-secondary)',
+                          borderRadius: '6px',
                           border: '1px solid var(--border-subtle)',
-                          fontSize: '0.8rem'
+                          fontSize: '0.8rem',
                         }}
                       >
                         <div style={{ color: 'var(--text-primary)', marginBottom: '0.35rem' }}>
@@ -552,7 +659,7 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
                               <button
                                 key={id}
                                 onClick={() => id.startsWith('ACC_') && onInspectAccount(id)}
-                                className={`rt-badge ${id.startsWith('ACC_') ? 'badge-personal' : 'badge-merchant'}`}
+                                className={`rt-badge ${id.startsWith('ACC_') ? 'badge-personal' : 'badge-merchant'} mono`}
                                 style={{ fontSize: '0.675rem', cursor: id.startsWith('ACC_') ? 'pointer' : 'default' }}
                               >
                                 {id}

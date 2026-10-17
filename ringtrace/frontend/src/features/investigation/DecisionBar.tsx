@@ -41,20 +41,20 @@ export const DecisionBar: React.FC<DecisionBarProps> = ({
       const defaultNotes: Record<string, string> = {
         escalate: 'Case escalated for Tier 2 compliance review.',
         monitor: 'Account flagged for 30-day transaction velocity monitoring.',
-        dismiss: 'Benign pattern verified; false positive dismissal.'
+        dismiss: 'Benign pattern verified; false positive dismissal.',
       };
       const finalNote = note.trim() || defaultNotes[decisionType] || 'Analyst decision recorded.';
       const res = await ringtraceApi.recordDecision(caseId, decisionType, finalNote, actor.trim() || 'Analyst_1');
       setFeedback({
         type: 'success',
-        message: `Decision recorded: ${res.decision.toUpperCase()} (${res.decision_id}). Case status transitioned to '${res.decision === 'escalate' ? 'escalated' : res.decision === 'monitor' ? 'monitoring' : 'dismissed'}'.`
+        message: `Decision recorded: ${res.decision.toUpperCase()} (${res.decision_id}). Case status transitioned to '${res.decision === 'escalate' ? 'escalated' : res.decision === 'monitor' ? 'monitoring' : 'dismissed'}'.`,
       });
       setNote('');
       onDecisionRecorded(res);
     } catch (err: any) {
       setFeedback({
         type: 'error',
-        message: err?.message || 'Failed to record decision.'
+        message: err?.message || 'Failed to record decision.',
       });
     } finally {
       setLoading(false);
@@ -69,13 +69,13 @@ export const DecisionBar: React.FC<DecisionBarProps> = ({
       const res = await ringtraceApi.approveAction(proposedAction.action_id);
       setFeedback({
         type: 'success',
-        message: `Proposed action '${proposedAction.type}' approved! Decision logged: ${res.decision?.decision_id || 'OK'}.`
+        message: `Proposed action '${proposedAction.type}' approved! Decision logged: ${res.decision?.decision_id || 'OK'}.`,
       });
       onDecisionRecorded(res.decision);
     } catch (err: any) {
       setFeedback({
         type: 'error',
-        message: err?.message || 'Failed to approve proposed action.'
+        message: err?.message || 'Failed to approve proposed action.',
       });
     } finally {
       setLoading(false);
@@ -90,13 +90,13 @@ export const DecisionBar: React.FC<DecisionBarProps> = ({
       await ringtraceApi.rejectAction(proposedAction.action_id);
       setFeedback({
         type: 'success',
-        message: `Proposed action '${proposedAction.type}' rejected by supervisor.`
+        message: `Proposed action '${proposedAction.type}' rejected by supervisor.`,
       });
       onDecisionRecorded(null);
     } catch (err: any) {
       setFeedback({
         type: 'error',
-        message: err?.message || 'Failed to reject proposed action.'
+        message: err?.message || 'Failed to reject proposed action.',
       });
     } finally {
       setLoading(false);
@@ -108,20 +108,21 @@ export const DecisionBar: React.FC<DecisionBarProps> = ({
       className="rt-card"
       style={{
         marginTop: '1.25rem',
-        border: '1px solid rgba(56, 189, 248, 0.25)',
-        backgroundColor: 'rgba(15, 23, 42, 0.85)',
-        backdropFilter: 'blur(10px)',
+        padding: '1.25rem',
+        border: '1px solid var(--border-subtle)',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-          <div style={{ padding: '0.35rem', borderRadius: '6px', backgroundColor: 'rgba(56, 189, 248, 0.15)', color: 'var(--accent-cyan)' }}>
+          <div style={{ padding: '0.35rem', borderRadius: '6px', backgroundColor: 'var(--brand-mint-subtle)', color: 'var(--brand-forest)' }}>
             <UserCheck size={18} />
           </div>
           <div>
-            <h3 style={{ fontSize: '0.95rem', fontWeight: 600 }}>Human-in-the-Loop Decision Authority</h3>
+            <h3 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+              Human-in-the-Loop Decision Authority
+            </h3>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-              Target: <span className="mono" style={{ color: 'var(--accent-cyan)' }}>{caseId || 'No Case Selected'}</span>
+              Target: <span className="mono" style={{ color: 'var(--brand-teal)', fontWeight: 600 }}>{caseId || 'No Case Selected'}</span>
               {' • '}Current State: <span className="rt-badge badge-personal">{currentStatus}</span>
             </div>
           </div>
@@ -135,13 +136,13 @@ export const DecisionBar: React.FC<DecisionBarProps> = ({
             onChange={(e) => setActor(e.target.value)}
             disabled={loading}
             style={{
-              backgroundColor: 'rgba(0, 0, 0, 0.4)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: '4px',
-              padding: '0.25rem 0.6rem',
+              backgroundColor: 'var(--surface-primary)',
+              border: '1px solid var(--border-medium)',
+              borderRadius: '6px',
+              padding: '0.3rem 0.6rem',
               color: 'var(--text-primary)',
               fontSize: '0.75rem',
-              width: '110px'
+              width: '120px',
             }}
           />
         </div>
@@ -154,21 +155,21 @@ export const DecisionBar: React.FC<DecisionBarProps> = ({
             marginBottom: '1rem',
             padding: '0.75rem 1rem',
             borderRadius: '6px',
-            backgroundColor: proposedAction.status === 'pending' ? 'rgba(168, 85, 247, 0.12)' : 'rgba(255, 255, 255, 0.04)',
-            border: `1px solid ${proposedAction.status === 'pending' ? 'rgba(168, 85, 247, 0.3)' : 'var(--border-subtle)'}`,
+            backgroundColor: proposedAction.status === 'pending' ? 'var(--brand-mint-subtle)' : 'var(--surface-secondary)',
+            border: `1px solid ${proposedAction.status === 'pending' ? 'rgba(56, 161, 137, 0.4)' : 'var(--border-subtle)'}`,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             gap: '1rem',
-            flexWrap: 'wrap'
+            flexWrap: 'wrap',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-            <FileCheck2 size={18} color="var(--accent-purple)" />
+            <FileCheck2 size={18} color="var(--brand-forest)" />
             <div>
               <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                Agent Recommendation: <span style={{ textTransform: 'uppercase', color: 'var(--accent-purple)' }}>{proposedAction.type}</span>
-                <span className="rt-badge" style={{ marginLeft: '0.5rem', fontSize: '0.675rem' }}>
+                Agent Recommendation: <span style={{ textTransform: 'uppercase', color: 'var(--brand-teal)' }}>{proposedAction.type}</span>
+                <span className="rt-badge rt-badge-forest" style={{ marginLeft: '0.5rem', fontSize: '0.675rem' }}>
                   {proposedAction.status}
                 </span>
               </div>
@@ -184,7 +185,7 @@ export const DecisionBar: React.FC<DecisionBarProps> = ({
                 onClick={handleApproveAction}
                 disabled={loading}
                 className="rt-button rt-button-sm"
-                style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', borderColor: 'rgba(16, 185, 129, 0.35)', color: 'var(--accent-emerald)' }}
+                style={{ backgroundColor: 'var(--accent-green-subtle)', borderColor: 'var(--accent-green-border)', color: 'var(--accent-green)' }}
               >
                 {loading ? <Loader2 size={13} className="spin" /> : <CheckCircle2 size={13} />}
                 Approve {proposedAction.type === 'draft_sar' ? 'SAR Filing' : 'Action'}
@@ -193,7 +194,7 @@ export const DecisionBar: React.FC<DecisionBarProps> = ({
                 onClick={handleRejectAction}
                 disabled={loading}
                 className="rt-button rt-button-sm"
-                style={{ backgroundColor: 'rgba(244, 63, 94, 0.12)', borderColor: 'rgba(244, 63, 94, 0.3)', color: 'var(--accent-rose)' }}
+                style={{ backgroundColor: 'var(--accent-red-subtle)', borderColor: 'var(--accent-red-border)', color: 'var(--accent-red)' }}
               >
                 <XCircle size={13} />
                 Reject
@@ -220,12 +221,12 @@ export const DecisionBar: React.FC<DecisionBarProps> = ({
             disabled={loading}
             style={{
               flex: 1,
-              backgroundColor: 'rgba(0, 0, 0, 0.3)',
-              border: '1px solid var(--border-subtle)',
+              backgroundColor: 'var(--surface-primary)',
+              border: '1px solid var(--border-medium)',
               borderRadius: '6px',
               padding: '0.5rem 0.85rem',
               color: 'var(--text-primary)',
-              fontSize: '0.8rem'
+              fontSize: '0.8rem',
             }}
           />
         </div>
@@ -238,10 +239,10 @@ export const DecisionBar: React.FC<DecisionBarProps> = ({
           disabled={loading || !caseId}
           className="rt-button"
           style={{
-            backgroundColor: 'rgba(244, 63, 94, 0.15)',
-            borderColor: 'rgba(244, 63, 94, 0.4)',
-            color: 'var(--accent-rose)',
-            fontWeight: 600
+            backgroundColor: 'var(--accent-red-subtle)',
+            borderColor: 'var(--accent-red-border)',
+            color: 'var(--accent-red)',
+            fontWeight: 600,
           }}
         >
           {loading ? <Loader2 size={15} className="spin" /> : <AlertOctagon size={15} />}
@@ -253,10 +254,10 @@ export const DecisionBar: React.FC<DecisionBarProps> = ({
           disabled={loading || !caseId}
           className="rt-button"
           style={{
-            backgroundColor: 'rgba(245, 158, 11, 0.15)',
-            borderColor: 'rgba(245, 158, 11, 0.4)',
+            backgroundColor: 'var(--accent-amber-subtle)',
+            borderColor: 'var(--accent-amber-border)',
             color: 'var(--accent-amber)',
-            fontWeight: 600
+            fontWeight: 600,
           }}
         >
           {loading ? <Loader2 size={15} className="spin" /> : <Eye size={15} />}
@@ -268,10 +269,10 @@ export const DecisionBar: React.FC<DecisionBarProps> = ({
           disabled={loading || !caseId}
           className="rt-button"
           style={{
-            backgroundColor: 'rgba(16, 185, 129, 0.15)',
-            borderColor: 'rgba(16, 185, 129, 0.4)',
-            color: 'var(--accent-emerald)',
-            fontWeight: 600
+            backgroundColor: 'var(--accent-green-subtle)',
+            borderColor: 'var(--accent-green-border)',
+            color: 'var(--accent-green)',
+            fontWeight: 600,
           }}
         >
           {loading ? <Loader2 size={15} className="spin" /> : <CheckCircle2 size={15} />}
@@ -290,9 +291,9 @@ export const DecisionBar: React.FC<DecisionBarProps> = ({
             display: 'flex',
             alignItems: 'center',
             gap: '0.5rem',
-            backgroundColor: feedback.type === 'success' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(244, 63, 94, 0.15)',
-            border: `1px solid ${feedback.type === 'success' ? 'rgba(16, 185, 129, 0.35)' : 'rgba(244, 63, 94, 0.35)'}`,
-            color: feedback.type === 'success' ? 'var(--accent-emerald)' : 'var(--accent-rose)'
+            backgroundColor: feedback.type === 'success' ? 'var(--accent-green-subtle)' : 'var(--accent-red-subtle)',
+            border: `1px solid ${feedback.type === 'success' ? 'var(--accent-green-border)' : 'var(--accent-red-border)'}`,
+            color: feedback.type === 'success' ? 'var(--accent-green)' : 'var(--accent-red)',
           }}
         >
           {feedback.type === 'success' ? <CheckCircle2 size={14} /> : <AlertOctagon size={14} />}

@@ -57,7 +57,7 @@ export const MemoryPanel: React.FC<MemoryPanelProps> = ({
     const norm = (outcome || '').toLowerCase();
     if (norm === 'dismissed' || norm === 'dismiss') {
       return (
-        <span className="rt-badge badge-success" style={{ fontSize: '0.7rem' }}>
+        <span className="rt-badge rt-badge-emerald" style={{ fontSize: '0.7rem' }}>
           <ShieldCheck size={11} />
           Dismissed (Benign)
         </span>
@@ -65,7 +65,7 @@ export const MemoryPanel: React.FC<MemoryPanelProps> = ({
     }
     if (norm === 'escalated' || norm === 'escalate' || norm === 'sar_drafted') {
       return (
-        <span className="rt-badge badge-danger" style={{ fontSize: '0.7rem' }}>
+        <span className="rt-badge rt-badge-rose" style={{ fontSize: '0.7rem' }}>
           <ShieldAlert size={11} />
           {norm === 'sar_drafted' ? 'SAR Drafted' : 'Escalated (SAR)'}
         </span>
@@ -73,7 +73,7 @@ export const MemoryPanel: React.FC<MemoryPanelProps> = ({
     }
     if (norm === 'monitoring' || norm === 'monitor') {
       return (
-        <span className="rt-badge badge-warning" style={{ fontSize: '0.7rem' }}>
+        <span className="rt-badge rt-badge-amber" style={{ fontSize: '0.7rem' }}>
           <Clock size={11} />
           Monitoring
         </span>
@@ -87,14 +87,14 @@ export const MemoryPanel: React.FC<MemoryPanelProps> = ({
   };
 
   return (
-    <div className="rt-card" style={{ flex: '1 1 320px', minWidth: '300px' }}>
+    <div className="rt-card" style={{ padding: '1.25rem', flex: '1 1 320px', minWidth: '300px', border: '1px solid var(--border-subtle)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.85rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-          <div style={{ padding: '0.35rem', borderRadius: '6px', backgroundColor: 'rgba(168, 85, 247, 0.15)', color: 'var(--accent-purple)' }}>
+          <div style={{ padding: '0.35rem', borderRadius: '6px', backgroundColor: 'var(--brand-mint-subtle)', color: 'var(--brand-forest)' }}>
             <BrainCircuit size={17} />
           </div>
           <div>
-            <h3 style={{ fontSize: '0.925rem', fontWeight: 600 }}>Memory & Past Precedents</h3>
+            <h3 style={{ fontSize: '0.925rem', fontWeight: 600, color: 'var(--text-primary)' }}>Memory & Past Precedents</h3>
             <div style={{ fontSize: '0.725rem', color: 'var(--text-secondary)' }}>
               FalkorDB Memory Graph Recall
             </div>
@@ -117,7 +117,7 @@ export const MemoryPanel: React.FC<MemoryPanelProps> = ({
           Querying past decided cases in memory...
         </div>
       ) : error ? (
-        <div style={{ padding: '0.85rem', backgroundColor: 'rgba(244, 63, 94, 0.1)', borderRadius: '6px', color: 'var(--accent-rose)', fontSize: '0.775rem' }}>
+        <div style={{ padding: '0.85rem', backgroundColor: 'var(--accent-red-subtle)', borderRadius: '6px', color: 'var(--accent-red)', fontSize: '0.775rem', border: '1px solid var(--accent-red-border)' }}>
           <AlertTriangle size={14} style={{ display: 'inline', marginRight: '0.4rem', verticalAlign: 'text-bottom' }} />
           {error}
         </div>
@@ -125,9 +125,9 @@ export const MemoryPanel: React.FC<MemoryPanelProps> = ({
         <div style={{
           padding: '1.75rem 1rem',
           textAlign: 'center',
-          backgroundColor: 'rgba(0, 0, 0, 0.15)',
-          borderRadius: '6px',
-          border: '1px dashed var(--border-subtle)',
+          backgroundColor: 'var(--surface-secondary)',
+          borderRadius: '8px',
+          border: '1px dashed var(--border-medium)',
           fontSize: '0.775rem',
           color: 'var(--text-muted)'
         }}>
@@ -148,7 +148,7 @@ export const MemoryPanel: React.FC<MemoryPanelProps> = ({
                 style={{
                   padding: '0.75rem 0.85rem',
                   borderRadius: '6px',
-                  backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                  backgroundColor: 'var(--surface-secondary)',
                   border: '1px solid var(--border-subtle)',
                   transition: 'border-color 0.15s ease',
                   fontSize: '0.775rem'
@@ -156,7 +156,7 @@ export const MemoryPanel: React.FC<MemoryPanelProps> = ({
               >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                    <span className="mono" style={{ fontWeight: 600, color: 'var(--accent-cyan)' }}>
+                    <span className="mono" style={{ fontWeight: 600, color: 'var(--brand-teal)' }}>
                       {item.case_id}
                     </span>
                     <button
@@ -172,7 +172,7 @@ export const MemoryPanel: React.FC<MemoryPanelProps> = ({
 
                 {/* Precedent Narrative Highlight */}
                 <div style={{
-                  color: isDismissed ? 'var(--accent-emerald)' : 'var(--text-primary)',
+                  color: isDismissed ? 'var(--accent-green)' : 'var(--text-primary)',
                   fontSize: '0.75rem',
                   fontWeight: 500,
                   marginBottom: '0.35rem',
