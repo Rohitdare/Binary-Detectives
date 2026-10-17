@@ -14,13 +14,28 @@ import unittest
 
 def run_all_tests():
     root_dir = os.path.dirname(os.path.abspath(__file__))
-    backend_dir = os.path.join(root_dir, "ringtrace", "backend")
+    candidates = [
+        os.path.join(root_dir, "SPYNEX", "backend"),
+        os.path.join(root_dir, "ringtrace", "backend"),
+        os.path.join(root_dir, "backend"),
+        root_dir,
+    ]
+    backend_dir = next(
+        (candidate for candidate in candidates if os.path.isdir(os.path.join(candidate, "tests"))),
+        root_dir,
+    )
     tests_dir = os.path.join(backend_dir, "tests")
 
-    if not os.path.isdir(tests_dir):
-        # Running from inside ringtrace/backend
-        backend_dir = root_dir
-        tests_dir = os.path.join(backend_dir, "tests")
+    venv_py = os.path.join(backend_dir, ".venv", "Scripts", "python.exe")
+    if not os.path.isfile(venv_py):
+        venv_py = os.path.join(backend_dir, ".venv", "bin", "python")
+    if os.path.isfile(venv_py) and os.path.abspath(sys.executable).lower() != os.path.abspath(venv_py).lower():
+        try:
+            import falkordb  # noqa: F401
+        except ImportError:
+            import subprocess
+            res = subprocess.run([venv_py, os.path.abspath(__file__)] + sys.argv[1:])
+            sys.exit(res.returncode)
 
     if backend_dir not in sys.path:
         sys.path.insert(0, backend_dir)
