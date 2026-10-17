@@ -30,6 +30,7 @@ import type {
 export interface InvestigationPanelProps {
   initialCaseId?: string;
   onInspectAccount?: (accountId: string) => void;
+  onHighlight?: (evidence: { account_ids: string[]; tx_ids: string[] }) => void;
 }
 
 export type InvestigationMode = 'pending' | 'running' | 'llm' | 'fallback';
@@ -43,6 +44,7 @@ export type InvestigationMode = 'pending' | 'running' | 'llm' | 'fallback';
 export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
   initialCaseId = 'CASE_0001',
   onInspectAccount = () => {},
+  onHighlight = () => {},
 }) => {
   const [selectedCaseId, setSelectedCaseId] = useState(initialCaseId);
   const [customCaseId, setCustomCaseId] = useState('');
@@ -62,11 +64,13 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
   const [caseStatus, setCaseStatus] = useState('open');
   const [expandedSteps, setExpandedSteps] = useState<Record<number, boolean>>({});
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [similarCaseCount, setSimilarCaseCount] = useState<number | null>(null);
 
   const eventSourceRef = useRef<EventSource | null>(null);
   const stepsEndRef = useRef<HTMLDivElement | null>(null);
 
   const activeCaseId = customCaseId.trim() || selectedCaseId;
+  const activeCase = cases.find((c) => c.case_id === activeCaseId);
 
   // Fetch live cases on mount and on refresh
   useEffect(() => {
@@ -79,7 +83,6 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
           const items = res.items || [];
           setCases(items);
           if (items.length > 0) {
-            // Keep current selection if valid, or default to initialCaseId or first case
             const exists = items.some((c) => c.case_id === selectedCaseId);
             if (!exists) {
               const hasInitial = items.some((c) => c.case_id === initialCaseId);
@@ -100,6 +103,41 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
     };
   }, [refreshTrigger, initialCaseId]);
 
+  // Fetch case status & decisions for activeCaseId on mount and when changed
+  useEffect(() => {
+    let isMounted = true;
+    if (!activeCaseId) return;
+
+    ringtraceApi
+      .getCase(activeCaseId)
+      .then((c) => {
+        if (isMounted && c && c.status) {
+          setCaseStatus(c.status);
+        }
+      })
+      .catch(() => {});
+
+    ringtraceApi
+      .getCaseDecisions(activeCaseId)
+      .then((dRes) => {
+        if (isMounted && dRes.items && dRes.items.length > 0) {
+          const latest = dRes.items[0];
+          const statusMap: Record<string, string> = {
+            escalate: 'escalated',
+            monitor: 'monitoring',
+            dismiss: 'dismissed',
+            draft_sar: 'sar_drafted',
+          };
+          setCaseStatus(statusMap[latest.decision] || latest.decision);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeCaseId, refreshTrigger]);
+
   // Cleanup EventSource on unmount
   useEffect(() => {
     return () => {
@@ -118,6 +156,16 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
 
   const toggleStepExpand = (idx: number) => {
     setExpandedSteps((prev) => ({ ...prev, [idx]: !prev[idx] }));
+  };
+
+  const handleStepClick = (idx: number, st: InvestigationStep) => {
+    toggleStepExpand(idx);
+    if (onHighlight && st.evidence) {
+      onHighlight({
+        account_ids: st.evidence.account_ids || [],
+        tx_ids: st.evidence.tx_ids || [],
+      });
+    }
   };
 
   const startInvestigation = async () => {
@@ -146,6 +194,10 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
       const sseUrl = `/api/v1/investigations/${encodeURIComponent(invId)}/events`;
       const es = new EventSource(sseUrl);
       eventSourceRef.current = es;
+
+      es.addEventListener('heartbeat', () => {
+        // SSE Heartbeat received from backend every 15s to keep connection alive
+      });
 
       es.addEventListener('step', (event: MessageEvent) => {
         try {
@@ -194,7 +246,7 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
       });
 
       es.onerror = () => {
-        // Fallback or stream completion check
+        // Handle transient reconnect or fallback
         setMode((prev) => (prev === 'running' ? 'fallback' : prev));
         setIsRunning(false);
         es.close();
@@ -217,6 +269,10 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
       setCaseStatus(statusMap[decRecord.decision] || decRecord.decision);
       if (proposedAction) {
         setProposedAction((prev) => (prev ? { ...prev, status: 'approved' } : null));
+      }
+    } else {
+      if (proposedAction) {
+        setProposedAction((prev) => (prev ? { ...prev, status: 'rejected' } : null));
       }
     }
     setRefreshTrigger((prev) => prev + 1);
@@ -442,6 +498,75 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
         </div>
       </div>
 
+      {/* Case Summary Bar displaying metrics and similar-case count */}
+      {activeCaseId && (
+        <div
+          className="rt-card"
+          style={{
+            padding: '0.75rem 1rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '0.85rem',
+            backgroundColor: 'var(--surface-secondary)',
+            border: '1px solid var(--border-subtle)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap', fontSize: '0.8rem' }}>
+            <div>
+              <span style={{ color: 'var(--text-muted)' }}>Case:</span>{' '}
+              <strong className="mono" style={{ color: 'var(--brand-teal)' }}>{activeCaseId}</strong>
+            </div>
+            {activeCase && (
+              <>
+                <div>
+                  <span style={{ color: 'var(--text-muted)' }}>Triage Score:</span>{' '}
+                  <strong>{activeCase.score} / 100</strong>{' '}
+                  <span
+                    className={`rt-badge ${activeCase.severity === 'high' ? 'rt-badge-rose' : activeCase.severity === 'medium' ? 'rt-badge-amber' : 'rt-badge-gray'}`}
+                    style={{ textTransform: 'uppercase', fontSize: '0.65rem' }}
+                  >
+                    {activeCase.severity}
+                  </span>
+                </div>
+                <div>
+                  <span style={{ color: 'var(--text-muted)' }}>Typology:</span>{' '}
+                  {activeCase.patterns.map((p) => (
+                    <span key={p} className="rt-badge rt-badge-emerald" style={{ marginLeft: '4px', fontSize: '0.65rem' }}>
+                      {p.replace('_', '-')}
+                    </span>
+                  ))}
+                </div>
+                <div>
+                  <span style={{ color: 'var(--text-muted)' }}>Scope:</span>{' '}
+                  <span>{activeCase.account_count} accounts · {activeCase.tx_count} txs</span>
+                </div>
+              </>
+            )}
+            {/* Similar-case count per prompt requirement */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Similar Cases:</span>{' '}
+              <span
+                className="rt-badge rt-badge-mint mono"
+                style={{ fontWeight: 700, fontSize: '0.725rem' }}
+              >
+                {similarCaseCount !== null
+                  ? `${similarCaseCount} ${similarCaseCount === 1 ? 'precedent' : 'precedents'} in memory`
+                  : 'Querying memory...'}
+              </span>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.775rem' }}>
+            <span style={{ color: 'var(--text-muted)' }}>Status:</span>
+            <span className="rt-badge rt-badge-gray" style={{ textTransform: 'capitalize' }}>
+              {caseStatus}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Main Grid: Live Agent Feed & Memory Precedents */}
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.6fr) minmax(320px, 1fr)', gap: '1.25rem', alignItems: 'start' }}>
         {/* Left Column: Real-Time SSE Step Stream & Final Narrative */}
@@ -453,14 +578,16 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
                 <Terminal size={17} color="var(--brand-teal)" />
                 <h3 style={{ fontSize: '0.925rem', fontWeight: 600 }}>Agent Execution Trace (Live SSE Feed)</h3>
               </div>
-              <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>
-                {isRunning ? (
-                  <span style={{ color: 'var(--brand-teal)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: 'var(--brand-mint)', display: 'inline-block' }} />
-                    Streaming tool calls...
+              {/* Tool calls counter climbs live as steps arrive */}
+              <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span style={{ fontWeight: 600, color: isRunning ? 'var(--brand-teal)' : 'var(--text-primary)' }}>
+                  {steps.length} tool calls executed
+                </span>
+                {isRunning && (
+                  <span style={{ color: 'var(--brand-teal)', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--brand-mint)', display: 'inline-block' }} />
+                    Streaming
                   </span>
-                ) : (
-                  <span>{steps.length} tool calls executed</span>
                 )}
               </div>
             </div>
@@ -510,7 +637,7 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
                     }}
                   >
                     <div
-                      onClick={() => toggleStepExpand(idx)}
+                      onClick={() => handleStepClick(idx, st)}
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -518,6 +645,7 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
                         cursor: 'pointer',
                         gap: '0.5rem',
                       }}
+                      title="Click step to expand details and highlight graph evidence"
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
                         {isExpanded ? <ChevronDown size={14} color="var(--text-muted)" /> : <ChevronRight size={14} color="var(--text-muted)" />}
@@ -544,7 +672,10 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
                         {st.evidence?.account_ids?.map((acc) => (
                           <button
                             key={acc}
-                            onClick={() => onInspectAccount(acc)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onInspectAccount(acc);
+                            }}
                             className="rt-badge badge-personal mono"
                             style={{ fontSize: '0.675rem', cursor: 'pointer' }}
                             title="Inspect account in graph"
@@ -692,6 +823,7 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
               setSelectedCaseId(cId);
               setCustomCaseId('');
             }}
+            onSimilarCasesLoaded={(items) => setSimilarCaseCount(items.length)}
             refreshTrigger={refreshTrigger}
           />
         </div>

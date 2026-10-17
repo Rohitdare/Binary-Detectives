@@ -15,6 +15,7 @@ import type { SimilarCaseItem } from '../../types';
 export interface MemoryPanelProps {
   caseId: string;
   onSelectCase?: (caseId: string) => void;
+  onSimilarCasesLoaded?: (items: SimilarCaseItem[]) => void;
   refreshTrigger?: number;
 }
 
@@ -25,6 +26,7 @@ export interface MemoryPanelProps {
 export const MemoryPanel: React.FC<MemoryPanelProps> = ({
   caseId,
   onSelectCase = () => {},
+  onSimilarCasesLoaded,
   refreshTrigger = 0,
 }) => {
   const [similarCases, setSimilarCases] = useState<SimilarCaseItem[]>([]);
@@ -34,20 +36,24 @@ export const MemoryPanel: React.FC<MemoryPanelProps> = ({
   const fetchSimilar = useCallback(async () => {
     if (!caseId) {
       setSimilarCases([]);
+      onSimilarCasesLoaded?.([]);
       return;
     }
     setLoading(true);
     setError(null);
     try {
       const res = await ringtraceApi.getSimilarCases(caseId, 5);
-      setSimilarCases(res.items || []);
+      const items = res.items || [];
+      setSimilarCases(items);
+      onSimilarCasesLoaded?.(items);
     } catch (err: any) {
       setError(err?.message || 'Failed to query memory graph precedents.');
       setSimilarCases([]);
+      onSimilarCasesLoaded?.([]);
     } finally {
       setLoading(false);
     }
-  }, [caseId]);
+  }, [caseId, onSimilarCasesLoaded]);
 
   useEffect(() => {
     fetchSimilar();
@@ -94,7 +100,14 @@ export const MemoryPanel: React.FC<MemoryPanelProps> = ({
             <BrainCircuit size={17} />
           </div>
           <div>
-            <h3 style={{ fontSize: '0.925rem', fontWeight: 600, color: 'var(--text-primary)' }}>Memory & Past Precedents</h3>
+            <h3 style={{ fontSize: '0.925rem', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <span>Memory & Past Precedents</span>
+              {similarCases.length > 0 && (
+                <span className="rt-badge rt-badge-mint mono" style={{ fontSize: '0.675rem', padding: '1px 6px' }}>
+                  {similarCases.length}
+                </span>
+              )}
+            </h3>
             <div style={{ fontSize: '0.725rem', color: 'var(--text-secondary)' }}>
               FalkorDB Memory Graph Recall
             </div>

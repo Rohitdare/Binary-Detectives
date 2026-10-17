@@ -262,6 +262,14 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
           <div>
             <strong>Total Flow:</strong> {currency.format(caseDetail.total_amount)}
           </div>
+          {caseDetail.similar_case_count !== undefined && (
+            <div>
+              <strong>Similar Cases:</strong>{' '}
+              <span className="rt-badge rt-badge-mint mono" style={{ fontSize: '0.675rem' }}>
+                {caseDetail.similar_case_count}
+              </span>
+            </div>
+          )}
           <div>
             <strong>Updated:</strong> {caseDetail.updated_at ? caseDetail.updated_at.substring(0, 19).replace('T', ' ') : '—'}
           </div>

@@ -42,8 +42,8 @@ MEMORY_INDEXES = [
 # Read the real transactions behind a seed case from the `txn` graph.
 # UNWIND turns the list of ids into rows; each row looks up one SENT edge.
 SEED_FETCH_TXS = """
-UNWIND $tx_ids AS tid
-MATCH (s:Account)-[t:SENT {tx_id: tid}]->(d:Account)
+MATCH (s:Account)-[t:SENT]->(d:Account)
+WHERE t.tx_id IN $tx_ids
 RETURN t.tx_id, s.id, s.type, d.id, d.type, t.amount, t.ts, t.tx_type
 """
 
@@ -56,7 +56,8 @@ SET c.patterns = $patterns,
     c.status = $status,
     c.signature = $signature,
     c.updated_at = $updated_at,
-    c.source = $source
+    c.source = $source,
+    c.payload = $payload
 """
 
 # Create or update a hit and link it to its case.

@@ -103,11 +103,15 @@ def run_fallback_investigation(
     case_accounts = [a["id"] for a in c_res.get("accounts", [])]
     case_patterns = c_res.get("patterns", [])
     case_score = c_res.get("score", 50)
-    origin_acc = case_accounts[0] if case_accounts else "ACC_00001"
-
     # Identify if payroll or merchant accounts are involved
     acc_type_map = {a["id"]: a.get("type", "personal") for a in c_res.get("accounts", [])}
-    has_payroll_origin = any(acc_type_map.get(aid) == "payroll" for aid in case_accounts)
+    payroll_accs = [aid for aid, atype in acc_type_map.items() if atype == "payroll"]
+    if payroll_accs:
+        origin_acc = payroll_accs[0]
+        has_payroll_origin = True
+    else:
+        origin_acc = case_accounts[0] if case_accounts else "ACC_00001"
+        has_payroll_origin = False
 
     # 2. expand_neighborhood
     nb_res = expand_neighborhood(origin_acc, hops=1, limit=25, db=db, txn_graph=txn_graph)

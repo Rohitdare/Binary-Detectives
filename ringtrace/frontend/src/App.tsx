@@ -192,6 +192,11 @@ export const App: React.FC = () => {
                 <AutonomousInvestigationView
                   initialCaseId={selectedCaseForAgent}
                   onInspectAccount={handleSelectAccount}
+                  onHighlight={(evidence) => {
+                    if (evidence.account_ids && evidence.account_ids.length > 0) {
+                      handleSelectAccount(evidence.account_ids[0]);
+                    }
+                  }}
                 />
               )}
             </div>
