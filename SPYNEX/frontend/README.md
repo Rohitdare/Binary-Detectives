@@ -1,32 +1,41 @@
-# React + TypeScript + Vite
+# SPYNEX Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Interactive financial crime network visualization and investigation cockpit built with **React 19**, **TypeScript**, **Vite**, and **Cytoscape.js**.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Features
+- **Triage Queue & Case Management:** Sort and filter cases by heuristic priority score, severity, and typology pattern.
+- **Interactive Evidence Graph:** Canvas powered by Cytoscape.js with directional edge flows, role color coding, and reactive zoom/pan.
+- **Autonomous Investigation Cockpit:** Multi-turn ReAct agent interaction with live Server-Sent Events (SSE) streaming and anti-hallucination citation checks.
+- **9-Pattern Detection Workspace:** Live execution of graph detection engines with responsive side-by-side evidence inspection.
+- **Transaction Explorer:** Direct account neighborhood graph exploration with 1-3 hop ego network visualizer.
 
-## React Compiler
+---
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Local Development
 
-## Expanding the Oxlint configuration
+```powershell
+# Install dependencies
+npm install
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+# Start Vite development server (http://localhost:5173)
+npm run dev
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+# Build for production
+npm run build
+
+# Preview production build locally
+npm run preview
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+---
+
+## Deployment (Vercel)
+
+1. Set the **Root Directory** to `SPYNEX/frontend`.
+2. Framework Preset: **Vite**.
+3. Build Command: `npm run build`
+4. Output Directory: `dist`
+5. Configure Environment Variables:
+   - `VITE_API_URL`: Your deployed Railway backend API base (e.g. `https://your-backend.railway.app/api`).

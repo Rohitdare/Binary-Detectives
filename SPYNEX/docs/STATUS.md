@@ -19,6 +19,13 @@
 
 ---
 
+- [x] **Case Evidence Graph & Transaction Viewport Loading Fix (2026-10-18):**
+  - **Fixed Evidence Graph Topology Loading:** Resolved an issue where `/api/v1/cases/{case_id}` and `/api/v1/cases/{case_id}/graph` returned 0 nodes and 0 edges for cases whose transactions were only referenced by `tx_ids` or lacked inlined transaction payloads in FalkorDB.
+  - **Added `GET_TRANSACTIONS_BY_IDS` Query:** Centralized `GET_TRANSACTIONS_BY_IDS` in [`queries.py`](file:///d:/vortex/SPYNEX/backend/app/queries.py) to reliably look up real transaction edges (`src, src_type, dst, dst_type, amount, ts, step, tx_type`) from the `txn` graph whenever a case is retrieved.
+  - **Account & Role Reconciliation:** Extended [`detection_routes.py`](file:///d:/vortex/SPYNEX/backend/app/api/detection_routes.py) so `case_graph` and `get_case` derive full `account_ids`, `account_types`, and structural roles from `accounts`, `hits`, and transactions, ensuring `CASE_0001` and other cases populate both the Evidence Graph and the Transactions ledger.
+  - **Cytoscape Viewport & ResizeObserver Integration:** Enhanced [`CaseGraphCanvas.tsx`](file:///d:/vortex/SPYNEX/frontend/src/components/cases/CaseGraphCanvas.tsx) with a `ResizeObserver` on the canvas container, `layoutstop` handlers, and deferred `cy.resize()` and `cy.fit()` calls to guarantee nodes and edges render perfectly centered in the viewport across tab switches and initial paint.
+  - **Verification:** Verified backend endpoints return all 4 nodes, 4 edges, and 4 transactions for `CASE_0001`; full backend test suite (`python -m unittest discover tests`) passed all 248/248 tests; frontend built cleanly via `npm run build` in 806ms.
+
 - [x] **Detector Subgraph & Evidence Side-by-Side Cohesive Integration (2026-10-18):**
   - **Eliminated Vertical Disconnect Across All 9 Detectors:** Integrated [`CandidateGraph.tsx`](file:///d:/vortex/SPYNEX/frontend/src/components/patterns/CandidateGraph.tsx) and [`CandidateEvidencePanel.tsx`](file:///d:/vortex/SPYNEX/frontend/src/components/patterns/CandidateEvidencePanel.tsx) into a single cohesive card in [`DetectorWorkspace.tsx`](file:///d:/vortex/SPYNEX/frontend/src/components/patterns/DetectorWorkspace.tsx).
   - **Side-by-Side Top Split:** Placed the interactive Cytoscape subgraph canvas directly beside the Typology Findings and Detector Metrics at the exact same eye level. Analysts immediately see the visual structure and its forensic explanation without any vertical scrolling.

@@ -337,3 +337,15 @@ test_scratch*/
 # Unoptimized Raw Assets
 *-original.png
 **/*-original.png
+
+# ------------------------------------------------------------------------------
+# Deployment Platforms & Legacy Folder Artifacts
+# ------------------------------------------------------------------------------
+.railway/
+**/.railway/
+.vercel/
+**/.vercel/
+ringtrace/
+**/ringtrace/
+uvicorn.exe
+**/uvicorn.exe

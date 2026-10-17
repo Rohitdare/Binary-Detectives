@@ -27,7 +27,8 @@ try:
         GET_CASES_BY_UPDATED, GET_CASES_FOR_ACCOUNT, GET_CASE_BY_ID,
         GET_CASE_DECISIONS, GET_CASE_HITS, GET_GRAPH_COUNTS_AND_RANGE,
         GET_CASE_PATTERN_COUNTS, GET_NEIGHBORHOOD_EDGES, MERGE_ACCOUNTS,
-        MERGE_TRANSACTIONS, PING_FALKORDB,
+        MERGE_TRANSACTIONS, PING_FALKORDB, GET_TRANSACTIONS_BY_IDS,
+        GET_ACCOUNT_TYPES_BY_IDS,
     )
     from app.scan_service import (
         create_scan_job, get_active_scan_id, get_latest_scan_job, get_scan_job,
@@ -50,7 +51,8 @@ except ImportError:
         GET_CASES_BY_UPDATED, GET_CASES_FOR_ACCOUNT, GET_CASE_BY_ID,
         GET_CASE_DECISIONS, GET_CASE_HITS, GET_GRAPH_COUNTS_AND_RANGE,
         GET_CASE_PATTERN_COUNTS, GET_NEIGHBORHOOD_EDGES, MERGE_ACCOUNTS,
-        MERGE_TRANSACTIONS, PING_FALKORDB,
+        MERGE_TRANSACTIONS, PING_FALKORDB, GET_TRANSACTIONS_BY_IDS,
+        GET_ACCOUNT_TYPES_BY_IDS,
     )
     from backend.app.scan_service import (
         create_scan_job, get_active_scan_id, get_latest_scan_job, get_scan_job,
@@ -277,13 +279,131 @@ def get_case(case_id: str, request: Request):
         if not case:
             return _error(404, "not_found", "Case not found")
         hit_rows = db.execute_query(_memory_graph(), GET_CASE_HITS, {"case_id": case_id}, caller="api:case_hits").result_set or []
-        db_hits = [json.loads(row[0]) if isinstance(row[0], str) else row[0] for row in hit_rows if row and row[0] is not None]
+        db_hits = []
+        for row in hit_rows:
+            if not row:
+                continue
+            if row[0]:
+                try:
+                    db_hits.append(json.loads(row[0]) if isinstance(row[0], str) else row[0])
+                    continue
+                except Exception:
+                    pass
+            measurements = {}
+            if len(row) > 5 and row[5]:
+                try:
+                    measurements = json.loads(row[5]) if isinstance(row[5], str) else row[5]
+                except Exception:
+                    measurements = {}
+            db_hits.append({
+                "hit_id": str(row[1]) if len(row) > 1 and row[1] else "",
+                "pattern": str(row[2]) if len(row) > 2 and row[2] else "",
+                "tx_ids": list(row[3]) if len(row) > 3 and isinstance(row[3], (list, tuple)) else [],
+                "account_ids": list(row[4]) if len(row) > 4 and isinstance(row[4], (list, tuple)) else [],
+                "measurements": measurements,
+                "explanation": str(row[6]) if len(row) > 6 and row[6] else "",
+            })
         case_hits = db_hits or case.get("hits", [])
         case["hits"] = case_hits
+
+        transactions_by_id: Dict[str, Dict[str, Any]] = {}
         if case_hits:
-            transactions = {tx.get("tx_id"): tx for hit in case_hits if isinstance(hit, dict) for tx in hit.get("transactions", []) if isinstance(tx, dict) and tx.get("tx_id")}
-            if transactions:
-                case["transactions"] = sorted(transactions.values(), key=lambda tx: (int(tx.get("ts", 0)), tx["tx_id"]))
+            for hit in case_hits:
+                if isinstance(hit, dict):
+                    for tx in hit.get("transactions", []):
+                        if isinstance(tx, dict) and tx.get("tx_id"):
+                            transactions_by_id[str(tx["tx_id"])] = dict(tx)
+
+        # Collect needed tx_ids across hits and case summary
+        needed_tx_ids = set()
+        for hit in case_hits:
+            if isinstance(hit, dict):
+                for tid in hit.get("tx_ids", []):
+                    needed_tx_ids.add(str(tid))
+        for tid in case.get("tx_ids", []):
+            needed_tx_ids.add(str(tid))
+
+        missing_tx_ids = [tid for tid in needed_tx_ids if tid not in transactions_by_id]
+        if missing_tx_ids:
+            try:
+                tx_rows = db.execute_query(
+                    _graph(request),
+                    GET_TRANSACTIONS_BY_IDS,
+                    {"tx_ids": missing_tx_ids},
+                    caller="api:case_transactions",
+                ).result_set or []
+                for r in tx_rows:
+                    transactions_by_id[str(r[0])] = {
+                        "tx_id": str(r[0]),
+                        "src": str(r[1]),
+                        "src_type": str(r[2]) if len(r) > 2 and r[2] else "unknown",
+                        "dst": str(r[3]),
+                        "dst_type": str(r[4]) if len(r) > 4 and r[4] else "unknown",
+                        "amount": float(r[5]),
+                        "ts": int(r[6]),
+                        "step": int(r[7] or 0) if len(r) > 7 else 0,
+                        "tx_type": str(r[8]) if len(r) > 8 and r[8] else None,
+                    }
+            except Exception:
+                pass
+
+        if transactions_by_id:
+            case["transactions"] = sorted(
+                transactions_by_id.values(),
+                key=lambda tx: (int(tx.get("ts", 0) or 0), str(tx.get("tx_id", ""))),
+            )
+        else:
+            case["transactions"] = []
+
+        # Ensure account_ids is populated
+        acc_ids = set(case.get("account_ids", []))
+        if case.get("accounts"):
+            for a in case["accounts"]:
+                if isinstance(a, dict) and a.get("id"):
+                    acc_ids.add(str(a["id"]))
+                elif isinstance(a, str):
+                    acc_ids.add(str(a))
+        for hit in case_hits:
+            if isinstance(hit, dict):
+                for aid in hit.get("account_ids", []):
+                    acc_ids.add(str(aid))
+        for tx in case["transactions"]:
+            if isinstance(tx, dict):
+                if tx.get("src"):
+                    acc_ids.add(str(tx["src"]))
+                if tx.get("dst"):
+                    acc_ids.add(str(tx["dst"]))
+        case["account_ids"] = sorted(acc_ids)
+
+        # Ensure account_types is populated
+        acc_types = dict(case.get("account_types", {}))
+        if case.get("accounts"):
+            for a in case["accounts"]:
+                if isinstance(a, dict) and a.get("id") and a.get("type"):
+                    acc_types[str(a["id"])] = str(a["type"])
+        for tx in case["transactions"]:
+            if isinstance(tx, dict):
+                if tx.get("src") and tx.get("src_type") and tx.get("src_type") != "unknown":
+                    acc_types.setdefault(str(tx["src"]), str(tx["src_type"]))
+                if tx.get("dst") and tx.get("dst_type") and tx.get("dst_type") != "unknown":
+                    acc_types.setdefault(str(tx["dst"]), str(tx["dst_type"]))
+
+        missing_type_ids = [aid for aid in case["account_ids"] if aid not in acc_types]
+        if missing_type_ids:
+            try:
+                type_rows = db.execute_query(
+                    _graph(request),
+                    GET_ACCOUNT_TYPES_BY_IDS,
+                    {"account_ids": missing_type_ids},
+                    caller="api:account_types",
+                ).result_set or []
+                for r in type_rows:
+                    acc_types[str(r[0])] = str(r[1] or "unknown")
+            except Exception:
+                pass
+
+        case["account_types"] = acc_types
+
         decision_rows = db.execute_query(_memory_graph(), GET_CASE_DECISIONS, {"case_id": case_id}, caller="api:case_decisions").result_set or []
         case["decisions"] = [{"decision_id": row[0], "decision": row[1], "note": row[2], "actor": row[3], "ts": row[4]} for row in decision_rows]
         try:
@@ -307,9 +427,14 @@ def case_graph(case_id: str, request: Request):
     roles: Dict[str, set[str]] = {}
     for hit in case.get("hits", []):
         for account_id, role in (hit.get("account_roles") or {}).items():
-            roles.setdefault(account_id, set()).add(role)
+            roles.setdefault(str(account_id), set()).add(str(role))
+    for acc in case.get("accounts", []):
+        if isinstance(acc, dict) and acc.get("id") and acc.get("roles"):
+            for r in acc["roles"]:
+                roles.setdefault(str(acc["id"]), set()).add(str(r))
+    account_ids = case.get("account_ids", [])
     nodes = [{"id": account, "type": account_types.get(account, "unknown"),
-              "roles": sorted(roles.get(account, set())), "in_case": True} for account in case.get("account_ids", [])]
+              "roles": sorted(roles.get(account, set())), "in_case": True} for account in account_ids]
     edges = [{"tx_id": tx["tx_id"], "source": tx["src"], "target": tx["dst"],
               "amount": tx["amount"], "ts": tx["ts"]} for tx in case.get("transactions", [])]
     included = {node["id"] for node in nodes}

@@ -50,11 +50,12 @@ vortex/
 ├── AGENTS_MEMBER_A.md               # Member A contract (Detectors, Cases, Scheduler, Eval)
 ├── README.md                        # Master repository guide & quick start
 ├── requirements.txt                 # Root Python requirements
-├── run_tests.py                     # Unified 1-command test runner (executes all 214 tests)
+├── run_tests.py                     # Unified 1-command test runner (executes all 248 tests)
 │
-└── ringtrace/
+└── SPYNEX/
     ├── docs/                        # Core Documentation & System Specifications
     │   ├── README.md                # Documentation navigation hub
+    │   ├── RAILWAY_DEPLOYMENT.md    # Railway backend & Vercel frontend deployment guide
     │   ├── DETECTOR_GUIDE.md        # Comprehensive 9-detector algorithms & math rules
     │   ├── DETECTION_SCHEDULER.md   # Background fraud detection scheduler architecture
     │   ├── DEMO_AND_PITCH.md        # Pitch guide, jury script & demo walkthrough
@@ -73,6 +74,7 @@ vortex/
     │
     ├── backend/                     # Python 3.10+ FastAPI Backend
     │   ├── .env.example             # Backend environment template
+    │   ├── .python-version          # Pinned deployment runtime (3.11)
     │   ├── requirements.txt         # Pinned backend dependencies
     │   ├── simulate.py              # AMLSim-inspired synthetic transaction generator
     │   ├── load_falkordb.py         # FalkorDB property graph ingestion loader
@@ -92,7 +94,7 @@ vortex/
     │   │   ├── scheduler/           # Automated background scan service & config
     │   │   └── stream/              # Transaction replay stream worker & demo reset
     │   │
-    │   └── tests/                   # 23 Automated Test Suites (214+ tests)
+    │   └── tests/                   # 24 Automated Test Suites (248 tests)
     │       ├── README.md            # Detailed test suite inventory & categorization
     │       ├── fixtures/            # Positive, negative & payroll JSON fixtures
     │       └── test_*.py            # Detector, case, scheduler, agent, and E2E tests
@@ -112,9 +114,9 @@ vortex/
 ## Quick Start
 
 ### 1. Prerequisites
-- **Python 3.10+**
+- **Python 3.10+** (Python 3.11 recommended for Railway)
 - **Node.js 18+** & npm
-- **Docker** (for running FalkorDB)
+- **Docker** (for running FalkorDB locally)
 
 ### 2. Launch FalkorDB Graph Database
 ```powershell
@@ -126,7 +128,7 @@ Copy the environment template and insert your Google Gemini API key:
 ```powershell
 cp .env.example .env
 ```
-Edit `.env` (or `ringtrace/backend/.env`):
+Edit `.env` (or `SPYNEX/backend/.env`):
 ```env
 # Required for Autonomous AI Agent Investigation
 GEMINI_API_KEY=your_actual_gemini_api_key_here
@@ -136,13 +138,17 @@ FALKORDB_HOST=localhost
 FALKORDB_PORT=6379
 FALKORDB_GRAPH=txn
 FALKORDB_MEMORY_GRAPH=memory
+
+# Deployment and Security
+CORS_ORIGINS=http://localhost:5173,http://localhost:3000
+RINGTRACE_DEMO_KEY=your_secret_demo_key_here
 ```
 *(Note: If `GEMINI_API_KEY` is not provided, the agent loop automatically and gracefully falls back to the deterministic rule-based investigation engine).*
 
 ### 4. Install Dependencies
 ```powershell
 # Backend
-cd ringtrace/backend
+cd SPYNEX/backend
 pip install -r requirements.txt
 
 # Frontend
@@ -152,7 +158,7 @@ npm install
 
 ### 5. Ingest Graph Data
 ```powershell
-cd ringtrace/backend
+cd SPYNEX/backend
 # Generate ~3,000 accounts and ~40,000 transactions
 python simulate.py --seed 42 --out data/sim
 
@@ -163,16 +169,32 @@ python load_falkordb.py --data data/sim --reset
 ### 6. Start Development Servers
 In Terminal 1 (Backend):
 ```powershell
-cd ringtrace/backend
+cd SPYNEX/backend
 uvicorn app.main:app --reload --port 8000
 ```
 
 In Terminal 2 (Frontend):
 ```powershell
-cd ringtrace/frontend
+cd SPYNEX/frontend
 npm run dev
 ```
 Open **`http://localhost:5173`** in your browser.
+
+---
+
+## Production Deployment (Railway & Vercel)
+
+For step-by-step instructions on deploying the full stack, see **[`SPYNEX/docs/RAILWAY_DEPLOYMENT.md`](SPYNEX/docs/RAILWAY_DEPLOYMENT.md)**.
+
+- **Backend (Railway):**
+  - Root directory: `SPYNEX/backend`
+  - Start command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+  - Healthcheck path: `/readyz` (tests FalkorDB connectivity; `/healthz` tests process liveness)
+- **Frontend (Vercel):**
+  - Root directory: `SPYNEX/frontend`
+  - Build command: `npm run build`
+  - Output directory: `dist`
+  - Set `VITE_API_URL` to your Railway API URL (e.g. `https://your-api.railway.app/api`).
 
 ---
 
@@ -188,7 +210,7 @@ python run_tests.py
 python run_tests.py -v
 ```
 
-All **23 test suites (214 tests)** run against isolated, throwaway test graphs (`test_<uuid>`) and execute in ~20 seconds with **100% pass rate**.
+All **24 test suites (248 tests)** run against isolated, throwaway test graphs (`test_<uuid>`) and execute in ~21 seconds with **100% pass rate**.
 
 ---
 
@@ -220,10 +242,11 @@ All **23 test suites (214 tests)** run against isolated, throwaway test graphs (
 
 ## Documentation Links
 
-- **[Detector Specification Guide](ringtrace/docs/DETECTOR_GUIDE.md)**
-- **[Detection Scheduler Architecture](ringtrace/docs/DETECTION_SCHEDULER.md)**
-- **[Hackathon Pitch & Demo Walkthrough](ringtrace/docs/DEMO_AND_PITCH.md)**
-- **[Project Milestones & Delivery Status](ringtrace/docs/STATUS.md)**
-- **[AI Usage Transparency Log](ringtrace/docs/AI_USAGE.md)**
-- **[Documentation Index Hub](ringtrace/docs/README.md)**
-- **[Test Suites Catalog](ringtrace/backend/tests/README.md)**
+- **[Railway Deployment Guide](SPYNEX/docs/RAILWAY_DEPLOYMENT.md)**
+- **[Detector Specification Guide](SPYNEX/docs/DETECTOR_GUIDE.md)**
+- **[Detection Scheduler Architecture](SPYNEX/docs/DETECTION_SCHEDULER.md)**
+- **[Hackathon Pitch & Demo Walkthrough](SPYNEX/docs/DEMO_AND_PITCH.md)**
+- **[Project Milestones & Delivery Status](SPYNEX/docs/STATUS.md)**
+- **[AI Usage Transparency Log](SPYNEX/docs/AI_USAGE.md)**
+- **[Documentation Index Hub](SPYNEX/docs/README.md)**
+- **[Test Suites Catalog](SPYNEX/backend/tests/README.md)**

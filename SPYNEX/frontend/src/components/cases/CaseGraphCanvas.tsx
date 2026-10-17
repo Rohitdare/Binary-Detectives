@@ -145,8 +145,8 @@ export const CaseGraphCanvas: React.FC<CaseGraphCanvasProps> = ({
         nodeRepulsion: () => 600000,
         idealEdgeLength: () => 120,
       },
-      minZoom: 0.3,
-      maxZoom: 3.0,
+      minZoom: 0.2,
+      maxZoom: 3.5,
       wheelSensitivity: 0.25,
     });
 
@@ -166,9 +166,43 @@ export const CaseGraphCanvas: React.FC<CaseGraphCanvasProps> = ({
       }
     });
 
+    // Run layout with guaranteed resize and fit
+    const layout = cy.layout({
+      name: 'cose',
+      animate: false,
+      padding: 40,
+      nodeRepulsion: () => 600000,
+      idealEdgeLength: () => 120,
+    });
+    layout.one('layoutstop', () => {
+      cy.resize();
+      cy.fit(undefined, 35);
+    });
+    layout.run();
+
+    // Secondary deferred fit to handle any pending CSS reflow / animations
+    const rafId = requestAnimationFrame(() => {
+      cy.resize();
+      cy.fit(undefined, 35);
+    });
+
+    const timer = setTimeout(() => {
+      cy.resize();
+      cy.fit(undefined, 35);
+    }, 150);
+
+    const ro = new ResizeObserver(() => {
+      cy.resize();
+      cy.fit(undefined, 35);
+    });
+    ro.observe(containerRef.current);
+
     cyRef.current = cy;
 
     return () => {
+      cancelAnimationFrame(rafId);
+      clearTimeout(timer);
+      ro.disconnect();
       cy.destroy();
       cyRef.current = null;
     };
@@ -188,11 +222,36 @@ export const CaseGraphCanvas: React.FC<CaseGraphCanvasProps> = ({
     }
   }, [selectedTx]);
 
-  const handleZoomIn = () => cyRef.current?.zoom(cyRef.current.zoom() * 1.25);
-  const handleZoomOut = () => cyRef.current?.zoom(cyRef.current.zoom() / 1.25);
-  const handleFit = () => cyRef.current?.fit(undefined, 35);
+  const handleZoomIn = () => {
+    if (!cyRef.current) return;
+    cyRef.current.zoom({
+      level: cyRef.current.zoom() * 1.25,
+      renderedPosition: { x: cyRef.current.width() / 2, y: cyRef.current.height() / 2 },
+    });
+  };
+
+  const handleZoomOut = () => {
+    if (!cyRef.current) return;
+    cyRef.current.zoom({
+      level: cyRef.current.zoom() / 1.25,
+      renderedPosition: { x: cyRef.current.width() / 2, y: cyRef.current.height() / 2 },
+    });
+  };
+
+  const handleFit = () => {
+    if (!cyRef.current) return;
+    cyRef.current.resize();
+    cyRef.current.fit(undefined, 35);
+  };
+
   const handleReset = () => {
-    cyRef.current?.elements().layout({ name: 'cose', animate: true, padding: 35 }).run();
+    if (!cyRef.current) return;
+    const layout = cyRef.current.elements().layout({ name: 'cose', animate: true, padding: 35 });
+    layout.one('layoutstop', () => {
+      cyRef.current?.resize();
+      cyRef.current?.fit(undefined, 35);
+    });
+    layout.run();
   };
 
   return (
@@ -207,6 +266,25 @@ export const CaseGraphCanvas: React.FC<CaseGraphCanvasProps> = ({
       }}
     >
       <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+
+      {/* Empty State Overlay */}
+      {(!graphData || graphData.nodes.length === 0) && !loading && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#64748B',
+            gap: '0.4rem',
+            pointerEvents: 'none',
+          }}
+        >
+          <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>No graph entities found for this case</span>
+        </div>
+      )}
 
       {/* Canvas Toolbar */}
       <div

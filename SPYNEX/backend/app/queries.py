@@ -165,7 +165,15 @@ GET_CASE_BY_ID = (
 
 GET_CASE_HITS = (
     "MATCH (:Case {id:$case_id})-[:HAS_HIT]->(h:Hit) "
-    "RETURN h.payload ORDER BY h.pattern, h.hit_id"
+    "RETURN h.payload, h.hit_id, h.pattern, h.tx_ids, h.account_ids, h.measurements, h.explanation "
+    "ORDER BY h.pattern, h.hit_id"
+)
+
+GET_TRANSACTIONS_BY_IDS = (
+    "MATCH (s:Account)-[t:SENT]->(d:Account) "
+    "WHERE t.tx_id IN $tx_ids "
+    "RETURN t.tx_id, s.id, s.type, d.id, d.type, t.amount, t.ts, t.step, t.tx_type "
+    "ORDER BY t.ts ASC, t.tx_id ASC"
 )
 
 GET_CASE_DECISIONS = (
