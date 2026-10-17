@@ -27,6 +27,10 @@ interface CaseDetailViewProps {
   onSelectAccount: (accountId: string) => void;
   onRetry?: () => void;
   onLaunchAgentInvestigation?: (caseId: string) => void;
+  isStale?: boolean;
+  latestScanStatus?: string | null;
+  latestScanTime?: string | null;
+  onRefreshGraph?: () => void;
 }
 
 type DetailTab = 'graph' | 'transactions' | 'hits' | 'scoring';
@@ -45,6 +49,10 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
   onSelectAccount,
   onRetry,
   onLaunchAgentInvestigation,
+  isStale,
+  latestScanStatus,
+  latestScanTime,
+  onRefreshGraph,
 }) => {
   const [activeTab, setActiveTab] = useState<DetailTab>('graph');
   const [selectedTxId, setSelectedTxId] = useState<string | null>(null);
@@ -752,8 +760,16 @@ export const CaseDetailView: React.FC<CaseDetailViewProps> = ({
           <CaseGraphCanvas
             graphData={caseGraph}
             selectedTx={selectedTx}
+            caseDetail={caseDetail}
             onSelectTx={(txId) => setSelectedTxId(txId)}
             onSelectAccount={onSelectAccount}
+            loading={loading}
+            error={error}
+            onRetry={onRetry}
+            isStale={isStale}
+            latestScanStatus={latestScanStatus}
+            latestScanTime={latestScanTime}
+            onRefreshGraph={onRefreshGraph}
           />
           {caseDetail.transactions && caseDetail.transactions.length > 0 ? (
             <CaseTransactionTable

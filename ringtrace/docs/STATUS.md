@@ -8,6 +8,15 @@
 
 ## 0. Latest Update
 
+- [x] **Investigation Graph Visualization & Interactive Neighborhood Exploration (2026-10-17):**
+  - **Cytoscape Canvas Modernization:** Upgraded [`CaseGraphCanvas.tsx`](file:///d:/vortex/ringtrace/frontend/src/components/cases/CaseGraphCanvas.tsx) to deliver a high-contrast, interactive evidence graph matching reference specifications with smooth bezier curves and directed arrowheads.
+  - **Visual Distinction & Selection Glowing Halo:** Implemented a distinct cyan glowing halo (`#38BDF8`, shadow blur 25, overlay padding 7) for the selected entity, visually distinct flagged entities (`in_case: true` vs supporting neutral counterparties with dashed borders), and role/category colors (`origin: #F59E0B`, `sink: #8B5CF6`, `merchant: #0EA5E9`, `payroll: #10B981`, `personal: #6366F1`).
+  - **Docked Entity Inspector & Counterparties Explorer:** Built a slide-in entity inspector displaying real FalkorDB attributes (community cluster, created timestamp, sample flow volume), incident inflow/outflow breakdown, and direct counterparties with sample transfer values.
+  - **HUD Controls & Symbol Legend:** Integrated an interactive canvas HUD with Zoom In/Out, Fit View, Cose Layout Reset, Monospace Labels toggle, Transfer Amounts toggle, and Height Expand toggle (480px / 640px), along with a bottom color legend.
+  - **Zero Fabricated Data Guarantee:** Uses only authentic API attributes from FalkorDB (`in_case`, `roles`, `type`, `amount`, `timestamp`, `community`). No fabricated PageRank, centrality, mule distances, or false fraud claims on neutral neighbors.
+  - **Minimal Backend Compatibility:** Added backward-compatible fallback in [`detection_routes.py`](file:///d:/vortex/ringtrace/backend/app/api/detection_routes.py) using existing parameterized query `SEED_FETCH_TXS` for seed cases.
+  - **Scheduler & Scan Integration:** Connected graph refresh to detection scan completion; preserves active selection while warning on partial/stale scan states.
+  - **Verification:** Frontend production build (`npm run build`) passed with 0 errors; all 214 backend tests passed in 18.57s (`OK`); end-to-end browser subagent verified glowing selection, HUD controls, legend, and counterparty inspection.
 - [x] **Repository Root Hygiene: Removal of Reference & Agents Folders (2026-10-17):**
   - **Directory Cleanup:** Permanently removed untracked and redundant directories `reference/` (legacy detectors file) and `.agents/` (local skill files) along with `skills-lock.json` from the repository root.
   - **Dependency Verification:** Verified zero source code, build scripts, or runtime imports in `backend` or `frontend` depend on these directories.

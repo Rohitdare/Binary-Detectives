@@ -28,6 +28,8 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
   // Scan state
   const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState<string | null>(null);
+  const [latestScanStatus, setLatestScanStatus] = useState<string | null>(null);
+  const [latestScanTime, setLatestScanTime] = useState<string | null>(null);
 
   // Filters
   const [filterStatus, setFilterStatus] = useState<string>('');
@@ -44,6 +46,18 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
     return () => {
       isMountedRef.current = false;
     };
+  }, []);
+
+  const fetchLatestScan = useCallback(async () => {
+    try {
+      const res = await ringtraceApi.getLatestScan();
+      if (isMountedRef.current && res) {
+        setLatestScanStatus(res.status || null);
+        setLatestScanTime(res.finished_at || res.started_at || null);
+      }
+    } catch {
+      // transient or no scan run yet
+    }
   }, []);
 
   const fetchCases = useCallback(async () => {
@@ -74,7 +88,8 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
 
   useEffect(() => {
     void fetchCases();
-  }, [fetchCases]);
+    void fetchLatestScan();
+  }, [fetchCases, fetchLatestScan]);
 
   // Load Case Detail and Case Graph with strict stale-data prevention
   const fetchCaseDetail = useCallback(async (caseId: string) => {
@@ -141,13 +156,19 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
             if (isMountedRef.current) {
               setIsScanning(false);
               setScanProgress(null);
+              setLatestScanStatus(statusRes.status || null);
+              setLatestScanTime(statusRes.finished_at || statusRes.started_at || null);
               void fetchCases();
+              if (selectedCaseId) {
+                void fetchCaseDetail(selectedCaseId);
+              }
             }
           } else if (statusRes.status === 'failed') {
             clearInterval(pollInterval);
             if (isMountedRef.current) {
               setIsScanning(false);
               setScanProgress(null);
+              setLatestScanStatus('failed');
               alert('Scan failed to complete.');
             }
           } else if (statusRes.status === 'skipped') {
@@ -156,6 +177,9 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
               setIsScanning(false);
               setScanProgress(null);
               void fetchCases();
+              if (selectedCaseId) {
+                void fetchCaseDetail(selectedCaseId);
+              }
             }
           }
         } catch {
@@ -212,6 +236,9 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
             onSelectAccount={(accId) => setDrawerAccount(accId)}
             onRetry={() => selectedCaseId && void fetchCaseDetail(selectedCaseId)}
             onLaunchAgentInvestigation={onLaunchAgentInvestigation}
+            latestScanStatus={latestScanStatus}
+            latestScanTime={latestScanTime}
+            onRefreshGraph={() => selectedCaseId && void fetchCaseDetail(selectedCaseId)}
           />
         </div>
       </div>

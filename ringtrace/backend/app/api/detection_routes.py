@@ -282,6 +282,15 @@ def get_case(case_id: str, request: Request):
         case["hits"] = case_hits
         if case_hits:
             transactions = {tx.get("tx_id"): tx for hit in case_hits if isinstance(hit, dict) for tx in hit.get("transactions", []) if isinstance(tx, dict) and tx.get("tx_id")}
+            if not transactions:
+                all_tx_ids = [tid for hit in case_hits if isinstance(hit, dict) for tid in hit.get("tx_ids", []) if tid]
+                if all_tx_ids:
+                    try:
+                        from app.queries_memory import SEED_FETCH_TXS
+                    except ImportError:
+                        from backend.app.queries_memory import SEED_FETCH_TXS
+                    tx_rows = db.execute_query(_graph(request), SEED_FETCH_TXS, {"tx_ids": all_tx_ids}, caller="api:case_txs").result_set or []
+                    transactions = {row[0]: {"tx_id": row[0], "src": row[1], "dst": row[3], "amount": float(row[5]), "ts": int(row[6]), "tx_type": row[7]} for row in tx_rows}
             if transactions:
                 case["transactions"] = sorted(transactions.values(), key=lambda tx: (int(tx.get("ts", 0)), tx["tx_id"]))
         decision_rows = db.execute_query(_memory_graph(), GET_CASE_DECISIONS, {"case_id": case_id}, caller="api:case_decisions").result_set or []
@@ -303,13 +312,22 @@ def case_graph(case_id: str, request: Request):
     case = get_case(case_id, request)
     if isinstance(case, JSONResponse):
         return case
-    account_types = case.get("account_types", {})
+    account_types = dict(case.get("account_types") or {})
+    for a in case.get("accounts", []):
+        if isinstance(a, dict) and "id" in a and "type" in a:
+            account_types.setdefault(a["id"], a["type"])
     roles: Dict[str, set[str]] = {}
     for hit in case.get("hits", []):
         for account_id, role in (hit.get("account_roles") or {}).items():
             roles.setdefault(account_id, set()).add(role)
+    for a in case.get("accounts", []):
+        if isinstance(a, dict) and "id" in a and "roles" in a:
+            for r in a.get("roles", []):
+                roles.setdefault(a["id"], set()).add(r)
+    raw_accounts = case.get("account_ids") or case.get("accounts", [])
+    account_ids = [a["id"] if isinstance(a, dict) else a for a in raw_accounts]
     nodes = [{"id": account, "type": account_types.get(account, "unknown"),
-              "roles": sorted(roles.get(account, set())), "in_case": True} for account in case.get("account_ids", [])]
+              "roles": sorted(roles.get(account, set())), "in_case": True} for account in account_ids]
     edges = [{"tx_id": tx["tx_id"], "source": tx["src"], "target": tx["dst"],
               "amount": tx["amount"], "ts": tx["ts"]} for tx in case.get("transactions", [])]
     included = {node["id"] for node in nodes}
