@@ -762,3 +762,17 @@
 - Fixed the Investigation Agent's duplicate client-side SAR status gate: the Generate/Regenerate button is now available for a selected case and lets the backend enforce the latest analyst approval, displaying its error if approval is missing. This avoids a stale UI status blocking valid generation.
 - Moved the entire Case Assistant (chat and SAR draft) section above the Memory panel.
 - Verification: `backend/.venv/Scripts/python.exe -m unittest discover -s tests -p 'test_chat_sar.py' -v` passed (8 tests). `frontend/npm run build` passed; the existing large-chunk warning remains. Live database generation was not exercised because FalkorDB is unavailable in this environment.
+
+## Repository Cleanup, SPYNEX Consolidation & Railway Deployment Readiness — 2026-10-18
+
+- Consolidated repository to a single clean project directory (`D:\vortex\SPYNEX`), eliminating the ghost `ringtrace` folder and terminating dangling background worker processes.
+- Updated Git tracking cleanly so `SPYNEX/` is tracked and `ringtrace/` deletions are committed without ghost or duplicate states.
+- Enhanced `run_tests.py` with automatic virtual environment delegation: running `python run_tests.py` from root detects `SPYNEX/backend/.venv` and executes seamlessly without manual environment activation.
+- Resolved memory similarity search Cypher queries in `SPYNEX/backend/app/queries_memory.py`: switched `MATCH (other)-[:DECIDED]->(d:Decision)` to `OPTIONAL MATCH` in `FIND_SIMILAR_CASES_SHARED_ACCOUNTS` and `FIND_SIMILAR_CASES_SAME_SIGNATURE`, allowing un-decided candidate cases sharing accounts to be properly surfaced.
+- Fixed environment pollution in `test_payroll_scenario_e2e.py` by adding `tearDownClass` to restore `RINGTRACE_DEMO_KEY`, ensuring `test_demo_reset` passes reliably in the full test suite.
+- Re-aligned HTTP response code in `SPYNEX/backend/app/api/investigation_routes.py` for `InvalidVerdict` to `400 Bad Request` and calibrated case status assertion upon action approval in `test_investigation_routes.py`.
+- Formatted `seed_memory.py` summary display safely to handle un-scored cases without throwing `TypeError`.
+- **Verification:**
+  - Full backend test suite: **248/248 tests passed** in 21.2s via `python run_tests.py` (`OK`).
+  - Frontend production build: `npm run build` completed cleanly in 747ms with **0 errors**.
+  - Working tree clean; repository completely ready for Railway backend and Vercel frontend deployment.
