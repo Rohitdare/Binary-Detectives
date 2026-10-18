@@ -432,7 +432,7 @@ python run_tests.py
 - **Readiness Probe (`GET /readyz`):** Verifies active connectivity to FalkorDB and confirms required graphs are initialized.
 - **Liveness Probe (`GET /healthz`):** Verifies FastAPI application process responsiveness and thread health.
 
-For full infrastructure configuration, see **[`SPYNEX/docs/RAILWAY_DEPLOYMENT.md`](SPYNEX/docs/RAILWAY_DEPLOYMENT.md)**.
+
 
 ---
 
