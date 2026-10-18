@@ -15,7 +15,7 @@ import type {
 } from '../types';
 const RAW_API_BASE = (import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
 
-const API_BASE = RAW_API_BASE.endsWith('/api')
+export const API_BASE = RAW_API_BASE.endsWith('/api')
   ? RAW_API_BASE
   : `${RAW_API_BASE}/api`.replace(/^\/api\/api$/, '/api');
 
@@ -242,7 +242,7 @@ export const ringtraceApi = {
 
   // --- Member B: Investigation & Memory Endpoints (/api/v1) ---
   async startInvestigation(caseId: string): Promise<{ investigation_id: string; status: string }> {
-    const res = await fetch(`/api/v1/cases/${encodeURIComponent(caseId)}/investigations`, {
+    const res = await fetch(`${API_BASE}/v1/cases/${encodeURIComponent(caseId)}/investigations`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });
@@ -250,17 +250,17 @@ export const ringtraceApi = {
   },
 
   async getInvestigation(investigationId: string): Promise<import('../types').InvestigationResult> {
-    const res = await fetch(`/api/v1/investigations/${encodeURIComponent(investigationId)}`);
+    const res = await fetch(`${API_BASE}/v1/investigations/${encodeURIComponent(investigationId)}`);
     return handleResponse<import('../types').InvestigationResult>(res);
   },
 
   async getCaseInvestigations(caseId: string): Promise<{ items: import('../types').InvestigationResult[]; total: number }> {
-    const res = await fetch(`/api/v1/cases/${encodeURIComponent(caseId)}/investigations`);
+    const res = await fetch(`${API_BASE}/v1/cases/${encodeURIComponent(caseId)}/investigations`);
     return handleResponse<{ items: import('../types').InvestigationResult[]; total: number }>(res);
   },
 
   async getSimilarCases(caseId: string, limit = 5): Promise<import('../types').SimilarCasesResponse> {
-    const res = await fetch(`/api/v1/cases/${encodeURIComponent(caseId)}/similar?limit=${limit}`);
+    const res = await fetch(`${API_BASE}/v1/cases/${encodeURIComponent(caseId)}/similar?limit=${limit}`);
     return handleResponse<import('../types').SimilarCasesResponse>(res);
   },
 
@@ -270,7 +270,7 @@ export const ringtraceApi = {
     note: string,
     actor = 'analyst_1'
   ): Promise<import('../types').DecisionRecord> {
-    const res = await fetch(`/api/v1/cases/${encodeURIComponent(caseId)}/decisions`, {
+    const res = await fetch(`${API_BASE}/v1/cases/${encodeURIComponent(caseId)}/decisions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ decision, note, actor }),
@@ -279,7 +279,7 @@ export const ringtraceApi = {
   },
 
   async getCaseDecisions(caseId: string): Promise<{ items: import('../types').DecisionRecord[]; total: number }> {
-    const res = await fetch(`/api/v1/cases/${encodeURIComponent(caseId)}/decisions`);
+    const res = await fetch(`${API_BASE}/v1/cases/${encodeURIComponent(caseId)}/decisions`);
     return handleResponse<{ items: import('../types').DecisionRecord[]; total: number }>(res);
   },
 
@@ -288,7 +288,7 @@ export const ringtraceApi = {
     message: string,
     history: import('../types').CaseChatMessage[] = []
   ): Promise<import('../types').CaseChatResponse> {
-    const res = await fetch(`/api/v1/cases/${encodeURIComponent(caseId)}/chat`, {
+    const res = await fetch(`${API_BASE}/v1/cases/${encodeURIComponent(caseId)}/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message, history }),
@@ -297,27 +297,27 @@ export const ringtraceApi = {
   },
 
   async getCaseSar(caseId: string): Promise<import('../types').SarDraft> {
-    const res = await fetch(`/api/v1/cases/${encodeURIComponent(caseId)}/sar`);
+    const res = await fetch(`${API_BASE}/v1/cases/${encodeURIComponent(caseId)}/sar`);
     return handleResponse<import('../types').SarDraft>(res);
   },
 
   async generateCaseSar(caseId: string, regenerate = false): Promise<import('../types').SarDraft> {
     const query = regenerate ? '?regenerate=true' : '';
-    const res = await fetch(`/api/v1/cases/${encodeURIComponent(caseId)}/sar/generate${query}`, {
+    const res = await fetch(`${API_BASE}/v1/cases/${encodeURIComponent(caseId)}/sar/generate${query}`, {
       method: 'POST',
     });
     return handleResponse<import('../types').SarDraft>(res);
   },
 
   async approveAction(actionId: string): Promise<any> {
-    const res = await fetch(`/api/v1/actions/${encodeURIComponent(actionId)}/approve`, {
+    const res = await fetch(`${API_BASE}/v1/actions/${encodeURIComponent(actionId)}/approve`, {
       method: 'POST',
     });
     return handleResponse<any>(res);
   },
 
   async rejectAction(actionId: string): Promise<any> {
-    const res = await fetch(`/api/v1/actions/${encodeURIComponent(actionId)}/reject`, {
+    const res = await fetch(`${API_BASE}/v1/actions/${encodeURIComponent(actionId)}/reject`, {
       method: 'POST',
     });
     return handleResponse<any>(res);
@@ -325,12 +325,12 @@ export const ringtraceApi = {
 
   // --- Member B: Stream Replay & Demo Reset ---
   async getStreamStatus(): Promise<import('../types').StreamStatus> {
-    const res = await fetch('/api/v1/stream/status');
+    const res = await fetch(`${API_BASE}/v1/stream/status`);
     return handleResponse<import('../types').StreamStatus>(res);
   },
 
   async startStream(batchSize = 50, intervalSeconds = 1.0): Promise<import('../types').StreamStatus> {
-    const res = await fetch('/api/v1/stream/start', {
+    const res = await fetch(`${API_BASE}/v1/stream/start`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ batch_size: batchSize, interval_seconds: intervalSeconds }),
@@ -339,22 +339,22 @@ export const ringtraceApi = {
   },
 
   async pauseStream(): Promise<import('../types').StreamStatus> {
-    const res = await fetch('/api/v1/stream/pause', { method: 'POST' });
+    const res = await fetch(`${API_BASE}/v1/stream/pause`, { method: 'POST' });
     return handleResponse<import('../types').StreamStatus>(res);
   },
 
   async resumeStream(): Promise<import('../types').StreamStatus> {
-    const res = await fetch('/api/v1/stream/resume', { method: 'POST' });
+    const res = await fetch(`${API_BASE}/v1/stream/resume`, { method: 'POST' });
     return handleResponse<import('../types').StreamStatus>(res);
   },
 
   async stopStream(): Promise<import('../types').StreamStatus> {
-    const res = await fetch('/api/v1/stream/stop', { method: 'POST' });
+    const res = await fetch(`${API_BASE}/v1/stream/stop`, { method: 'POST' });
     return handleResponse<import('../types').StreamStatus>(res);
   },
 
   async resetDemo(): Promise<import('../types').DemoResetResponse> {
-    const res = await fetch('/api/v1/demo/reset', { method: 'POST' });
+    const res = await fetch(`${API_BASE}/v1/demo/reset`, { method: 'POST' });
     return handleResponse<import('../types').DemoResetResponse>(res);
   },
 };

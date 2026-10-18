@@ -13,7 +13,7 @@ import {
   Bot,
   ShieldCheck,
 } from 'lucide-react';
-import { ringtraceApi } from '../../services/api';
+import { ringtraceApi, API_BASE } from '../../services/api';
 import { DecisionBar } from './DecisionBar';
 import { MemoryPanel } from './MemoryPanel';
 import { DemoControls } from './DemoControls';
@@ -219,7 +219,7 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
       const invId = startRes.investigation_id;
 
       // 2. Open real-time Server-Sent Events feed
-      const sseUrl = `/api/v1/investigations/${encodeURIComponent(invId)}/events`;
+      const sseUrl = `${API_BASE}/v1/investigations/${encodeURIComponent(invId)}/events`;
       const es = new EventSource(sseUrl);
       eventSourceRef.current = es;
 
