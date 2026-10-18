@@ -320,6 +320,8 @@ temp/
 **/temp/
 tmp/
 **/tmp/
+archive/
+**/archive/
 test_temp/
 **/test_temp/
 test_tmp/

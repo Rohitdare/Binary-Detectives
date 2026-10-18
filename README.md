@@ -1,6 +1,6 @@
 <div align="center">
 
-# SPYNEX (RingTrace)
+# SPYNEX 
 ### Explainable Graph-Based Financial Crime Detection & Autonomous AI Investigation Platform
 
 **Follow the money. Unravel the web.**
@@ -11,8 +11,6 @@
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Google Gemini](https://img.shields.io/badge/Google_Gemini-1.5_Flash-8E75B2?style=flat-square&logo=google&logoColor=white)](https://ai.google.dev/)
-[![Tests](https://img.shields.io/badge/Tests-260_Passed-2EA44F?style=flat-square&logo=githubactions&logoColor=white)](#test-suite--verification)
-[![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
 
 [**Live Dashboard**](https://spynex-dashboard.vercel.app/) • [**Architecture**](#graph-architecture-at-a-glance) • [**Agent Tools**](#how-the-agent-queries-the-graph) • [**Decision Lineage**](#the-graph-doing-the-work-decision-lineage) • [**Quick Start**](#quick-start--setup) • [**Evaluation**](#evaluation--honest-benchmark-results)
 
@@ -24,9 +22,9 @@
 
 Financial crime compliance teams are overwhelmed by high-volume alerts and increasingly sophisticated multi-hop money laundering networks. Traditional relational SQL databases struggle with recursive traversals, and simple transaction threshold rules generate massive false positive queues while failing to detect circular laundering, layered smurfing, and relay chains.
 
-**SPYNEX (RingTrace)** solves this challenge by pairing **FalkorDB**'s ultra-low latency GraphBLAS property graph engine with an **Autonomous AI Investigation Agent**. SPYNEX continuously scans transaction graphs for structural crime topologies, aggregates correlated hits into unified cases via Disjoint-Set Union (DSU), and deploys an autonomous ReAct agent to investigate, trace fund flows, evaluate historical graph memory, and present citation-verified findings for human compliance officer review.
+**SPYNEX** solves this challenge by pairing **FalkorDB**'s ultra-low latency GraphBLAS property graph engine with an **Autonomous AI Investigation Agent**. SPYNEX continuously scans transaction graphs for structural crime topologies, aggregates correlated hits into unified cases via Disjoint-Set Union (DSU), and deploys an autonomous ReAct agent to investigate, trace fund flows, evaluate historical graph memory, and present citation-verified findings for human compliance officer review.
 
-> [!NOTE]
+> [NOTE]
 > **Synthetic Dataset Disclosure:** SPYNEX is evaluated on synthetically generated multi-agent financial transaction data (AMLSim-inspired generator) containing realistic banking patterns, planted money laundering schemes, and legitimate benign look-alikes (e.g., corporate payrolls and retail commerce).
 
 ---
@@ -510,4 +508,4 @@ In compliance with hackathon rules, AI coding assistants (including Claude Code 
 ### Team Credits
 Built for **Graph Hacks Track 01 (FalkorDB)** by:
 - **Rohit** — Detection Pipeline, Graph Ingestion, Case Builder, and Evaluation Engine.
-- **Mayuri** — Autonomous AI Agent, MCP Graph Tools, FalkorDB Memory Layer, and React Cockpit.
+- **Mayuri** — Autonomous AI Agent, MCP Graph Tools, FalkorDB Memory Layer.
