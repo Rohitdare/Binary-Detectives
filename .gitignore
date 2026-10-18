@@ -171,7 +171,7 @@ test-results/
 
 # Recursive matches across all subdirectories
 # **/data/sim/
-# **/data/sim*/
+**/data/sim*/
 **/data/test_sim/
 **/data/test_sim*/
 **/data/sim_test/
@@ -320,6 +320,10 @@ temp/
 **/temp/
 tmp/
 **/tmp/
+archive/
+**/archive/
+archieve/
+**/archieve/
 test_temp/
 **/test_temp/
 test_tmp/
