@@ -1,6 +1,5 @@
+<div align="center">
 
-<<<<<<< HEAD
-=======
 # SPYNEX 
 ### Explainable Graph-Based Financial Crime Detection & Autonomous AI Investigation Platform
 
@@ -492,4 +491,3 @@ In compliance with hackathon rules, AI coding assistants (including Claude Code 
 Built for **Graph Hacks Track 01 & 02 (FalkorDB)** by:
 - **Rohit** — Detection Pipeline, Graph Ingestion, Case Builder, and Evaluation Engine.
 - **Mayuri** — Autonomous AI Agent, MCP Graph Tools, FalkorDB Memory Layer.
->>>>>>> d8551c86766c2703ab623c1e8790d810f28d8a95
