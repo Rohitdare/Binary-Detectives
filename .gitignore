@@ -170,8 +170,8 @@ test_outputs/
 test-results/
 
 # Recursive matches across all subdirectories
-**/data/sim/
-**/data/sim*/
+# **/data/sim/
+# **/data/sim*/
 **/data/test_sim/
 **/data/test_sim*/
 **/data/sim_test/
