@@ -322,6 +322,8 @@ tmp/
 **/tmp/
 archive/
 **/archive/
+archieve/
+**/archieve/
 test_temp/
 **/test_temp/
 test_tmp/
