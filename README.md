@@ -43,7 +43,7 @@ Financial crime compliance teams are overwhelmed by high-volume alerts and incre
 - [Test Suite & Verification](#test-suite--verification)
 - [Deployment & Health Endpoints](#deployment--health-endpoints)
 - [Repository Structure](#repository-structure)
-- [Documentation, AI Usage & Credits](#documentation-ai-usage--credits)
+
 
 ---
 
@@ -450,17 +450,6 @@ vortex/
 │   └── SPYNEX/frontend/src/         # Safely isolated non-runtime assets
 │
 └── SPYNEX/
-    ├── docs/                        # Complete System Documentation & Guides
-    │   ├── README.md                # Documentation navigation hub
-    │   ├── RAILWAY_DEPLOYMENT.md    # Railway backend & Vercel frontend deployment
-    │   ├── DETECTOR_GUIDE.md        # Comprehensive 9-detector algorithms & math rules
-    │   ├── DETECTION_SCHEDULER.md   # Background fraud detection scheduler architecture
-    │   ├── DEMO_AND_PITCH.md        # Pitch guide, jury script & demo walkthrough
-    │   ├── STATUS.md                # Project delivery milestones & verification audit
-    │   ├── AI_USAGE.md              # AI pair-programming audit log & verification traces
-    │   ├── AGENTS_MEMBER_A.md       # Member A specification (Detectors & Cases)
-    │   ├── AGENTS_MEMBER_B.md       # Member B specification (Agent & Memory)
-    │   └── generated_reports/       # Simulator coverage & audit reports
     │
     ├── backend/                     # Python 3.11 FastAPI Backend
     │   ├── simulate.py              # AMLSim-inspired synthetic transaction generator
@@ -493,19 +482,12 @@ vortex/
 
 ---
 
-## Documentation, AI Usage & Credits
-
-### Core Documentation Links
-- **[Hackathon Pitch & Demo Walkthrough](SPYNEX/docs/DEMO_AND_PITCH.md)** — Step-by-step jury demonstration guide.
-- **[Detector Specification Guide](SPYNEX/docs/DETECTOR_GUIDE.md)** — Mathematical formulations, thresholds, and pseudo-code.
-- **[Detection Scheduler Architecture](SPYNEX/docs/DETECTION_SCHEDULER.md)** — Threadpool concurrency and mutex locking mechanics.
-- **[AI Usage Transparency Log](SPYNEX/docs/AI_USAGE.md)** — Comprehensive audit log of AI-assisted engineering and verification.
-- **[Railway Deployment Guide](SPYNEX/docs/RAILWAY_DEPLOYMENT.md)** — Complete cloud deployment instructions.
+## AI Usage & Credits
 
 ### AI Pair-Programming Disclosure
-In compliance with hackathon rules, AI coding assistants (including Claude Code and Google Antigravity) were utilized for code generation, architectural scaffolding, test writing, and documentation formatting. All generated algorithms, graph queries, test suites, and documentation were independently audited, reviewed, and verified against running FalkorDB instances by the team. See **[`SPYNEX/docs/AI_USAGE.md`](SPYNEX/docs/AI_USAGE.md)** for full details.
+In compliance with hackathon rules, AI coding assistants (including Claude Code and Google Antigravity) were utilized for code generation, architectural scaffolding, test writing, and documentation formatting. All generated algorithms, graph queries, test suites, and documentation were independently audited, reviewed, and verified against running FalkorDB instances by the team. 
 
 ### Team Credits
-Built for **Graph Hacks Track 01 (FalkorDB)** by:
+Built for **Graph Hacks Track 01 & 02 (FalkorDB)** by:
 - **Rohit** — Detection Pipeline, Graph Ingestion, Case Builder, and Evaluation Engine.
 - **Mayuri** — Autonomous AI Agent, MCP Graph Tools, FalkorDB Memory Layer.
