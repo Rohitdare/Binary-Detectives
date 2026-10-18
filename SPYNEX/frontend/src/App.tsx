@@ -96,6 +96,10 @@ export const App: React.FC = () => {
           health={health}
           onRefreshHealth={fetchHealth}
           onSelectAccount={handleSelectAccount}
+          onSelectCase={(caseId) => {
+            setActiveCaseIdForDetail(caseId);
+            setCurrentTab('cases');
+          }}
         />
 
         {backendError && (

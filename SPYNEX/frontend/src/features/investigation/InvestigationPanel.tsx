@@ -16,7 +16,6 @@ import {
 import { ringtraceApi, API_BASE } from '../../services/api';
 import { DecisionBar } from './DecisionBar';
 import { MemoryPanel } from './MemoryPanel';
-import { DemoControls } from './DemoControls';
 import { MarkdownViewer } from './MarkdownViewer';
 import { InvestigationTools } from './InvestigationTools';
 import type {
@@ -395,18 +394,6 @@ export const InvestigationPanel: React.FC<InvestigationPanelProps> = ({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-      {/* Stream Replay and One-Click Demo Reset Bar */}
-      <DemoControls
-        onResetComplete={() => {
-          setSteps([]);
-          setAssessment(null);
-          setProposedAction(null);
-          setCaseStatus('open');
-          setMode('pending');
-          setRefreshTrigger((prev) => prev + 1);
-        }}
-      />
-
       {/* Control Header & Live Case Picker */}
       <div
         className="rt-card"

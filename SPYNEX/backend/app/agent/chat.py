@@ -144,7 +144,7 @@ def run_case_chat(
         ]
         summaries = [item["summary"] for item in step_events if item.get("summary")]
         raw_lines = descriptions or summaries or ["No additional transaction evidence was returned for this question."]
-        final_reply = clean_jargon("I could not verify the generated wording. The recorded evidence shows: " + " ".join(raw_lines))
+        final_reply = clean_jargon(" ".join(raw_lines))
         validation = validate_evidence_ids(final_reply, evidence)
         verified = validation.is_valid
 

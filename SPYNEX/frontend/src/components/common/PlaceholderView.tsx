@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import type { PageTab, EvaluationResponse } from '../../types';
 import { api } from '../../services/api';
+import { BenchmarkStatusBadge } from './BenchmarkStatusBadge';
 
 interface PlaceholderViewProps {
   tab: PageTab;
@@ -24,7 +25,6 @@ export const PlaceholderView: React.FC<PlaceholderViewProps> = ({ tab, onBackToO
   const [falkorPort, setFalkorPort] = useState('6379');
   const [activeGraph, setActiveGraph] = useState('txn');
   const [fastApiHost, setFastApiHost] = useState('http://localhost:8000');
-  const [replayDelay, setReplayDelay] = useState('1200');
 
   // Live Evaluation Benchmark State
   const [evaluation, setEvaluation] = useState<EvaluationResponse | null>(null);
@@ -73,21 +73,6 @@ export const PlaceholderView: React.FC<PlaceholderViewProps> = ({ tab, onBackToO
             <span>Compliance & Ops</span>
             <ChevronRight size={14} className="text-slate-400" />
             <span style={{ color: '#0F172A', fontWeight: 600 }}>Evidence & Audit Sandbox</span>
-            <span
-              style={{
-                padding: '0.1rem 0.45rem',
-                borderRadius: '4px',
-                backgroundColor: '#F1F5F9',
-                border: '1px solid #E2E8F0',
-                fontFamily: 'JetBrains Mono, monospace',
-                fontSize: '0.675rem',
-                fontWeight: 600,
-                color: '#334155',
-                textTransform: 'uppercase',
-              }}
-            >
-              FalkorDB v2.4
-            </span>
           </div>
 
           <button onClick={onBackToOverview} className="rt-button rt-button-sm">
@@ -114,9 +99,6 @@ export const PlaceholderView: React.FC<PlaceholderViewProps> = ({ tab, onBackToO
             <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0F172A', margin: 0, letterSpacing: '-0.02em', fontFamily: 'var(--font-display)' }}>
               Evidence & Audit Benchmark
             </h2>
-            <p style={{ fontSize: '0.8rem', color: '#64748B', marginTop: '0.25rem', margin: 0 }}>
-              Independent benchmarking sandbox to evaluate detector accuracy against verified ground-truth baselines.
-            </p>
           </div>
 
           <button
@@ -329,23 +311,12 @@ export const PlaceholderView: React.FC<PlaceholderViewProps> = ({ tab, onBackToO
                           : '—'}
                       </td>
                       <td style={{ padding: '0.65rem 0.75rem' }}>
-                        {!isEvaluable ? (
-                          <span style={{ padding: '0.15rem 0.4rem', borderRadius: '4px', backgroundColor: '#F1F5F9', color: '#64748B', fontSize: '0.675rem', fontWeight: 600 }}>
-                            Not Evaluable (0 alerts)
-                          </span>
-                        ) : patData?.truncated ? (
-                          <span style={{ padding: '0.15rem 0.4rem', borderRadius: '4px', backgroundColor: '#FEF3C7', color: '#92400E', fontSize: '0.675rem', fontWeight: 600 }}>
-                            Truncated ({patData.truncation_reason || 'capped'})
-                          </span>
-                        ) : patData?.status === 'success' ? (
-                          <span style={{ padding: '0.15rem 0.4rem', borderRadius: '4px', backgroundColor: '#ECFDF5', color: '#065F46', fontSize: '0.675rem', fontWeight: 600 }}>
-                            Benchmark Passed
-                          </span>
-                        ) : (
-                          <span style={{ padding: '0.15rem 0.4rem', borderRadius: '4px', backgroundColor: '#F8FAFC', color: '#64748B', fontSize: '0.675rem' }}>
-                            Ready to run
-                          </span>
-                        )}
+                        <BenchmarkStatusBadge
+                          isEvaluable={isEvaluable}
+                          truncated={patData?.truncated}
+                          truncationReason={patData?.truncation_reason}
+                          status={patData?.status}
+                        />
                       </td>
                     </tr>
                   );
@@ -367,21 +338,6 @@ export const PlaceholderView: React.FC<PlaceholderViewProps> = ({ tab, onBackToO
             <span>Compliance & Ops</span>
             <ChevronRight size={14} className="text-slate-400" />
             <span style={{ color: '#0F172A', fontWeight: 600 }}>System Settings & Infrastructure</span>
-            <span
-              style={{
-                padding: '0.1rem 0.45rem',
-                borderRadius: '4px',
-                backgroundColor: '#F1F5F9',
-                border: '1px solid #E2E8F0',
-                fontFamily: 'JetBrains Mono, monospace',
-                fontSize: '0.675rem',
-                fontWeight: 600,
-                color: '#334155',
-                textTransform: 'uppercase',
-              }}
-            >
-              FalkorDB v2.4
-            </span>
           </div>
 
           <button onClick={onBackToOverview} className="rt-button rt-button-sm">
@@ -405,31 +361,9 @@ export const PlaceholderView: React.FC<PlaceholderViewProps> = ({ tab, onBackToO
           }}
         >
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-              <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0F172A', margin: 0, letterSpacing: '-0.02em' }}>
-                System Settings
-              </h2>
-              <span
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.35rem',
-                  padding: '0.2rem 0.65rem',
-                  borderRadius: '9999px',
-                  backgroundColor: '#ECFDF5',
-                  border: '1px solid #A7F3D0',
-                  color: '#065F46',
-                  fontSize: '0.725rem',
-                  fontWeight: 600,
-                }}
-              >
-                <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#059669' }} />
-                FalkorDB Shard #04 Online (0.8ms)
-              </span>
-            </div>
-            <p style={{ fontSize: '0.825rem', color: '#64748B', marginTop: '0.35rem', margin: 0, maxWidth: '680px' }}>
-              Manage backend endpoint bindings, FalkorDB cluster topology parameters, query logging sinks, and streaming transaction replay throttling.
-            </p>
+            <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0F172A', margin: 0, letterSpacing: '-0.02em' }}>
+              System Settings
+            </h2>
           </div>
         </div>
 
@@ -486,37 +420,25 @@ export const PlaceholderView: React.FC<PlaceholderViewProps> = ({ tab, onBackToO
             </div>
           </div>
 
-          {/* Card 2: Replay Stream & Safety Controls */}
+          {/* Card 2: Query & Architecture Safeguards */}
           <div className="rt-card" style={{ padding: '1.5rem', backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-              <Zap size={18} color="#7C3AED" />
+              <Shield size={18} color="#7C3AED" />
               <h3 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0, color: '#0F172A' }}>
-                Streaming Replay & Query Safeguards
+                Query & Architecture Safeguards
               </h3>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: '0.35rem' }}>
-                  Replay Step Delay (ms)
-                </label>
-                <input
-                  type="number"
-                  value={replayDelay}
-                  onChange={(e) => setReplayDelay(e.target.value)}
-                  className="rt-input"
-                  style={{ width: '100%', fontFamily: 'JetBrains Mono, monospace' }}
-                />
-              </div>
-
-              <div style={{ padding: '0.85rem', borderRadius: '8px', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', marginTop: '0.5rem' }}>
-                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#0F172A', marginBottom: '0.25rem' }}>
+              <div style={{ padding: '0.95rem', borderRadius: '8px', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#0F172A', marginBottom: '0.35rem' }}>
                   Cypher Invariants Active:
                 </div>
-                <ul style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.725rem', color: '#64748B', lineHeight: 1.5 }}>
-                  <li>Parameterized queries exclusively (no string concatenation)</li>
-                  <li>Use &lt;&gt; instead of != for FalkorDB compatibility</li>
-                  <li>Singleton connection via <code className="mono">backend/app/db.py</code></li>
+                <ul style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.75rem', color: '#64748B', lineHeight: 1.6 }}>
+                  <li>Parameterized queries exclusively (prevents Cypher injection)</li>
+                  <li>Use <code className="mono">&lt;&gt;</code> instead of <code className="mono">!=</code> for FalkorDB compatibility</li>
+                  <li>Singleton connection pooling via <code className="mono">backend/app/db.py</code></li>
+                  <li>Bound temporal windows on subgraphs to avoid unbounded graph expansion</li>
                 </ul>
               </div>
             </div>

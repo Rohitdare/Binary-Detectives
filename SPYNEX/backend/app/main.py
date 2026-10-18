@@ -119,6 +119,17 @@ app.state.db_client = db_client
 app.state.graph_name = GRAPH_NAME
 
 
+@app.get("/")
+def root():
+    """Root endpoint welcoming clients and directing to interactive docs."""
+    return {
+        "service": "RingTrace API",
+        "status": "online",
+        "docs": "/docs",
+        "health": "/api/health",
+    }
+
+
 @app.get("/healthz", include_in_schema=False)
 def liveness_check():
     """Lightweight process check used by the platform; it does not touch FalkorDB."""
