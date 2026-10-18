@@ -1,9 +1,0 @@
-{
-  "accounts": [{"id":"R0"},{"id":"R1"},{"id":"R2"},{"id":"R3"}],
-  "transactions": [
-    {"tx_id":"R_AB_1","src":"R0","dst":"R1","amount":10000,"ts":1000},
-    {"tx_id":"R_AB_2","src":"R0","dst":"R1","amount":9900,"ts":1100},
-    {"tx_id":"R_BC","src":"R1","dst":"R2","amount":9400,"ts":1600},
-    {"tx_id":"R_CD","src":"R2","dst":"R3","amount":8900,"ts":2200}
-  ]
-}
