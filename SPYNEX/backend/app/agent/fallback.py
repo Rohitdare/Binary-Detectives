@@ -150,29 +150,34 @@ def run_fallback_investigation(
     findings_list: List[Dict[str, Any]] = []
 
     if has_payroll_origin and past_dismissals:
-        # Hero narrative: payroll fan-out matching previously dismissed case
+        # Verified payroll with matching historical dismissal precedent
         ref_case = past_dismissals[0]["case_id"]
         prop_type = "dismiss"
         prop_reason = (
             f"Origin {origin_acc} is a verified payroll account conducting routine salary dispersal. "
-            f"Pattern aligns with historical case {ref_case} which was previously investigated and dismissed."
+            f"Pattern aligns with historical case {ref_case} which was previously investigated and dismissed as legitimate business flow."
         )
         risk_level = "low"
     elif case_score >= 70 or "cycle" in case_patterns:
-        # Hero narrative: high-risk money loop / layering
         prop_type = "escalate"
+        key_patterns = [p for p in ("cycle", "relay_chain", "scatter_gather") if p in case_patterns] or case_patterns
+        patterns_str = ", ".join(key_patterns) if key_patterns else "complex transfer structuring"
         prop_reason = (
-            f"Priority score {case_score}/100 and the recorded transfer patterns warrant analyst review. "
-            f"The pattern is a lead for investigation, not a final fraud determination."
+            f"Priority score {case_score}/100 and anomalous fund routing ({patterns_str}) indicate elevated layering risk. "
+            f"Analyst escalation is warranted to verify beneficial ownership and transaction legitimacy."
         )
         risk_level = "high"
     elif case_score >= 40:
         prop_type = "monitor"
-        prop_reason = f"Moderate risk score {case_score}/100. Behavioral pattern requires ongoing account monitoring."
+        patterns_str = ", ".join(case_patterns) if case_patterns else "transfer activity"
+        prop_reason = (
+            f"Priority score {case_score}/100 reflects moderate transfer structuring ({patterns_str}). "
+            f"Ongoing transaction monitoring is recommended to observe whether recipient accounts initiate secondary pass-through or layering."
+        )
         risk_level = "medium"
     else:
         prop_type = "dismiss"
-        prop_reason = f"Low priority score ({case_score}/100) with no anomalous structuring detected."
+        prop_reason = f"Low priority score ({case_score}/100) with no anomalous layering or structuring detected in the case evidence."
         risk_level = "low"
 
     # 7. Record Findings in Memory
@@ -222,24 +227,67 @@ def run_fallback_investigation(
         pattern_descriptions.append(describe_pattern(pattern, match.get("measurements", {})))
     if not pattern_descriptions:
         pattern_descriptions.append("No detector pattern details were available in the case record.")
+
+    # Historical context narrative
+    if past_dismissals:
+        historical_text = (
+            f"Reviewed **{len(similar_items)}** related past case(s). Historical case **{past_dismissals[0]['case_id']}** "
+            f"was previously investigated and dismissed as legitimate business flow."
+        )
+    elif similar_items:
+        case_list_str = ", ".join(f"**{s['case_id']}**" for s in similar_items[:3])
+        historical_text = (
+            f"Reviewed **{len(similar_items)}** related past case(s) ({case_list_str}). "
+            f"No past dismissals were recorded for this cluster; this absence does not establish suspicious activity "
+            f"and requires independent verification."
+        )
+    else:
+        historical_text = "No decided historical precedents were returned for this cluster."
+
+    # Assessment narrative synthesizing facts, uncertainties, and verification steps
+    if "cycle" in case_patterns:
+        pattern_eval = "The presence of circular transfer paths suggests potential fund recycling or layering. "
+    elif "relay_chain" in case_patterns:
+        pattern_eval = "Rapid sequential transfers indicate minimal dwell time between hops, consistent with pass-through structuring. "
+    elif "fan_out" in case_patterns:
+        pattern_eval = "Concentrated outward dispersal distributes capital across multiple counterparties. "
+    elif "gather_scatter" in case_patterns:
+        pattern_eval = "Multi-party aggregation followed by redistribution indicates high-turnover intermediary transit. "
+    else:
+        pattern_eval = "The observed transfer structure reflects coordinated movement across multiple counterparties. "
+
+    assessment_narrative = (
+        f"{pattern_eval}However, structural patterns alone do not prove unlawful intent or fraud. "
+        "Underlying commercial relationships, corporate group affiliations, or batch payment processes "
+        "could account for these transfer flows. "
+        "Recommended analyst verification includes reviewing underlying commercial invoices, "
+        "confirming beneficial ownership across counterparties, and checking source of funds documentation."
+    )
+
     narrative = f"""### Case Investigation Narrative: {case_id}
 **Mode:** Deterministic fallback
-**Priority Score:** {case_score} / 100 ({risk_level.upper()} Risk)
+**Priority Score:** {case_score} / 100 ({risk_level.upper()} Risk — triage priority score, not a probability of fraud)
 
-#### Transfer patterns
-The available case evidence records **{len(case_accounts)} accounts**. The following measured observations were found:
+#### Case overview
+Case **{case_id}** involves **{len(case_accounts)} accounts** with recorded transfer activity exhibiting {', '.join(case_patterns) if case_patterns else 'no flagged patterns'}. The priority score of {case_score}/100 serves as a triage indicator reflecting pattern severity and velocity.
+
+#### Key findings
+The available case evidence records the following measured observations:
 {chr(10).join(f'- {description}' for description in pattern_descriptions)}
 
 #### Fund movement
 {f'Followed transfers from **{origin_acc}**. ' if origin_acc else ''}{trace_res.get('summary', 'No transfer path summary was returned.')}
+*Note: Trace reach describes the observed movement and disbursement boundary of funds across routes, not a count of suspicious or fraudulent accounts.*
 
-#### Prior analyst decisions
-Reviewed **{len(similar_items)}** related past case(s).
-{f"Historical case **{past_dismissals[0]['case_id']}** was previously dismissed as legitimate business flow." if past_dismissals else "No past dismissals observed for this cluster."}
+#### Historical context
+{historical_text}
+
+#### Assessment
+{assessment_narrative}
 
 #### Recommended next step
 The system proposes **{prop_type.upper()}** for analyst review.
-Reason: {prop_reason}
+**Reason:** {prop_reason}
 """
 
     narrative = clean_jargon(narrative.strip())

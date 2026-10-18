@@ -2,7 +2,17 @@
 import re
 from typing import Any, Dict, Optional
 
-PLAIN_LANGUAGE_RULES = """Write for a compliance officer in simple AML language. Do not mention algorithm names or graph-theory terms. Use only IDs and amounts returned by tools, and use tool-provided totals rather than calculating totals. A priority score is a triage aid, not a probability. Do not state that a structural pattern proves fraud."""
+PLAIN_LANGUAGE_RULES = (
+    "Write for a compliance officer in clear, professional AML investigation language. "
+    "Explain each finding in terms of actual observed fund movement and evidence without graph jargon. "
+    "Do not mention algorithm names or graph-theory terms. "
+    "Use only IDs and amounts returned by tools, and use tool-provided totals rather than calculating totals. "
+    "A priority score is a triage priority reflecting pattern severity and velocity, not a statistical probability of fraud. "
+    "Trace reach describes the observed movement and disbursement scope of funds, not a count of fraudulent accounts. "
+    "Avoid generic filler, repeated caveats, and boilerplate disclaimers. "
+    "Do not repeat the same disclaimer after each finding. "
+    "Do not infer intent, criminality, or fraud from a structural graph pattern alone; separate observed facts from interpretations and uncertainties."
+)
 
 JARGON = (
     "GraphBLAS", "PageRank", "centrality", "WCC", "community detection",
@@ -55,11 +65,17 @@ def _hours(seconds: float) -> str:
 
 
 def describe_pattern(pattern: str, measurements: Optional[Dict[str, Any]] = None) -> str:
-    """Describe a detector hit using only measurement keys present in this repo."""
+    """Describe a detector hit using only measured facts without generic repeated boilerplate.
+    
+    Structure:
+      1. Observed behavior: What fund movement occurred.
+      2. Evidence: Counts, amounts, time window, retention ratios.
+      3. Interpretation: Relevance to AML review.
+      4. Qualification: Commercial context vs. layering risk.
+    """
     m = measurements if isinstance(measurements, dict) else {}
-    count = None
-    amount = None
     span = _number(m, "duration_seconds", "time_span_seconds", "observation_span_seconds", "time_span")
+
     if pattern == "cycle":
         count = _number(m, "cycle_length", "length")
         retained = _number(m, "amount_conservation_ratio", "retention")
@@ -69,17 +85,13 @@ def describe_pattern(pattern: str, measurements: Optional[Dict[str, Any]] = None
         if span is not None:
             text += f" within {_hours(span)} hours"
         if retained is not None:
-            text += f", with {round(retained * 100)}% of the amount retained"
-        return text + ". This pattern merits review and does not by itself prove fraud."
-    if pattern == "fan_out":
-        count = _number(m, "distinct_receivers")
-        amount = _number(m, "total_outflow")
-        text = "Dispersal pattern: one funding account sent transfers to multiple recipient accounts"
-    elif pattern in ("fan_in", "hub_account"):
-        count = _number(m, "distinct_senders", "distinct_counterparties")
-        amount = _number(m, "total_amount")
-        text = "Central receiving account collected transfers from multiple accounts"
-    elif pattern == "relay_chain":
+            if retained > 1.0:
+                text += f", with downstream transfers reaching {round(retained * 100)}% of the starting amount (indicating fund aggregation along the path)"
+            else:
+                text += f", with {round(retained * 100)}% of the amount retained"
+        return text + ". This closed-loop flow suggests fund recycling or layering; verify whether an underlying commercial purpose exists."
+
+    if pattern == "relay_chain":
         count = _number(m, "hop_count")
         retained = _number(m, "overall_retention_ratio")
         text = "Rapid pass-through: money moved through a sequence of accounts"
@@ -88,41 +100,77 @@ def describe_pattern(pattern: str, measurements: Optional[Dict[str, Any]] = None
         if span is not None:
             text += f" within {_hours(span)} hours"
         if retained is not None:
-            text += f", retaining {round(retained * 100)}% of the initial amount"
-        return text + ". This pattern merits review and does not by itself prove fraud."
-    elif pattern == "scatter_gather":
+            if retained > 1.0:
+                text += f", with downstream transfer amounts reaching {round(retained * 100)}% of the initial amount (indicating possible fund aggregation or co-mingling along the path)"
+            else:
+                text += f", retaining {round(retained * 100)}% of the initial amount"
+        return text + ". Low-dwell transit sequences are characteristic of layering, though automated payment routing can also exhibit this structure."
+
+    if pattern == "fan_out":
+        count = _number(m, "distinct_receivers")
+        amount = _number(m, "total_outflow")
+        text = "Dispersal pattern: one funding account sent transfers to multiple recipient accounts"
+        if count is not None:
+            text += f" involving {int(count)} recipient accounts"
+        if amount is not None:
+            text += f"; the reported total was ₹{amount:,.2f}"
+        if span is not None:
+            text += f" over {_hours(span)} hours"
+        return text + ". Outward dispersal across multiple counterparties warrants verifying recipient ownership and disbursement purpose."
+
+    if pattern in ("fan_in", "hub_account"):
+        count = _number(m, "distinct_senders", "distinct_counterparties")
+        amount = _number(m, "total_amount")
+        noun = "counterparties" if pattern == "hub_account" else "sender accounts"
+        text = "Convergence pattern: central receiving account collected transfers from multiple accounts"
+        if count is not None:
+            text += f" involving {int(count)} {noun}"
+        if amount is not None:
+            text += f"; the reported total was ₹{amount:,.2f}"
+        if span is not None:
+            text += f" over {_hours(span)} hours"
+        return text + ". Inward concentration from multiple distinct sources warrants verifying counterparty relationships and account capacity."
+
+    if pattern == "scatter_gather":
         count = _number(m, "intermediary_count", "path_count")
-        text = "Several transfer routes connected a shared source with a shared receiving account"
-    elif pattern == "gather_scatter":
+        text = "Split-and-recombine routing: several transfer routes connected a shared source with a shared receiving account"
+        if count is not None:
+            text += f" across {int(count)} intermediary accounts"
+        if span is not None:
+            text += f" within {_hours(span)} hours"
+        return text + ". Parallel split routing that reconverges downstream is consistent with layering or channel diversification."
+
+    if pattern == "gather_scatter":
         incoming = _number(m, "distinct_incoming_counterparties")
         outgoing = _number(m, "distinct_outgoing_counterparties")
         amount = _number(m, "incoming_amount")
-        text = "An account received transfers from several senders and later sent transfers to other accounts"
+        text = "Transit hub pattern: an account received transfers from several senders and later sent transfers to other accounts"
         if incoming is not None and outgoing is not None:
             text += f" ({int(incoming)} senders and {int(outgoing)} recipients)"
-        return _append_window(text, span)
-    elif pattern == "bipartite":
+        if amount is not None:
+            text += f"; the reported total was ₹{amount:,.2f}"
+        if span is not None:
+            text += f" over {_hours(span)} hours"
+        return text + ". High-turnover pass-through behavior is characteristic of transit nodes, collection hubs, or merchant settlement."
+
+    if pattern == "bipartite":
         sources = _number(m, "source_count")
         targets = _number(m, "target_count")
-        text = "Multiple sending accounts shared a set of recipient accounts"
+        text = "Multi-party settlement mesh: multiple sending accounts shared a set of recipient accounts"
         if sources is not None and targets is not None:
             text += f" ({int(sources)} senders and {int(targets)} recipients)"
-        return text + ". This is structural evidence only, not a fraud finding."
-    elif pattern == "dense_cluster":
+        if span is not None:
+            text += f" over {_hours(span)} hours"
+        return text + ". Multi-party transfer meshes warrant reviewing whether participants share corporate affiliation or commercial agreements."
+
+    if pattern == "dense_cluster":
         count = _number(m, "account_count")
-        text = "A group of accounts made repeated transfers among members"
-    else:
-        return "The available case data shows a transfer pattern that merits review."
+        text = "Interconnected cluster: a group of accounts made repeated transfers among members"
+        if count is not None:
+            text += f" involving {int(count)} intermediary accounts"
+        if span is not None:
+            text += f" over {_hours(span)} hours"
+        return text + ". High reciprocal activity within a closed group indicates closely linked counterparties requiring entity linkage review."
 
-    if count is not None and pattern not in ("gather_scatter", "bipartite"):
-        noun = "recipient accounts" if pattern == "fan_out" else "counterparties" if pattern == "hub_account" else "sender accounts" if pattern == "fan_in" else "intermediary accounts"
-        text += f" involving {int(count)} {noun}"
-    if amount is not None:
-        text += f"; the reported total was ₹{amount:,.2f}"
-    return _append_window(text, span)
+    return "The available case data shows a structured transfer pattern that warrants investigation against expected customer activity."
 
-
-def _append_window(text: str, span: Optional[float]) -> str:
-    if span is not None:
-        text += f" over {_hours(span)} hours"
-    return text + ". This pattern merits review and does not by itself prove fraud."

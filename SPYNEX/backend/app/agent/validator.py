@@ -162,8 +162,25 @@ def validate_narrative(
     )
 
 
+REPEATED_DISCLAIMER_PATTERNS = [
+    re.compile(r"merits review and does not by itself prove fraud", re.I),
+    re.compile(r"does not by itself prove fraud", re.I),
+]
+
+
+def check_repetitive_boilerplate(text: str) -> List[str]:
+    """Detect if repetitive generic disclaimer sentences appear multiple times."""
+    found = []
+    text_val = str(text or "")
+    for pat in REPEATED_DISCLAIMER_PATTERNS:
+        matches = pat.findall(text_val)
+        if len(matches) > 1:
+            found.append(f"repeated boilerplate disclaimer: '{pat.pattern}' ({len(matches)} times)")
+    return found
+
+
 def validate_evidence_ids(text: str, evidence_store: Any) -> ValidationResult:
-    """Validate IDs, SAR IDs, rupee amounts, and plain language against tool evidence."""
+    """Validate IDs, SAR IDs, rupee amounts, plain language, and lack of repetitive boilerplate against tool evidence."""
     result = validate_narrative(
         text=text,
         allowed_accounts=set(evidence_store.account_ids),
@@ -181,4 +198,9 @@ def validate_evidence_ids(text: str, evidence_store: Any) -> ValidationResult:
         result.is_valid = False
         result.jargon_terms = jargon_terms
         result.error_message = (result.error_message or "Evidence validation failed") + "; technical terms: " + ", ".join(jargon_terms)
+    boilerplate_issues = check_repetitive_boilerplate(text or "")
+    if boilerplate_issues:
+        result.is_valid = False
+        result.error_message = (result.error_message or "Evidence validation failed") + "; " + "; ".join(boilerplate_issues)
     return result
+
