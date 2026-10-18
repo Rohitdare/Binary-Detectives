@@ -1,0 +1,32 @@
+{
+  "generator_version": "1.0",
+  "args": {
+    "seed": 42,
+    "accounts": 3000,
+    "days": 90,
+    "tx_per_account": 12.0,
+    "fraud_per_pattern": 10,
+    "benign_per_kind": 6,
+    "out": "data/sim"
+  },
+  "accounts": 3000,
+  "transactions": 40661,
+  "alerts": 116,
+  "alerts_by_kind": {
+    "cycle": 10,
+    "fan_in": 10,
+    "fan_out": 10,
+    "relay_chain": 10,
+    "scatter_gather": 10,
+    "gather_scatter": 10,
+    "bipartite": 10,
+    "dense_cluster": 10,
+    "payroll_fan_out": 6,
+    "merchant_fan_in": 6,
+    "slow_family_cycle": 6,
+    "near_miss_fan_in": 6,
+    "near_miss_relay": 6,
+    "unordered_cycle": 6
+  },
+  "transactions_sha256": "ad1ed4a4a165cfecd4ba69c880a94c797e89408700cec7bd5726ef21f3c69e9b"
+}
