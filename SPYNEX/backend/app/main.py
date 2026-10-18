@@ -56,10 +56,16 @@ from contextlib import asynccontextmanager
 GRAPH_NAME = os.getenv("FALKORDB_GRAPH", "txn")
 db_client = FalkorDBClient()
 
+DEFAULT_CORS_ORIGINS = (
+    "http://localhost:5173,"
+    "http://127.0.0.1:5173,"
+    "https://vortex-gamma-lovat.vercel.app"
+)
+
 
 def configured_cors_origins() -> List[str]:
     """Return explicit browser origins; wildcard origins are not accepted."""
-    raw_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
+    raw_origins = os.getenv("CORS_ORIGINS", DEFAULT_CORS_ORIGINS)
     origins = [origin.strip().rstrip("/") for origin in raw_origins.split(",") if origin.strip()]
     if not origins or "*" in origins:
         raise ValueError("CORS_ORIGINS must contain one or more explicit origins; '*' is not allowed")
